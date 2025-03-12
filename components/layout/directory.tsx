@@ -4,15 +4,15 @@ import useSWR from 'swr';
 import fetcher from '@/lib/fetcher';
 import { useDebounce } from '@/lib/hooks/use-debounce';
 import { useState } from 'react';
-import { DirectoryIcon, SearchIcon } from '@/components/icons';
+import { HomeIcon, SearchIcon } from '@/components/icons';
 import DirectoryResults from './directory-results';
 
 export default function Directory({
-  results,
-  totalUsers
+  results = [],
+  totalUsers = 0
 }: {
-  results: ResultProps[];
-  totalUsers: number;
+  results?: ResultProps[];
+  totalUsers?: number;
 }) {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 200);
@@ -27,12 +27,13 @@ export default function Directory({
   return (
     <aside className="flex-shrink-0 w-full bg-black sm:w-96 h-full overflow-scroll border-r border-gray-800">
       <div className="px-6 pt-6 pb-0 sticky top-0 bg-black z-20">
-        <Link href="/">
-          <a>
-            <div className="bg-dark-accent-1 hover:bg-dark-accent-2 transition-all rounded-2xl h-12 w-12 flex justify-center items-center">
-              <DirectoryIcon className="text-white" />
-            </div>
-          </a>
+        <Link
+          href="/"
+          className="inline-block"
+        >
+          <div className="bg-dark-accent-1 hover:bg-dark-accent-2 transition-all rounded-2xl h-12 w-12 flex justify-center items-center">
+            <HomeIcon className="text-white" />
+          </div>
         </Link>
         <p className="mt-8 text-2xl text-white font-bold">Directory</p>
         <p className="mt-2 text-sm text-dark-accent-5">
@@ -66,7 +67,7 @@ export default function Directory({
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
         aria-label="Directory"
       >
-        {debouncedQuery.length === 0 ? (
+        {debouncedQuery.length === 0 && results && results.length > 0 ? (
           results.map(({ _id: letter, users }) => (
             <div key={letter} className="relative">
               <div className="bg-dark-accent-1 px-6 py-1 text-sm font-bold text-white uppercase">

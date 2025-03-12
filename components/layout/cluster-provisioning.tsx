@@ -1,4 +1,4 @@
-import { LoadingDots, AlertCircleIcon } from '@/components/icons';
+import { CheckInCircleIcon } from '@/components/icons';
 import { MouseEvent, useState } from 'react';
 
 export default function ClusterProvisioning() {
@@ -38,14 +38,22 @@ export default function ClusterProvisioning() {
           className="mt-4 text-white text-[13px] font-mono bg-black border border-[#333333] hover:border-white transition-all rounded-md w-full h-[40px] flex items-center justify-center whitespace-nowrap"
           disabled={isSubmitting}
         >
-          {isSubmitting ? <LoadingDots color="white" /> : 'Seed Database'}
+          {isSubmitting ? (
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse delay-75"></div>
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse delay-150"></div>
+            </div>
+          ) : (
+            'Seed Database'
+          )}
         </button>
 
         <div className="text-center">
           <a
             href="https://cloud.mongodb.com/"
             target="_blank"
-            rel="noreferrer"
+            rel="noopener noreferrer"
             className="font-mono text-xs text-gray-400 hover:text-white hover:underline transition-all"
           >
             Check cluster status
@@ -54,7 +62,7 @@ export default function ClusterProvisioning() {
 
         {error && (
           <div className="mt-4 text-red-500 text-sm flex items-center space-x-1">
-            <AlertCircleIcon className="w-4 h-4" />
+            <CheckInCircleIcon className="w-4 h-4" />
             <p>
               <span className="font-bold">Error: </span>
               {error}
