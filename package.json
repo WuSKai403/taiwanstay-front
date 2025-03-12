@@ -7,6 +7,9 @@
     "lint": "next lint",
     "setup": "NODE_OPTIONS='--experimental-json-modules' node ./scripts/setup.mjs"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "dependencies": {
     "@headlessui/react": "^1.7.19",
     "@heroicons/react": "^1.0.6",
@@ -21,7 +24,7 @@
     "js-cookie": "^3.0.1",
     "mongodb": "^4.6.0",
     "next": "13.1.1",
-    "next-auth": "^4.3.1",
+    "next-auth": "^4.24.11",
     "next-mdx-remote": "^4.0.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
