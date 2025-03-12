@@ -5,7 +5,7 @@ export default function Custom404() {
   return (
     <div className="h-screen w-full flex justify-center items-center bg-black">
       <Meta
-        props={{
+        {...{
           ...defaultMetaProps,
           title: '404 | MongoDB Starter Kit',
           ogUrl: 'https://mongodb.vercel.app/404'
