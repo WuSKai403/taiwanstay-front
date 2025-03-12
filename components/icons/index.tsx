@@ -1,4 +1,7 @@
 import React from 'react';
+import LoadingDots from './loading-dots';
+
+export { LoadingDots };
 
 interface IconProps {
   className?: string;
