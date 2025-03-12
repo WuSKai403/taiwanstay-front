@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { GithubIcon } from '../../components/icons';
+import { GitHubIcon } from '../../components/icons';
 import Layout from '../../components/layout/Layout';
 
 export default function SignIn() {
@@ -57,7 +57,7 @@ export default function SignIn() {
                   disabled={isLoading}
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-800 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                 >
-                  <GithubIcon className="h-5 w-5 mr-2" />
+                  <GitHubIcon className="h-5 w-5 mr-2" />
                   使用 GitHub 登入
                 </button>
               </div>
