@@ -17,8 +17,8 @@ export const getServerSideProps: GetServerSideProps = async ({ req }) => {
   }
   return {
     redirect: {
-      permanent: false,
-      destination: `/${session.username}`
+      destination: `/profile/${session.user.email}`,
+      permanent: false
     }
   };
 };

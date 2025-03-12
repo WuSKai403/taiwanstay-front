@@ -22,7 +22,7 @@ export const getServerSideProps: GetServerSideProps = async ({ req }) => {
   const results = await getAllUsers();
   const totalUsers = await getUserCount();
 
-  const user = await getUser(session.username as string);
+  const user = await getUser(session.user.email as string);
 
   const meta = {
     ...defaultMetaProps,

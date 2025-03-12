@@ -97,7 +97,7 @@ export default function Profile({
     <div className="min-h-screen pb-20">
       <div>
         <div
-          className={`h-48 w-full lg:h-64 
+          className={`h-48 w-full lg:h-64
           ${getGradient(user.username)}`}
         />
         <div
@@ -236,7 +236,7 @@ export default function Profile({
             </a>
           </Link>
         </div>
-      ) : session?.username === user.username ? (
+      ) : session?.user?.email === user.email ? (
         <Link
           href={{ query: { settings: true } }}
           as="/settings"
