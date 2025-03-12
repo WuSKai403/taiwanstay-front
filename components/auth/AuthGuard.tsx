@@ -37,11 +37,11 @@ export default function AuthGuard({
       !isLoading &&
       isAuthenticated &&
       requiredRoles &&
-      requiredRoles.length > 0 &&
-      session?.user?.role
+      requiredRoles.length > 0
     ) {
-      const userRole = session.user.role as UserRole;
-      const hasRequiredRole = requiredRoles.includes(userRole);
+      // 如果用戶沒有角色，默認為普通用戶
+      const userRole = session?.user?.role || UserRole.USER;
+      const hasRequiredRole = requiredRoles.includes(userRole as UserRole);
 
       // 如果用戶沒有所需角色，重定向到登入頁面
       if (!hasRequiredRole) {
@@ -65,9 +65,10 @@ export default function AuthGuard({
   }
 
   // 如果指定了所需角色，檢查用戶是否具有該角色
-  if (requiredRoles && requiredRoles.length > 0 && session?.user?.role) {
-    const userRole = session.user.role as UserRole;
-    const hasRequiredRole = requiredRoles.includes(userRole);
+  if (requiredRoles && requiredRoles.length > 0) {
+    // 如果用戶沒有角色，默認為普通用戶
+    const userRole = session?.user?.role || UserRole.USER;
+    const hasRequiredRole = requiredRoles.includes(userRole as UserRole);
 
     if (!hasRequiredRole) {
       return null;
