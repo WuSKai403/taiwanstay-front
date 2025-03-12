@@ -21,7 +21,15 @@ export default function SignUp() {
   // 處理 GitHub 註冊
   const handleGitHubSignUp = async () => {
     setIsLoading(true);
-    await signIn('github', { callbackUrl: (callbackUrl as string) || '/profile' });
+    try {
+      await signIn('github', {
+        callbackUrl: (callbackUrl as string) || '/profile',
+        redirect: true
+      });
+    } catch (error) {
+      console.error('登入錯誤:', error);
+      setIsLoading(false);
+    }
   };
 
   if (status === 'loading' || status === 'authenticated') {

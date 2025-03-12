@@ -15,9 +15,13 @@ export const getServerSideProps: GetServerSideProps = async ({ req }) => {
       }
     };
   }
+
+  // 優先使用 id，如果沒有則使用 email
+  const userIdentifier = session.user.id || session.user.email;
+
   return {
     redirect: {
-      destination: `/profile/${session.user.email}`,
+      destination: `/profile/${userIdentifier}`,
       permanent: false
     }
   };
