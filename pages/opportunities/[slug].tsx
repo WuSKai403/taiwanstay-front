@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { NextPage, GetServerSideProps } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import { OpportunityType } from '../../models/enums/OpportunityType';
+import SocialMediaIcons from '../../components/SocialMediaIcons';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('../../components/MapComponent'), {
@@ -177,7 +178,13 @@ const MOCK_OPPORTUNITY = {
     responseRate: 95,
     responseTime: '24小時內',
     verificationStatus: 'verified',
-    memberSince: '2018-05-01'
+    memberSince: '2018-05-01',
+    socialMedia: {
+      facebook: 'https://facebook.com/sustainablefarm',
+      instagram: 'https://instagram.com/sustainable_farm_tw',
+      line: 'https://line.me/ti/p/sustainable_farm',
+      website: 'https://sustainablefarm.tw'
+    }
   },
   stats: {
     applications: 12,
@@ -191,6 +198,7 @@ interface OpportunityDetailProps {
 }
 
 const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) => {
+  const [activeTab, setActiveTab] = useState<'description' | 'requirements' | 'host'>('description');
   const router = useRouter();
   const { slug } = router.query;
 
@@ -459,6 +467,12 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                 </div>
 
                 <p className="text-gray-600 mb-4">{opportunity.host.description}</p>
+
+                {opportunity.host.socialMedia && (
+                  <div className="mb-4">
+                    <SocialMediaIcons links={opportunity.host.socialMedia} size="md" />
+                  </div>
+                )}
 
                 <button className="w-full bg-white text-blue-600 border border-blue-600 py-2 rounded-lg font-semibold hover:bg-blue-50 transition duration-200">
                   聯絡主辦方

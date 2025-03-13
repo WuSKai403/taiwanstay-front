@@ -25,6 +25,9 @@ export interface IOrganization extends Document {
       linkedin?: string;
       twitter?: string;
       youtube?: string;
+      threads?: string;
+      tiktok?: string;
+      line?: string;
       other?: {
         name: string;
         url: string;
@@ -104,6 +107,9 @@ const OrganizationSchema: Schema = new Schema({
       linkedin: { type: String },
       twitter: { type: String },
       youtube: { type: String },
+      threads: { type: String },
+      tiktok: { type: String },
+      line: { type: String },
       other: [{
         name: { type: String },
         url: { type: String }

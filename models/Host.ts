@@ -23,6 +23,11 @@ export interface IHost extends Document {
       facebook?: string;
       instagram?: string;
       line?: string;
+      threads?: string;
+      linkedin?: string;
+      twitter?: string;
+      youtube?: string;
+      tiktok?: string;
       other?: {
         name: string;
         url: string;
@@ -141,6 +146,11 @@ const HostSchema: Schema = new Schema({
       facebook: { type: String },
       instagram: { type: String },
       line: { type: String },
+      threads: { type: String },
+      linkedin: { type: String },
+      twitter: { type: String },
+      youtube: { type: String },
+      tiktok: { type: String },
       other: [{
         name: { type: String },
         url: { type: String }
