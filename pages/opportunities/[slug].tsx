@@ -7,6 +7,8 @@ import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import { OpportunityType } from '../../models/enums/OpportunityType';
 import SocialMediaIcons from '../../components/SocialMediaIcons';
+import { connectToDatabase } from '../../lib/mongodb';
+import { Opportunity } from '../../models/index';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('../../components/MapComponent'), {
@@ -487,31 +489,40 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  // 從 URL 參數中提取 ID
+  // 從 URL 參數中提取 slug
   const { slug } = context.params as { slug: string };
 
-  // 提取 ID 部分（格式為 id-slug）
-  const id = slug.split('-')[0];
+  // 提取 publicId 部分（格式為 {publicId}-{slug}）
+  const publicId = slug.split('-')[0];
 
-  // 在實際應用中，這裡會使用 ID 從 API 獲取數據
-  // 例如: const opportunity = await fetchOpportunityById(id);
+  // 連接到數據庫
+  await connectToDatabase();
 
-  // 目前使用假數據
-  // 在實際應用中，應該檢查 ID 是否匹配
-  const opportunity = MOCK_OPPORTUNITY;
+  try {
+    // 使用 publicId 查詢機會
+    const opportunity = await Opportunity.findOne({ publicId }).populate('hostId');
 
-  // 如果找不到對應的機會，返回 404
-  if (!opportunity) {
+    // 如果找不到對應的機會，返回 404
+    if (!opportunity) {
+      return {
+        notFound: true
+      };
+    }
+
+    // 將 MongoDB 文檔轉換為普通 JavaScript 對象
+    const serializedOpportunity = JSON.parse(JSON.stringify(opportunity));
+
+    return {
+      props: {
+        opportunity: serializedOpportunity
+      }
+    };
+  } catch (error) {
+    console.error('獲取機會詳情失敗:', error);
     return {
       notFound: true
     };
   }
-
-  return {
-    props: {
-      opportunity
-    }
-  };
 };
 
 export default OpportunityDetail;

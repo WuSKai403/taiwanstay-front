@@ -6,6 +6,7 @@ export interface IOpportunity extends Document {
   hostId: mongoose.Types.ObjectId;
   title: string;
   slug: string;
+  publicId: string;
   description: string;
   shortDescription: string;
   status: OpportunityStatus;
@@ -132,6 +133,7 @@ const OpportunitySchema: Schema = new Schema({
   hostId: { type: Schema.Types.ObjectId, ref: 'Host', required: true },
   title: { type: String, required: true },
   slug: { type: String, required: true },
+  publicId: { type: String, required: true, unique: true },
   description: { type: String, required: true },
   shortDescription: { type: String, required: true, maxlength: 200 },
   status: {
@@ -287,5 +289,6 @@ OpportunitySchema.index({ type: 1 });
 OpportunitySchema.index({ 'workDetails.startDate': 1, 'workDetails.endDate': 1 });
 OpportunitySchema.index({ 'workDetails.minimumStay': 1 });
 OpportunitySchema.index({ 'location.country': 1, 'location.city': 1 });
+OpportunitySchema.index({ publicId: 1 }, { unique: true });
 
 export default mongoose.models.Opportunity || mongoose.model<IOpportunity>('Opportunity', OpportunitySchema);

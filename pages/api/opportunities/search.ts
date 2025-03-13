@@ -1,134 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { OpportunityStatus, OpportunityType, WorkType } from '../../../models/enums';
-
-// 模擬數據 - 在實際應用中，這些數據會來自數據庫
-const mockOpportunities = [
-  {
-    id: 'opp-001',
-    title: '民宿櫃檯接待人員',
-    slug: 'minsu-front-desk',
-    description: '負責民宿櫃檯接待、訂房管理、客戶服務等工作。提供舒適住宿環境，每週工作5天，每天4小時。',
-    workHours: 20,
-    accommodation: '提供獨立單人房，含三餐',
-    benefits: ['免費WiFi', '可使用公共設施', '機會學習當地文化'],
-    requirements: ['基本英語溝通能力', '親切有禮的服務態度', '可工作至少1個月'],
-    startDate: '2023-06-01',
-    endDate: '2023-09-30',
-    hostId: 'host-001',
-    hostName: '山海民宿',
-    location: {
-      address: '宜蘭縣礁溪鄉溫泉路123號',
-      city: '宜蘭縣',
-      region: '北部',
-      coordinates: [121.7683, 24.8256]
-    },
-    type: OpportunityType.HOSPITALITY,
-    workType: WorkType.RECEPTION,
-    status: OpportunityStatus.ACTIVE,
-    createdAt: '2023-05-01T08:00:00Z',
-    updatedAt: '2023-05-01T08:00:00Z'
-  },
-  {
-    id: 'opp-002',
-    title: '有機農場助理',
-    slug: 'organic-farm-assistant',
-    description: '協助有機農場日常運作，包括種植、收穫、包裝等工作。體驗有機農業生活，學習永續農業知識。',
-    workHours: 25,
-    accommodation: '提供共享房間，含三餐素食',
-    benefits: ['有機蔬果供應', '農業技術培訓', '寧靜的鄉村環境'],
-    requirements: ['喜愛戶外工作', '基本體力', '對有機農業有興趣', '可工作至少2週'],
-    startDate: '2023-07-01',
-    endDate: '2023-10-31',
-    hostId: 'host-002',
-    hostName: '綠野有機農場',
-    location: {
-      address: '花蓮縣壽豐鄉農場路456號',
-      city: '花蓮縣',
-      region: '東部',
-      coordinates: [121.6008, 23.8874]
-    },
-    type: OpportunityType.FARMING,
-    workType: WorkType.FARMING,
-    status: OpportunityStatus.ACTIVE,
-    createdAt: '2023-05-05T10:30:00Z',
-    updatedAt: '2023-05-05T10:30:00Z'
-  },
-  {
-    id: 'opp-003',
-    title: '咖啡廳服務人員',
-    slug: 'cafe-service-staff',
-    description: '負責點餐、製作飲品、清潔等工作。位於熱門觀光區，能接觸各地旅客，提升服務和語言能力。',
-    workHours: 18,
-    accommodation: '提供員工宿舍，不含餐食但有員工餐點折扣',
-    benefits: ['專業咖啡師培訓', '國際旅客交流機會', '優美的工作環境'],
-    requirements: ['基本英語溝通能力', '有餐飲服務經驗優先', '可工作至少3週'],
-    startDate: '2023-06-15',
-    endDate: '2023-08-31',
-    hostId: 'host-003',
-    hostName: '山角咖啡',
-    location: {
-      address: '台北市信義區松山路789號',
-      city: '台北市',
-      region: '北部',
-      coordinates: [121.5654, 25.0330]
-    },
-    type: OpportunityType.HOSPITALITY,
-    workType: WorkType.FOOD_SERVICE,
-    status: OpportunityStatus.ACTIVE,
-    createdAt: '2023-05-10T14:15:00Z',
-    updatedAt: '2023-05-10T14:15:00Z'
-  },
-  {
-    id: 'opp-004',
-    title: '生態導覽員',
-    slug: 'eco-tour-guide',
-    description: '負責帶領遊客進行生態導覽，介紹當地自然環境和生態系統。需要有良好的溝通能力和環境知識。',
-    workHours: 15,
-    accommodation: '提供獨立房間，含早餐',
-    benefits: ['生態保育培訓', '戶外活動機會', '專業導覽技巧學習'],
-    requirements: ['對自然生態有興趣', '良好的溝通表達能力', '能夠進行中英文導覽', '可工作至少1個月'],
-    startDate: '2023-08-01',
-    endDate: '2023-11-30',
-    hostId: 'host-004',
-    hostName: '綠島生態保育中心',
-    location: {
-      address: '台東縣綠島鄉生態路789號',
-      city: '台東縣',
-      region: '東部',
-      coordinates: [121.4900, 22.6600]
-    },
-    type: OpportunityType.CONSERVATION,
-    workType: WorkType.TOUR_GUIDE,
-    status: OpportunityStatus.ACTIVE,
-    createdAt: '2023-05-15T09:20:00Z',
-    updatedAt: '2023-05-15T09:20:00Z'
-  },
-  {
-    id: 'opp-005',
-    title: '藝術工作室助理',
-    slug: 'art-studio-assistant',
-    description: '協助藝術工作室日常運作，包括材料準備、作品整理、客戶接待等。有機會學習各種藝術技巧和創作過程。',
-    workHours: 20,
-    accommodation: '提供共享公寓，不含餐食',
-    benefits: ['藝術創作指導', '展覽參與機會', '藝術社群交流'],
-    requirements: ['對藝術有熱情', '基本美術基礎', '細心負責', '可工作至少3週'],
-    startDate: '2023-07-15',
-    endDate: '2023-10-15',
-    hostId: 'host-005',
-    hostName: '島嶼藝術工作室',
-    location: {
-      address: '台南市中西區藝術街456號',
-      city: '台南市',
-      region: '南部',
-      coordinates: [120.2100, 22.9900]
-    },
-    type: OpportunityType.CREATIVE,
-    workType: WorkType.CREATIVE,
-    status: OpportunityStatus.ACTIVE,
-    createdAt: '2023-05-20T13:45:00Z',
-    updatedAt: '2023-05-20T13:45:00Z'
-  }
-];
+import { Opportunity } from '../../../models/index';
+import { OpportunityStatus } from '../../../models/enums/OpportunityStatus';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -142,6 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       type,               // 機會類型
       region,             // 地區
       city,               // 城市
+      country,            // 國家
       workType,           // 工作類型
       minHours,           // 最少工作時數
       maxHours,           // 最多工作時數
@@ -149,186 +22,226 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       startDateTo,        // 開始日期範圍（到）
       endDateFrom,        // 結束日期範圍（從）
       endDateTo,          // 結束日期範圍（到）
-      accommodationType,  // 住宿類型（獨立/共享）
-      status,             // 狀態
+      minStay,            // 最短停留時間
+      maxStay,            // 最長停留時間
+      accommodationType,  // 住宿類型
+      mealsProvided,      // 是否提供餐食
+      stipendProvided,    // 是否提供津貼
+      status = OpportunityStatus.ACTIVE, // 默認只搜尋活躍的機會
+      near,               // 附近位置搜尋 (經度,緯度)
+      distance,           // 搜尋半徑 (公里)
       sort = 'newest',    // 排序方式
       page = '1',         // 頁碼
       limit = '10'        // 每頁數量
     } = req.query;
 
-    // 在實際應用中，這裡會查詢數據庫
-    // 這裡我們使用模擬數據並應用複雜的篩選
-    let filteredOpportunities = [...mockOpportunities];
+    // 構建查詢條件
+    const query: any = {};
 
-    // 關鍵詞搜尋（標題、描述、主人名稱、地址）
+    // 默認只搜尋活躍的機會
+    query.status = status;
+
+    // 關鍵詞搜尋（標題、描述、簡短描述）
     if (q) {
-      const keyword = String(q).toLowerCase();
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.title.toLowerCase().includes(keyword) ||
-        opp.description.toLowerCase().includes(keyword) ||
-        opp.hostName.toLowerCase().includes(keyword) ||
-        opp.location.address.toLowerCase().includes(keyword)
-      );
+      query.$or = [
+        { title: { $regex: q, $options: 'i' } },
+        { description: { $regex: q, $options: 'i' } },
+        { shortDescription: { $regex: q, $options: 'i' } }
+      ];
     }
 
     // 機會類型篩選
     if (type) {
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.type === type
-      );
+      query.type = type;
     }
 
     // 地區篩選
     if (region) {
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.location.region === region
-      );
+      query['location.region'] = region;
     }
 
     // 城市篩選
     if (city) {
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.location.city === city
-      );
+      query['location.city'] = city;
+    }
+
+    // 國家篩選
+    if (country) {
+      query['location.country'] = country;
     }
 
     // 工作類型篩選
     if (workType) {
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.workType === workType
-      );
+      query['workDetails.workType'] = workType;
     }
 
     // 工作時數範圍篩選
     if (minHours) {
-      const min = parseInt(String(minHours), 10);
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.workHours >= min
-      );
+      query['workDetails.workHoursPerWeek'] = { $gte: parseInt(String(minHours), 10) };
     }
 
     if (maxHours) {
-      const max = parseInt(String(maxHours), 10);
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.workHours <= max
-      );
+      if (query['workDetails.workHoursPerWeek']) {
+        query['workDetails.workHoursPerWeek'].$lte = parseInt(String(maxHours), 10);
+      } else {
+        query['workDetails.workHoursPerWeek'] = { $lte: parseInt(String(maxHours), 10) };
+      }
+    }
+
+    // 停留時間範圍篩選
+    if (minStay) {
+      query['workDetails.minimumStay'] = { $gte: parseInt(String(minStay), 10) };
+    }
+
+    if (maxStay) {
+      query['workDetails.maximumStay'] = { $lte: parseInt(String(maxStay), 10) };
     }
 
     // 開始日期範圍篩選
     if (startDateFrom) {
-      const fromDate = new Date(String(startDateFrom));
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        new Date(opp.startDate) >= fromDate
-      );
+      query['workDetails.startDate'] = { $gte: new Date(String(startDateFrom)) };
     }
 
     if (startDateTo) {
-      const toDate = new Date(String(startDateTo));
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        new Date(opp.startDate) <= toDate
-      );
+      if (query['workDetails.startDate']) {
+        query['workDetails.startDate'].$lte = new Date(String(startDateTo));
+      } else {
+        query['workDetails.startDate'] = { $lte: new Date(String(startDateTo)) };
+      }
     }
 
     // 結束日期範圍篩選
     if (endDateFrom) {
-      const fromDate = new Date(String(endDateFrom));
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        new Date(opp.endDate) >= fromDate
-      );
+      query['workDetails.endDate'] = { $gte: new Date(String(endDateFrom)) };
     }
 
     if (endDateTo) {
-      const toDate = new Date(String(endDateTo));
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        new Date(opp.endDate) <= toDate
-      );
+      if (query['workDetails.endDate']) {
+        query['workDetails.endDate'].$lte = new Date(String(endDateTo));
+      } else {
+        query['workDetails.endDate'] = { $lte: new Date(String(endDateTo)) };
+      }
     }
 
-    // 住宿類型篩選（簡單實現，實際應用中可能需要更複雜的邏輯）
+    // 住宿類型篩選
     if (accommodationType) {
-      const accomType = String(accommodationType).toLowerCase();
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.accommodation.toLowerCase().includes(accomType)
-      );
+      query['benefits.accommodation.type'] = accommodationType;
     }
 
-    // 狀態篩選
-    if (status) {
-      filteredOpportunities = filteredOpportunities.filter(opp =>
-        opp.status === status
-      );
+    // 是否提供餐食篩選
+    if (mealsProvided === 'true') {
+      query['benefits.meals.provided'] = true;
     }
 
-    // 排序
-    switch (sort) {
-      case 'newest':
-        filteredOpportunities.sort((a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        break;
-      case 'oldest':
-        filteredOpportunities.sort((a, b) =>
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-        break;
-      case 'startingSoon':
-        filteredOpportunities.sort((a, b) =>
-          new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-        );
-        break;
-      case 'longDuration':
-        filteredOpportunities.sort((a, b) => {
-          const aDuration = new Date(a.endDate).getTime() - new Date(a.startDate).getTime();
-          const bDuration = new Date(b.endDate).getTime() - new Date(b.startDate).getTime();
-          return bDuration - aDuration;
-        });
-        break;
-      case 'shortDuration':
-        filteredOpportunities.sort((a, b) => {
-          const aDuration = new Date(a.endDate).getTime() - new Date(a.startDate).getTime();
-          const bDuration = new Date(b.endDate).getTime() - new Date(b.startDate).getTime();
-          return aDuration - bDuration;
-        });
-        break;
-      case 'lessWorkHours':
-        filteredOpportunities.sort((a, b) => a.workHours - b.workHours);
-        break;
-      case 'moreWorkHours':
-        filteredOpportunities.sort((a, b) => b.workHours - a.workHours);
-        break;
+    // 是否提供津貼篩選
+    if (stipendProvided === 'true') {
+      query['benefits.stipend.provided'] = true;
     }
+
+    // 附近位置搜尋
+    if (near && typeof near === 'string') {
+      const [longitude, latitude] = near.split(',').map(coord => parseFloat(coord));
+
+      if (!isNaN(longitude) && !isNaN(latitude) && distance) {
+        const distanceInMeters = parseInt(String(distance), 10) * 1000; // 轉換為米
+
+        query['location.coordinates'] = {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [longitude, latitude]
+            },
+            $maxDistance: distanceInMeters
+          }
+        };
+      }
+    }
+
+    // 計算總數
+    const total = await Opportunity.countDocuments(query);
 
     // 分頁處理
     const pageNum = parseInt(String(page), 10);
     const limitNum = parseInt(String(limit), 10);
-    const startIndex = (pageNum - 1) * limitNum;
-    const endIndex = pageNum * limitNum;
-    const paginatedOpportunities = filteredOpportunities.slice(startIndex, endIndex);
+    const skip = (pageNum - 1) * limitNum;
+
+    // 排序方式
+    let sortOption: any = {};
+    if (sort === 'newest') {
+      sortOption = { createdAt: -1 };
+    } else if (sort === 'oldest') {
+      sortOption = { createdAt: 1 };
+    } else if (sort === 'popular') {
+      sortOption = { 'stats.views': -1 };
+    } else if (sort === 'rating') {
+      sortOption = { 'ratings.overall': -1 };
+    }
+
+    // 查詢工作機會列表
+    const opportunities = await Opportunity.find(query)
+      .populate('hostId', 'name description')
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum);
+
+    // 獲取可用的篩選選項
+    const availableTypes = await Opportunity.distinct('type', { status: OpportunityStatus.ACTIVE });
+    const availableRegions = await Opportunity.distinct('location.region', { status: OpportunityStatus.ACTIVE });
+    const availableCities = await Opportunity.distinct('location.city', { status: OpportunityStatus.ACTIVE });
+    const availableCountries = await Opportunity.distinct('location.country', { status: OpportunityStatus.ACTIVE });
 
     // 返回結果
     return res.status(200).json({
-      opportunities: paginatedOpportunities,
+      opportunities: opportunities.map(opp => ({
+        id: opp._id,
+        title: opp.title,
+        slug: opp.slug,
+        shortDescription: opp.shortDescription,
+        type: opp.type,
+        status: opp.status,
+        location: {
+          city: opp.location.city,
+          country: opp.location.country,
+          coordinates: opp.location.coordinates
+        },
+        workDetails: {
+          workHoursPerWeek: opp.workDetails.workHoursPerWeek,
+          workDaysPerWeek: opp.workDetails.workDaysPerWeek,
+          minimumStay: opp.workDetails.minimumStay,
+          maximumStay: opp.workDetails.maximumStay,
+          startDate: opp.workDetails.startDate,
+          endDate: opp.workDetails.endDate,
+          isOngoing: opp.workDetails.isOngoing
+        },
+        benefits: {
+          accommodation: opp.benefits.accommodation,
+          meals: opp.benefits.meals,
+          stipend: opp.benefits.stipend
+        },
+        host: opp.hostId ? {
+          id: (opp.hostId as any)._id,
+          name: (opp.hostId as any).name,
+          description: (opp.hostId as any).description
+        } : null,
+        ratings: opp.ratings,
+        stats: {
+          applications: opp.stats.applications,
+          bookmarks: opp.stats.bookmarks
+        },
+        createdAt: opp.createdAt,
+        updatedAt: opp.updatedAt
+      })),
+      filters: {
+        types: availableTypes,
+        regions: availableRegions,
+        cities: availableCities,
+        countries: availableCountries
+      },
       pagination: {
-        total: filteredOpportunities.length,
+        total,
         page: pageNum,
         limit: limitNum,
-        totalPages: Math.ceil(filteredOpportunities.length / limitNum)
-      },
-      filters: {
-        q,
-        type,
-        region,
-        city,
-        workType,
-        minHours,
-        maxHours,
-        startDateFrom,
-        startDateTo,
-        endDateFrom,
-        endDateTo,
-        accommodationType,
-        status,
-        sort
+        totalPages: Math.ceil(total / limitNum)
       }
     });
   } catch (error) {
