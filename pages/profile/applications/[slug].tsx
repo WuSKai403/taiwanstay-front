@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
 import ProfileLayout from '@/components/layout/ProfileLayout';
+import { getSession } from 'next-auth/react';
 
 // 申請狀態中文名稱映射
 const statusNameMap: Record<ApplicationStatus, string> = {
@@ -542,13 +543,22 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { id } = context.params as { id: string };
+  try {
+    const { slug } = context.params as { slug: string };
+    const session = await getSession(context);
 
-  return {
-    props: {
-      applicationId: id
-    }
-  };
+    // 返回正確的類型
+    return {
+      props: {
+        applicationId: slug
+      }
+    };
+  } catch (error) {
+    console.error('獲取申請詳情失敗:', error);
+    return {
+      notFound: true
+    };
+  }
 };
 
 export default ApplicationDetailPage;

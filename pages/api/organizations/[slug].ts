@@ -96,41 +96,43 @@ import { isAdmin, canAccessOrganization } from '@/utils/roleUtils';
  */
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { slug } = req.query;
+
+  if (!slug || typeof slug !== 'string') {
+    return res.status(400).json({ message: '組織 ID 無效' });
+  }
+
   try {
     await connectToDatabase();
 
-    const { id } = req.query;
-    if (!id || typeof id !== 'string') {
-      return res.status(400).json({ success: false, message: '無效的組織ID' });
-    }
-
+    // 根據請求方法處理不同操作
     switch (req.method) {
       case 'GET':
-        return getOrganization(req, res, id);
+        return await getOrganizationDetail(req, res, slug);
       case 'PUT':
-        return updateOrganization(req, res, id);
+        return await updateOrganization(req, res, slug);
       case 'DELETE':
-        return deleteOrganization(req, res, id);
+        return await deleteOrganization(req, res, slug);
       default:
-        return res.status(405).json({ success: false, message: '方法不允許' });
+        return res.status(405).json({ message: '方法不允許' });
     }
-  } catch (error: any) {
-    console.error('組織API錯誤:', error);
-    return res.status(500).json({ success: false, message: '伺服器錯誤', error: error.message });
+  } catch (error) {
+    console.error('組織 API 錯誤:', error);
+    return res.status(500).json({ message: '伺服器錯誤' });
   }
 }
 
 /**
  * 獲取特定組織
  */
-async function getOrganization(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function getOrganizationDetail(req: NextApiRequest, res: NextApiResponse, slug: string) {
   try {
     // 檢查是否為有效的MongoDB ObjectId或slug
     let query = {};
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      query = { _id: id };
+    if (mongoose.Types.ObjectId.isValid(slug)) {
+      query = { _id: slug };
     } else {
-      query = { slug: id };
+      query = { slug: slug };
     }
 
     // 獲取組織
@@ -162,7 +164,7 @@ async function getOrganization(req: NextApiRequest, res: NextApiResponse, id: st
 /**
  * 更新組織
  */
-async function updateOrganization(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function updateOrganization(req: NextApiRequest, res: NextApiResponse, slug: string) {
   try {
     // 檢查用戶是否已登入
     const session = await getServerSession(req, res, authOptions);
@@ -171,7 +173,7 @@ async function updateOrganization(req: NextApiRequest, res: NextApiResponse, id:
     }
 
     // 獲取組織
-    const organization = await Organization.findById(id);
+    const organization = await Organization.findById(slug);
     if (!organization) {
       return res.status(404).json({ success: false, message: '組織不存在' });
     }
@@ -204,7 +206,7 @@ async function updateOrganization(req: NextApiRequest, res: NextApiResponse, id:
 
     // 更新組織
     const updatedOrganization = await Organization.findByIdAndUpdate(
-      id,
+      slug,
       {
         $set: {
           ...(name && { name }),
@@ -237,7 +239,7 @@ async function updateOrganization(req: NextApiRequest, res: NextApiResponse, id:
 /**
  * 刪除組織
  */
-async function deleteOrganization(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function deleteOrganization(req: NextApiRequest, res: NextApiResponse, slug: string) {
   try {
     // 檢查用戶是否已登入
     const session = await getServerSession(req, res, authOptions);
@@ -251,13 +253,13 @@ async function deleteOrganization(req: NextApiRequest, res: NextApiResponse, id:
     }
 
     // 獲取組織
-    const organization = await Organization.findById(id);
+    const organization = await Organization.findById(slug);
     if (!organization) {
       return res.status(404).json({ success: false, message: '組織不存在' });
     }
 
     // 刪除組織
-    await Organization.findByIdAndDelete(id);
+    await Organization.findByIdAndDelete(slug);
 
     return res.status(200).json({
       success: true,

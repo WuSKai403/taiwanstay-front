@@ -4,6 +4,7 @@ import { authOptions } from '../../auth/[...nextauth]';
 import { connectToDatabase } from '@/lib/mongodb';
 import Organization from '@/models/Organization';
 import Host from '@/models/Host';
+import User from '@/models/User';
 import { UserRole } from '@/types';
 import mongoose from 'mongoose';
 import { canAccessOrganization } from '@/utils/roleUtils';
@@ -78,27 +79,29 @@ import { canAccessOrganization } from '@/utils/roleUtils';
  */
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { slug } = req.query;
+
+  if (!slug || typeof slug !== 'string') {
+    return res.status(400).json({ message: '組織 ID 無效' });
+  }
+
   try {
     await connectToDatabase();
 
-    const { id } = req.query;
-    if (!id || typeof id !== 'string') {
-      return res.status(400).json({ success: false, message: '無效的組織ID' });
-    }
-
     // 檢查組織是否存在
-    const organization = await Organization.findById(id);
+    const organization = await Organization.findById(slug);
     if (!organization) {
       return res.status(404).json({ success: false, message: '組織不存在' });
     }
 
+    // 根據請求方法處理不同操作
     switch (req.method) {
       case 'GET':
-        return getOrganizationHosts(req, res, id);
+        return await getOrganizationHosts(req, res, slug);
       case 'POST':
-        return addHostToOrganization(req, res, id, organization);
+        return addHostToOrganization(req, res, slug, organization);
       default:
-        return res.status(405).json({ success: false, message: '方法不允許' });
+        return res.status(405).json({ message: '方法不允許' });
     }
   } catch (error: any) {
     console.error('組織主人API錯誤:', error);
@@ -109,7 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 /**
  * 獲取組織下的主人列表
  */
-async function getOrganizationHosts(req: NextApiRequest, res: NextApiResponse, organizationId: string) {
+async function getOrganizationHosts(req: NextApiRequest, res: NextApiResponse, slug: string) {
   try {
     const {
       limit = 10,
@@ -123,7 +126,7 @@ async function getOrganizationHosts(req: NextApiRequest, res: NextApiResponse, o
     const skip = (pageNum - 1) * limitNum;
 
     // 獲取組織下的主人ID列表
-    const organization = await Organization.findById(organizationId).select('hosts');
+    const organization = await Organization.findById(slug).select('hosts');
     if (!organization) {
       return res.status(404).json({ success: false, message: '組織不存在' });
     }
@@ -161,11 +164,11 @@ async function getOrganizationHosts(req: NextApiRequest, res: NextApiResponse, o
 /**
  * 添加主人到組織
  */
-async function addHostToOrganization(req: NextApiRequest, res: NextApiResponse, organizationId: string, organization: any) {
+async function addHostToOrganization(req: NextApiRequest, res: NextApiResponse, slug: string, organization: any) {
   try {
     // 檢查用戶是否已登入
     const session = await getServerSession(req, res, authOptions);
-    if (!session) {
+    if (!session || !session.user) {
       return res.status(401).json({ success: false, message: '未授權' });
     }
 
@@ -192,7 +195,7 @@ async function addHostToOrganization(req: NextApiRequest, res: NextApiResponse, 
 
     // 添加主人到組織
     const updatedOrganization = await Organization.findByIdAndUpdate(
-      organizationId,
+      slug,
       { $addToSet: { hosts: hostId } },
       { new: true }
     );
@@ -200,7 +203,7 @@ async function addHostToOrganization(req: NextApiRequest, res: NextApiResponse, 
     // 更新主人的組織引用
     await Host.findByIdAndUpdate(
       hostId,
-      { $addToSet: { organizations: organizationId } }
+      { $addToSet: { organizations: slug } }
     );
 
     return res.status(200).json({

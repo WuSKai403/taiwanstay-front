@@ -14,12 +14,17 @@ interface Message {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  try {
-    // 只允許POST請求
-    if (req.method !== 'POST') {
-      return res.status(405).json({ success: false, message: '方法不允許' });
-    }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: '只允許 POST 請求' });
+  }
 
+  const { slug } = req.query;
+
+  if (!slug || typeof slug !== 'string') {
+    return res.status(400).json({ message: '申請 ID 無效' });
+  }
+
+  try {
     await connectToDatabase();
 
     // 獲取用戶會話
@@ -28,29 +33,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ success: false, message: '未授權' });
     }
 
-    const { id } = req.query;
-    if (!id || typeof id !== 'string') {
-      return res.status(400).json({ success: false, message: '無效的申請ID' });
-    }
-
     // 查詢申請
-    const application = await Application.findById(id);
+    const application = await Application.findById(slug);
     if (!application) {
       return res.status(404).json({ success: false, message: '申請不存在' });
     }
 
-    // 檢查權限：只有主辦方可以標記申請者訊息為已讀
-    const isHost = application.hostId.toString() === session.user.id;
-    if (!isHost) {
+    // 檢查權限：只有申請者可以標記主辦方訊息為已讀
+    const isApplicant = application.userId.toString() === session.user.id;
+    if (!isApplicant) {
       return res.status(403).json({ success: false, message: '無權執行此操作' });
     }
 
     // 標記訊息為已讀
-    application.communications.unreadHostMessages = 0;
+    application.communications.unreadUserMessages = 0;
 
     // 更新所有訊息的已讀狀態
     application.communications.messages = application.communications.messages.map((msg: Message) => {
-      if (msg.sender === application.userId.toString() && !msg.read) {
+      if (msg.sender !== session.user.id && !msg.read) {
         return { ...msg, read: true };
       }
       return msg;

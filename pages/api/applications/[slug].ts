@@ -1,4 +1,4 @@
-// pages/api/applications/[id].ts
+// pages/api/applications/[slug].ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
@@ -8,6 +8,12 @@ import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
 import { isAdmin } from '@/utils/roleUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { slug } = req.query;
+
+  if (!slug || typeof slug !== 'string') {
+    return res.status(400).json({ message: '申請 ID 無效' });
+  }
+
   try {
     await connectToDatabase();
 
@@ -17,35 +23,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ success: false, message: '未授權' });
     }
 
-    const { id } = req.query;
-    if (!id || typeof id !== 'string') {
-      return res.status(400).json({ success: false, message: '無效的申請ID' });
-    }
-
-    // 根據HTTP方法處理請求
+    // 根據請求方法處理不同操作
     switch (req.method) {
       case 'GET':
-        return getApplication(req, res, id, session);
+        return await getApplicationDetail(req, res, slug, session);
       case 'PUT':
-        return updateApplication(req, res, id, session);
+        return await updateApplication(req, res, slug, session);
       case 'DELETE':
-        return deleteApplication(req, res, id, session);
+        return await deleteApplication(req, res, slug, session);
       default:
-        return res.status(405).json({ success: false, message: '方法不允許' });
+        return res.status(405).json({ message: '方法不允許' });
     }
-  } catch (error: any) {
-    console.error('申請詳情API錯誤:', error);
-    return res.status(500).json({ success: false, message: '伺服器錯誤', error: error.message });
+  } catch (error) {
+    console.error('申請 API 錯誤:', error);
+    return res.status(500).json({ message: '伺服器錯誤' });
   }
 }
 
 /**
  * 獲取申請詳情
  */
-async function getApplication(req: NextApiRequest, res: NextApiResponse, id: string, session: any) {
+async function getApplicationDetail(req: NextApiRequest, res: NextApiResponse, slug: string, session: any) {
   try {
     // 查詢申請
-    const application = await Application.findById(id)
+    const application = await Application.findById(slug)
       .populate('opportunityId', 'title slug shortDescription type location media')
       .populate('hostId', 'name profileImage')
       .populate('userId', 'name email profile');
@@ -76,12 +77,12 @@ async function getApplication(req: NextApiRequest, res: NextApiResponse, id: str
 /**
  * 更新申請狀態
  */
-async function updateApplication(req: NextApiRequest, res: NextApiResponse, id: string, session: any) {
+async function updateApplication(req: NextApiRequest, res: NextApiResponse, slug: string, session: any) {
   try {
     const { status, statusNote, message } = req.body;
 
     // 查詢申請
-    const application = await Application.findById(id);
+    const application = await Application.findById(slug);
     if (!application) {
       return res.status(404).json({ success: false, message: '申請不存在' });
     }
@@ -151,10 +152,10 @@ async function updateApplication(req: NextApiRequest, res: NextApiResponse, id: 
 /**
  * 刪除申請
  */
-async function deleteApplication(req: NextApiRequest, res: NextApiResponse, id: string, session: any) {
+async function deleteApplication(req: NextApiRequest, res: NextApiResponse, slug: string, session: any) {
   try {
     // 查詢申請
-    const application = await Application.findById(id);
+    const application = await Application.findById(slug);
     if (!application) {
       return res.status(404).json({ success: false, message: '申請不存在' });
     }

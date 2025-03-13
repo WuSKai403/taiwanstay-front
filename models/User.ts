@@ -102,15 +102,27 @@ export interface IUser extends Document {
 }
 
 const UserSchema: Schema = new Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  image: { type: String },
+  name: {
+    type: String,
+    required: [true, '姓名為必填欄位'],
+    trim: true,
+  },
+  email: {
+    type: String,
+    required: [true, '電子郵件為必填欄位'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+  },
+  image: {
+    type: String,
+  },
   emailVerified: { type: Date },
   password: { type: String },
   role: {
     type: String,
-    enum: Object.values(UserRole),
-    default: UserRole.USER
+    enum: ['user', 'host', 'admin'],
+    default: 'user',
   },
   profile: {
     avatar: String,
@@ -212,4 +224,5 @@ const UserSchema: Schema = new Schema({
 // 使用sparse索引，只有當location欄位存在時才建立索引
 UserSchema.index({ 'profile.location': '2dsphere' }, { sparse: true });
 
+// 使用 mongoose.models 檢查模型是否已經存在，避免在熱重載時重複定義
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

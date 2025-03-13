@@ -1,32 +1,40 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { User } from '../../../models/index';
+import { User } from '@/models/index';
 import mongoose from 'mongoose';
+import { connectToDatabase } from '@/lib/mongodb';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
+  const { slug } = req.query;
 
-  // 驗證ID格式
-  if (!id || typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: '無效的用戶ID' });
+  if (!slug || typeof slug !== 'string') {
+    return res.status(400).json({ message: '用戶 ID 無效' });
   }
 
-  switch (req.method) {
-    case 'GET':
-      return getUser(req, res, id);
-    case 'PUT':
-      return updateUser(req, res, id);
-    case 'DELETE':
-      return deleteUser(req, res, id);
-    default:
-      return res.status(405).json({ message: '方法不允許' });
+  try {
+    await connectToDatabase();
+
+    // 根據請求方法處理不同操作
+    switch (req.method) {
+      case 'GET':
+        return await getUserDetail(req, res, slug);
+      case 'PUT':
+        return updateUser(req, res, slug);
+      case 'DELETE':
+        return deleteUser(req, res, slug);
+      default:
+        return res.status(405).json({ message: '方法不允許' });
+    }
+  } catch (error) {
+    console.error('用戶 API 錯誤:', error);
+    return res.status(500).json({ message: '伺服器錯誤' });
   }
 }
 
 // 獲取用戶詳情
-async function getUser(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function getUserDetail(req: NextApiRequest, res: NextApiResponse, slug: string) {
   try {
     // 查詢用戶
-    const user = await User.findById(id).select('-password');
+    const user = await User.findById(slug).select('-password');
     if (!user) {
       return res.status(404).json({ message: '用戶不存在' });
     }
@@ -50,13 +58,13 @@ async function getUser(req: NextApiRequest, res: NextApiResponse, id: string) {
 }
 
 // 更新用戶
-async function updateUser(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function updateUser(req: NextApiRequest, res: NextApiResponse, slug: string) {
   try {
     // 從請求體中獲取更新數據
     const { name, email, profile, role, privacySettings, location } = req.body;
 
     // 查詢用戶
-    const user = await User.findById(id);
+    const user = await User.findById(slug);
     if (!user) {
       return res.status(404).json({ message: '用戶不存在' });
     }
@@ -130,10 +138,10 @@ async function updateUser(req: NextApiRequest, res: NextApiResponse, id: string)
 }
 
 // 刪除用戶
-async function deleteUser(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function deleteUser(req: NextApiRequest, res: NextApiResponse, slug: string) {
   try {
     // 查詢並刪除用戶
-    const user = await User.findByIdAndDelete(id);
+    const user = await User.findByIdAndDelete(slug);
     if (!user) {
       return res.status(404).json({ message: '用戶不存在' });
     }

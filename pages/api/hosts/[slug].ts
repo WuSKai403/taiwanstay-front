@@ -5,9 +5,9 @@ import Opportunity from '@/models/Opportunity';
 import { ObjectId } from 'mongodb';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
+  const { slug } = req.query;
 
-  if (!id || typeof id !== 'string') {
+  if (!slug || typeof slug !== 'string') {
     return res.status(400).json({ message: '主辦方 ID 無效' });
   }
 
@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 根據請求方法處理不同操作
     switch (req.method) {
       case 'GET':
-        return await getHostDetail(req, res, id);
+        return await getHostDetail(req, res, slug);
       default:
         return res.status(405).json({ message: '方法不允許' });
     }
@@ -28,15 +28,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 // 獲取主辦方詳情
-async function getHostDetail(req: NextApiRequest, res: NextApiResponse, id: string) {
+async function getHostDetail(req: NextApiRequest, res: NextApiResponse, slug: string) {
   try {
     // 檢查 ID 是否為有效的 ObjectId
     let hostQuery = {};
-    if (ObjectId.isValid(id)) {
-      hostQuery = { _id: new ObjectId(id) };
+    if (ObjectId.isValid(slug)) {
+      hostQuery = { _id: new ObjectId(slug) };
     } else {
       // 如果不是有效的 ObjectId，可能是自定義 ID
-      hostQuery = { publicId: id };
+      hostQuery = { publicId: slug };
     }
 
     // 獲取主辦方詳情

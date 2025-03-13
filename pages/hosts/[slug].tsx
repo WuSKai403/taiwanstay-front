@@ -411,12 +411,12 @@ export default function HostDetail({ host, opportunities }: HostDetailProps) {
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   try {
-    const { id } = context.params as { id: string };
+    const { slug } = context.params as { slug: string };
 
     await connectToDatabase();
 
     // 獲取主辦方詳情
-    const host = await Host.findById(id).lean();
+    const host = await Host.findById(slug).lean();
 
     if (!host) {
       return {
@@ -425,7 +425,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
 
     // 獲取該主辦方的機會列表
-    const opportunities = await Opportunity.find({ hostId: id })
+    const opportunities = await Opportunity.find({ hostId: slug })
       .sort({ createdAt: -1 })
       .lean();
 
