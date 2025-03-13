@@ -8,7 +8,7 @@ import { OrganizationType } from '../../models/enums/OrganizationType';
 // 假資料，之後會從 API 獲取
 const MOCK_ORGANIZATIONS = [
   {
-    id: '1',
+    id: 'x7y8z9',
     name: '永續農業發展協會',
     slug: 'sustainable-agriculture-association',
     description: '致力於推廣有機農業和永續生活方式的非營利組織',
@@ -34,7 +34,7 @@ const MOCK_ORGANIZATIONS = [
     }
   },
   {
-    id: '2',
+    id: 'a1b2c3',
     name: '台灣生態旅遊協會',
     slug: 'taiwan-ecotourism-association',
     description: '推廣負責任旅遊和生態保育的專業組織',
@@ -60,7 +60,7 @@ const MOCK_ORGANIZATIONS = [
     }
   },
   {
-    id: '3',
+    id: 'd4e5f6',
     name: '原住民文化保存基金會',
     slug: 'indigenous-culture-foundation',
     description: '致力於保存和推廣台灣原住民文化的基金會',
@@ -276,7 +276,7 @@ const OrganizationsPage: NextPage = () => {
 
             <div className="p-6">
               <h2 className="text-xl font-bold mb-2 hover:text-blue-600">
-                <Link href={`/organizations/${organization.slug}`}>
+                <Link href={`/organizations/${organization.id}-${organization.slug}`}>
                   {organization.name}
                 </Link>
               </h2>
@@ -334,7 +334,7 @@ const OrganizationsPage: NextPage = () => {
               </div>
 
               <div className="mt-6">
-                <Link href={`/organizations/${organization.slug}`} className="block w-full text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                <Link href={`/organizations/${organization.id}-${organization.slug}`} className="block w-full text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-200">
                   查看詳情
                 </Link>
               </div>

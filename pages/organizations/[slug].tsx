@@ -44,7 +44,7 @@ const typeNameMap = {
 
 // 假資料，之後會從 API 獲取
 const MOCK_ORGANIZATION = {
-  id: '1',
+  id: 'x7y8z9',
   name: '永續農業發展協會',
   slug: 'sustainable-agriculture-association',
   description: '致力於推廣有機農業和永續生活方式的非營利組織',
@@ -211,7 +211,7 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
                 )}
               </div>
               <h2 className="text-xl font-bold mb-2 hover:text-blue-600">
-                <Link href={`/organizations/${organization.slug}`} className="hover:text-blue-600">
+                <Link href={`/organizations/${organization.id}-${organization.slug}`} className="hover:text-blue-600">
                   {organization.name}
                 </Link>
               </h2>
@@ -549,14 +549,29 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
+  // 從 URL 參數中提取 ID
   const { slug } = context.params as { slug: string };
 
-  // 在實際應用中，這裡會從 API 獲取數據
+  // 提取 ID 部分（格式為 id-slug）
+  const id = slug.split('-')[0];
+
+  // 在實際應用中，這裡會使用 ID 從 API 獲取數據
+  // 例如: const organization = await fetchOrganizationById(id);
+
   // 目前使用假數據
+  // 在實際應用中，應該檢查 ID 是否匹配
+  const organization = MOCK_ORGANIZATION;
+
+  // 如果找不到對應的組織，返回 404
+  if (!organization) {
+    return {
+      notFound: true
+    };
+  }
 
   return {
     props: {
-      organization: MOCK_ORGANIZATION
+      organization
     }
   };
 };

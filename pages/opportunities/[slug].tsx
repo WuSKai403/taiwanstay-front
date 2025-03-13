@@ -64,7 +64,7 @@ const typeNameMap = {
 
 // 假資料，之後會從 API 獲取
 const MOCK_OPPORTUNITY = {
-  id: '1',
+  id: 'a7b8c9',
   title: '有機農場志工',
   slug: 'organic-farm-volunteer',
   shortDescription: '在美麗的宜蘭有機農場體驗農耕生活，學習永續農業技術',
@@ -487,14 +487,29 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
+  // 從 URL 參數中提取 ID
   const { slug } = context.params as { slug: string };
 
-  // 在實際應用中，這裡會從 API 獲取數據
+  // 提取 ID 部分（格式為 id-slug）
+  const id = slug.split('-')[0];
+
+  // 在實際應用中，這裡會使用 ID 從 API 獲取數據
+  // 例如: const opportunity = await fetchOpportunityById(id);
+
   // 目前使用假數據
+  // 在實際應用中，應該檢查 ID 是否匹配
+  const opportunity = MOCK_OPPORTUNITY;
+
+  // 如果找不到對應的機會，返回 404
+  if (!opportunity) {
+    return {
+      notFound: true
+    };
+  }
 
   return {
     props: {
-      opportunity: MOCK_OPPORTUNITY
+      opportunity
     }
   };
 };

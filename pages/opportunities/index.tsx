@@ -58,7 +58,7 @@ const typeNameMap = {
 // 假資料，之後會從 API 獲取
 const MOCK_OPPORTUNITIES = [
   {
-    id: '1',
+    id: 'a7b8c9',
     title: '有機農場志工',
     slug: 'organic-farm-volunteer',
     shortDescription: '在美麗的宜蘭有機農場體驗農耕生活，學習永續農業技術',
@@ -89,7 +89,7 @@ const MOCK_OPPORTUNITIES = [
     }
   },
   {
-    id: '2',
+    id: 'd4e5f6',
     title: '山區民宿幫手',
     slug: 'mountain-hostel-helper',
     shortDescription: '在南投山區民宿協助接待客人、整理環境，體驗山居生活',
@@ -120,7 +120,7 @@ const MOCK_OPPORTUNITIES = [
     }
   },
   {
-    id: '3',
+    id: 'g1h2i3',
     title: '海邊咖啡廳工作',
     slug: 'beach-cafe-work',
     shortDescription: '在花蓮海邊咖啡廳協助製作飲品、接待客人，享受海景工作環境',
@@ -391,7 +391,7 @@ const OpportunitiesPage: NextPage = () => {
 
               <div className="p-6">
                 <h2 className="text-xl font-bold mb-2 hover:text-blue-600">
-                  <Link href={`/opportunities/${opportunity.slug}`}>
+                  <Link href={`/opportunities/${opportunity.id}-${opportunity.slug}`}>
                     {opportunity.title}
                   </Link>
                 </h2>
@@ -458,7 +458,7 @@ const OpportunitiesPage: NextPage = () => {
                 </div>
 
                 <div className="mt-6">
-                  <Link href={`/opportunities/${opportunity.slug}`} className="block w-full text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                  <Link href={`/opportunities/${opportunity.id}-${opportunity.slug}`} className="block w-full text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-200">
                     查看詳情
                   </Link>
                 </div>
