@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { MongoClient } from 'mongodb';
 
 // MongoDB連接URI
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/taiwanstay';
@@ -11,6 +12,25 @@ const options = {
 
 // 連接狀態
 let isConnected = false;
+
+// 創建一個MongoDB客戶端實例
+export const clientPromise = new MongoClient(MONGODB_URI);
+
+/**
+ * 獲取數據庫實例
+ */
+export async function getDb() {
+  const client = await clientPromise.connect();
+  return client.db();
+}
+
+/**
+ * 獲取集合實例
+ */
+export async function getCollection(collectionName: string) {
+  const db = await getDb();
+  return db.collection(collectionName);
+}
 
 /**
  * 連接到MongoDB數據庫
