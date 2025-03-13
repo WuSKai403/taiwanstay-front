@@ -17,6 +17,9 @@ let isConnected = false;
 let client: MongoClient;
 let clientPromiseInternal: Promise<MongoClient>;
 
+// 測試環境標誌
+const isTestEnvironment = process.env.NODE_ENV === 'test';
+
 if (process.env.NODE_ENV === 'development') {
   // 在開發環境中，使用全局變量來保持連接
   let globalWithMongo = global as typeof globalThis & {
@@ -80,22 +83,55 @@ export async function connectToDatabase() {
  * 斷開與MongoDB數據庫的連接
  */
 export async function disconnectFromDatabase() {
-  // 如果未連接，則直接返回
-  if (!isConnected) {
-    return;
-  }
-
   try {
-    // 斷開連接
-    await mongoose.disconnect();
+    // 斷開 Mongoose 連接
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+      isConnected = false;
+      console.log('Mongoose 連接已斷開');
+    }
 
-    // 更新連接狀態
-    isConnected = false;
-
-    console.log('MongoDB連接已斷開');
+    // 在測試環境中，也關閉 MongoClient 連接
+    if (isTestEnvironment && client) {
+      await client.close();
+      console.log('MongoClient 連接已關閉');
+    }
   } catch (error) {
     console.error('MongoDB斷開連接失敗:', error);
     throw error;
+  }
+}
+
+/**
+ * 關閉所有數據庫連接（用於測試環境）
+ */
+export async function closeAllConnections() {
+  try {
+    // 關閉 Mongoose 連接
+    if (mongoose.connection && mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+      console.log('Mongoose 連接已關閉');
+    }
+
+    // 關閉 MongoClient 連接 - 使用更安全的方式
+    if (client) {
+      try {
+        // 檢查連接是否已經關閉
+        const topology = (client as any).topology;
+        if (topology && !topology.isClosed()) {
+          await client.close(false); // 使用 false 進行更溫和的關閉
+          console.log('MongoClient 連接已關閉');
+        }
+      } catch (err) {
+        // 忽略關閉錯誤，避免測試中斷
+        console.log('關閉 MongoClient 時出現錯誤，但測試將繼續');
+      }
+    }
+  } catch (error) {
+    console.error('關閉數據庫連接失敗:', error);
+    // 不拋出錯誤，讓測試可以繼續
+  } finally {
+    isConnected = false;
   }
 }
 

@@ -1,10 +1,14 @@
-// 導入測試庫
-import '@testing-library/jest-dom';
-
-// 添加TextEncoder和TextDecoder的polyfill
+// 首先導入 TextEncoder 和 TextDecoder
 import { TextEncoder, TextDecoder } from 'util';
+
+// 設置全局 TextEncoder 和 TextDecoder
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
+
+// 導入測試庫
+import '@testing-library/jest-dom';
+import mongoose from 'mongoose';
+import { closeAllConnections } from './lib/mongodb';
 
 // 模擬Next.js的路由
 jest.mock('next/router', () => ({
@@ -37,6 +41,10 @@ jest.mock('next-auth/react', () => ({
 
 // 設置環境變數
 process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000';
+// 設置 Mongoose 警告抑制
+process.env.SUPPRESS_JEST_WARNINGS = 'true';
+// 設置測試環境標誌
+process.env.NODE_ENV = 'test';
 
 // 全局超時設置
 jest.setTimeout(30000);
@@ -45,6 +53,17 @@ jest.setTimeout(30000);
 afterEach(() => {
   jest.clearAllMocks();
 });
+
+// 在所有測試完成後關閉所有數據庫連接
+afterAll(async () => {
+  try {
+    // 使用新的 closeAllConnections 函數關閉所有連接
+    await closeAllConnections();
+    console.log('所有數據庫連接已關閉');
+  } catch (error) {
+    console.error('關閉數據庫連接時出錯:', error);
+  }
+}, 15000);
 
 // 全局設置
 global.fetch = jest.fn();
