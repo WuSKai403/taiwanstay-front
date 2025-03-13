@@ -4,8 +4,9 @@ import { authOptions } from '../../auth/[...nextauth]';
 import { connectToDatabase } from '@/lib/mongodb';
 import Organization from '@/models/Organization';
 import Host from '@/models/Host';
-import { UserRole } from '@/models/enums/UserRole';
+import { UserRole } from '@/types';
 import mongoose from 'mongoose';
+import { canAccessOrganization } from '@/utils/roleUtils';
 
 /**
  * @swagger
@@ -169,10 +170,7 @@ async function addHostToOrganization(req: NextApiRequest, res: NextApiResponse, 
     }
 
     // 檢查權限：只有管理員和組織管理員可以添加主人
-    const isAdmin = session.user.role === UserRole.ADMIN;
-    const isOrgAdmin = organization.admins.includes(session.user.id);
-
-    if (!isAdmin && !isOrgAdmin) {
+    if (!canAccessOrganization(session.user, organization.admins)) {
       return res.status(403).json({ success: false, message: '無權添加主人到此組織' });
     }
 

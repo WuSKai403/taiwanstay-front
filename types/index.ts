@@ -1,10 +1,6 @@
-// 用戶角色枚舉
-export enum UserRole {
-  USER = 'user',
-  HOST = 'host',
-  ORGANIZATION_ADMIN = 'organization_admin',
-  ADMIN = 'admin',
-}
+// 從 models/enums 導入 UserRole
+import { UserRole } from '../models/enums/UserRole';
+export { UserRole };
 
 // 用戶類型
 export interface User {

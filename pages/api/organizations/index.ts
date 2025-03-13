@@ -4,9 +4,10 @@ import { authOptions } from '../auth/[...nextauth]';
 import { connectToDatabase } from '@/lib/mongodb';
 import Organization from '@/models/Organization';
 import { OrganizationStatus } from '@/models/enums/OrganizationStatus';
-import { UserRole } from '@/models/enums/UserRole';
-import { generateSlug } from '@/lib/utils/slugUtils';
+import { UserRole } from '@/types';
+import { generateSlug } from '@/utils/helpers';
 import { nanoid } from 'nanoid';
+import { isAdmin } from '@/utils/roleUtils';
 
 /**
  * @swagger
@@ -130,7 +131,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error('組織API錯誤:', error);
-    return res.status(500).json({ success: false, message: '伺服器錯誤', error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: '伺服器錯誤',
+      error: error instanceof Error ? error.message : '未知錯誤'
+    });
   }
 }
 
@@ -158,9 +163,9 @@ async function getOrganizations(req: NextApiRequest, res: NextApiResponse) {
 
     // 只顯示活躍的組織，除非是管理員
     const session = await getServerSession(req, res, authOptions);
-    const isAdmin = session?.user?.role === UserRole.ADMIN;
+    const userIsAdmin = isAdmin(session?.user);
 
-    if (!isAdmin) {
+    if (!userIsAdmin) {
       query.status = OrganizationStatus.ACTIVE;
     } else if (status) {
       query.status = status;
@@ -198,7 +203,11 @@ async function getOrganizations(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (error) {
     console.error('獲取組織列表錯誤:', error);
-    return res.status(500).json({ success: false, message: '獲取組織列表失敗', error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: '獲取組織列表失敗',
+      error: error instanceof Error ? error.message : '未知錯誤'
+    });
   }
 }
 
@@ -258,6 +267,10 @@ async function createOrganization(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (error) {
     console.error('創建組織錯誤:', error);
-    return res.status(500).json({ success: false, message: '創建組織失敗', error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: '創建組織失敗',
+      error: error instanceof Error ? error.message : '未知錯誤'
+    });
   }
 }

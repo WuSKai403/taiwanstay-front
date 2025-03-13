@@ -1,6 +1,12 @@
 import { GetServerSidePropsContext, NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from 'next-auth/react';
 import { UserRole } from '../types';
+import {
+  hasRole as checkRole,
+  isAdmin as checkAdmin,
+  isOrganizationAdmin as checkOrgAdmin,
+  isHost as checkHost
+} from './roleUtils';
 
 // 檢查用戶是否已登入
 export async function isAuthenticated(
@@ -8,7 +14,7 @@ export async function isAuthenticated(
   res?: NextApiResponse | GetServerSidePropsContext['res']
 ) {
   const session = await getSession({ req });
-  return !!session;
+  return !!session?.user;
 }
 
 // 檢查用戶是否具有特定角色
@@ -23,13 +29,11 @@ export async function hasRole(
     return false;
   }
 
-  const userRole = session.user.role as UserRole;
-
   if (Array.isArray(role)) {
-    return role.includes(userRole);
+    return role.some(r => checkRole(session.user, r));
   }
 
-  return userRole === role;
+  return checkRole(session.user, role);
 }
 
 // 檢查用戶是否為組織管理員
@@ -44,15 +48,13 @@ export async function isOrganizationAdmin(
     return false;
   }
 
-  const userRole = session.user.role as UserRole;
-
   // 如果是系統管理員，直接返回 true
-  if (userRole === UserRole.ADMIN) {
+  if (checkAdmin(session.user)) {
     return true;
   }
 
   // 如果是組織管理員，檢查是否為該組織的管理員
-  if (userRole === UserRole.ORGANIZATION_ADMIN) {
+  if (checkOrgAdmin(session.user)) {
     return session.user.organizationId === organizationId;
   }
 
@@ -71,15 +73,13 @@ export async function isHostOrOrganizationAdmin(
     return false;
   }
 
-  const userRole = session.user.role as UserRole;
-
   // 如果是系統管理員，直接返回 true
-  if (userRole === UserRole.ADMIN) {
+  if (checkAdmin(session.user)) {
     return true;
   }
 
   // 如果是主人，檢查是否為該主人
-  if (userRole === UserRole.HOST) {
+  if (session.user.role === UserRole.HOST) {
     return session.user.hostId === hostId;
   }
 

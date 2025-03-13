@@ -1,89 +1,116 @@
-# MongoDB Starter – Developer Directory
+# TaiwanStay - 台灣農村體驗平台
 
-A developer directory built on [Next.js](https://nextjs.org/) and [MongoDB Atlas](https://www.mongodb.com/atlas/database), deployed on [Vercel](https://vercel.com/) with the [Vercel + MongoDB integration](https://vercel.com/integrations/mongodbatlas).
+TaiwanStay是一個連接旅行者與台灣農村主人的平台，提供農村體驗、志工機會和文化交流。
 
-![](/public/og.png)
+## 技術棧
 
-Featured on the [MongoDB World](https://www.mongodb.com/world-2022) keynote.
+- [Next.js](https://nextjs.org/) - React框架
+- [MongoDB](https://www.mongodb.com/) - 數據庫
+- [Mongoose](https://mongoosejs.com/) - MongoDB對象建模
+- [NextAuth.js](https://next-auth.js.org/) - 認證
+- [Tailwind CSS](https://tailwindcss.com/) - 樣式
+- [SWR](https://swr.vercel.app/) - 數據獲取
+- [Jest](https://jestjs.io/) - 測試
 
-## Deployment Instructions
+## 開發
 
-You will need to create a [GitHub OAuth App](https://docs.github.com/en/developers/apps/building-oauth-apps/creating-an-oauth-app) to use this starter. Here are the steps:
-
-1. Go to https://github.com/settings/developers and create a new OAuth application
-2. Name your application **"MongoDB Starter"**
-3. Set the homepage URL to **`https://vercel.app`** for now (we'll change this later)
-4. Set the authorization callback URL to **`https://vercel.app/api/auth/callback/github`** for now (we'll change this later)
-5. Click "Register application".
-6. Once the application is created, copy the "Client ID". This will be your **`GITHUB_CLIENT_ID`**.
-7. Generate a new client secret and copy that too. This will be your **`GITHUB_CLIENT_SECRET`**.
-8. Generate a random secret [here](https://generate-secret.vercel.app/32). This will be your **`NEXTAUTH_SECRET`**.
-9. Click on this button below to clone and deploy this template to Vercel.
-
-  [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fmongodb-starter&project-name=mongodb-nextjs&repository-name=mongodb-nextjs&demo-title=MongoDB%20Developer%20Directory&demo-description=Log%20in%20with%20GitHub%20to%20create%20a%20directory%20of%20contacts.&demo-url=https%3A%2F%2Fmongodb.vercel.app%2F&demo-image=https%3A%2F%2Fmongodb.vercel.app%2Fog.png&integration-ids=oac_jnzmjqM10gllKmSrG0SGrHOH&env=GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,NEXTAUTH_SECRET&envDescription=Instructions%20on%20how%20to%20configure%20these%20env%20vars:&envLink=https://github.com/vercel/mongodb-starter/blob/main/.env.example)
-
-10. Once your application is deployed, **edit the homepage & callback URLs in your GitHub OAuth App to match your deployment URL**.
-
-## Demo
-
-https://mongodb.vercel.app
-
-## Testing
-
-This project uses Jest for testing. The tests are organized into three categories:
-
-- **Unit Tests**: Test individual components and functions in isolation
-- **Integration Tests**: Test the interaction between different parts of the application
-- **End-to-End Tests**: Test the complete application flow
-
-### Running Tests
-
-To run the tests, you need to have Node.js installed on your machine. Then, you can use the following commands:
+### 安裝依賴
 
 ```bash
-# Install dependencies
 npm install
-
-# Run all tests
-npm test
-
-# Run tests in watch mode (useful during development)
-npm run test:watch
-
-# Generate test coverage report
-npm run test:coverage
 ```
 
-### Test Environment
+### 運行開發服務器
 
-The tests use an in-memory MongoDB server for database operations, so you don't need to have MongoDB installed locally. The test environment is configured in the following files:
+```bash
+npm run dev
+```
 
-- `jest.config.js`: Jest configuration
-- `jest.setup.js`: Global test setup
-- `scripts/test-setup.js`: Database setup for tests
-- `.env.test`: Environment variables for testing
+### 構建生產版本
 
-### Continuous Integration
+```bash
+npm run build
+```
 
-This project uses GitHub Actions for continuous integration. The CI workflow is defined in `.github/workflows/test.yml`. It runs automatically on push to main and development branches, and on pull requests to these branches.
+### 運行測試
 
-The CI process includes:
-1. Installing dependencies
-2. Running linting checks
-3. Running all tests
-4. Uploading coverage reports to Codecov
+```bash
+npm test
+```
 
-## Vercel + MongoDB Integration
+## API端點
 
-https://vercel.com/integrations/mongodbatlas
+### 認證API
 
-## Tech Stack
+- `POST /api/auth/register` - 用戶註冊
+- `POST /api/auth/login` - 用戶登入
+- `GET/POST /api/auth/[...nextauth]` - NextAuth.js認證
 
-- [Next.js](https://nextjs.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [NextAuth.js](https://next-auth.js.org/)
-- [MongoDB Atlas](https://www.mongodb.com/atlas/database)
-- [Vercel](https://vercel.com/)
-- [Jest](https://jestjs.io/) (Testing)
-- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) (Component Testing)
-- [MongoDB Memory Server](https://github.com/nodkz/mongodb-memory-server) (Testing Database)
+### 用戶API
+
+- `GET /api/users` - 獲取用戶列表
+- `POST /api/users` - 創建用戶
+- `GET /api/users/[id]` - 獲取特定用戶
+- `PUT /api/users/[id]` - 更新用戶
+- `DELETE /api/users/[id]` - 刪除用戶
+
+### 工作機會API
+
+- `GET /api/opportunities` - 獲取機會列表
+- `POST /api/opportunities` - 創建機會
+- `GET /api/opportunities/[id]` - 獲取特定機會
+- `PUT /api/opportunities/[id]` - 更新機會
+- `DELETE /api/opportunities/[id]` - 刪除機會
+- `GET /api/opportunities/search` - 搜尋機會
+
+### 組織API
+
+- `GET /api/organizations` - 獲取組織列表
+- `POST /api/organizations` - 創建組織
+- `GET /api/organizations/[id]` - 獲取特定組織
+- `PUT /api/organizations/[id]` - 更新組織
+- `DELETE /api/organizations/[id]` - 刪除組織
+- `GET /api/organizations/[id]/hosts` - 獲取組織下的主人列表
+- `POST /api/organizations/[id]/hosts` - 添加主人到組織
+
+### 申請API
+
+- `GET /api/applications` - 獲取申請列表
+- `POST /api/applications` - 創建申請
+- `GET /api/applications/[id]` - 獲取特定申請
+- `PUT /api/applications/[id]` - 更新申請
+- `DELETE /api/applications/[id]` - 刪除申請
+
+## 數據模型
+
+### 用戶 (User)
+
+用戶模型包含基本用戶信息、認證信息和個人資料。
+
+### 工作機會 (Opportunity)
+
+工作機會模型包含機會詳情、位置、要求和主人信息。
+
+### 組織 (Organization)
+
+組織模型包含組織詳情、聯絡信息和關聯的主人。
+
+### 主人 (Host)
+
+主人模型包含主人詳情、提供的機會和評價。
+
+### 申請 (Application)
+
+申請模型包含申請詳情、狀態和溝通記錄。
+
+## 測試策略
+
+詳見 [TESTING.md](TESTING.md) 文件。
+
+## 貢獻
+
+歡迎提交問題和拉取請求。
+
+## 許可證
+
+MIT

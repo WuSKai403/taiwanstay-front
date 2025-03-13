@@ -492,17 +492,22 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   // 從 URL 參數中提取 slug
   const { slug } = context.params as { slug: string };
 
-  // 提取 publicId 部分（格式為 {publicId}-{slug}）
-  const publicId = slug.split('-')[0];
+  // 提取 id 部分（格式為 {id}-{slug}）
+  const idPart = slug.split('-')[0];
 
   // 連接到數據庫
   await connectToDatabase();
 
   try {
-    // 使用 publicId 查詢機會
-    const opportunity = await Opportunity.findOne({ publicId }).populate('hostId');
+    // 嘗試使用 id 查詢機會
+    let opportunity = await Opportunity.findById(idPart).populate('hostId');
 
-    // 如果找不到對應的機會，返回 404
+    // 如果找不到，嘗試使用 publicId 查詢
+    if (!opportunity) {
+      opportunity = await Opportunity.findOne({ publicId: idPart }).populate('hostId');
+    }
+
+    // 如果仍然找不到對應的機會，返回 404
     if (!opportunity) {
       return {
         notFound: true

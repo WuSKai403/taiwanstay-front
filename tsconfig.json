@@ -12,9 +12,11 @@
       "@/data/*": ["data/*"],
       "@/layouts/*": ["layouts/*"],
       "@/lib/*": ["lib/*"],
+      "@/models/*": ["models/*"],
       "@/styles/*": ["styles/*"],
       "@/types": ["types/index"],
-      "@/types/*": ["types/*"]
+      "@/types/*": ["types/*"],
+      "@/utils/*": ["utils/*"]
     },
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,

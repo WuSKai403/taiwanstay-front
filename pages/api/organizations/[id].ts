@@ -4,8 +4,9 @@ import { authOptions } from '../auth/[...nextauth]';
 import { connectToDatabase } from '@/lib/mongodb';
 import Organization from '@/models/Organization';
 import { OrganizationStatus } from '@/models/enums/OrganizationStatus';
-import { UserRole } from '@/models/enums/UserRole';
+import { UserRole } from '@/types';
 import mongoose from 'mongoose';
+import { isAdmin, canAccessOrganization } from '@/utils/roleUtils';
 
 /**
  * @swagger
@@ -142,10 +143,8 @@ async function getOrganization(req: NextApiRequest, res: NextApiResponse, id: st
     // 檢查權限：非活躍組織只有管理員和組織管理員可以查看
     if (organization.status !== OrganizationStatus.ACTIVE) {
       const session = await getServerSession(req, res, authOptions);
-      const isAdmin = session?.user?.role === UserRole.ADMIN;
-      const isOrgAdmin = session?.user?.id && organization.admins.includes(session.user.id);
 
-      if (!isAdmin && !isOrgAdmin) {
+      if (!canAccessOrganization(session?.user, organization.admins)) {
         return res.status(403).json({ success: false, message: '無權訪問此組織' });
       }
     }
@@ -178,10 +177,10 @@ async function updateOrganization(req: NextApiRequest, res: NextApiResponse, id:
     }
 
     // 檢查權限：只有管理員和組織管理員可以更新組織
-    const isAdmin = session.user.role === UserRole.ADMIN;
-    const isOrgAdmin = organization.admins.includes(session.user.id);
+    const userIsAdmin = isAdmin(session.user);
+    const userCanAccess = canAccessOrganization(session.user, organization.admins);
 
-    if (!isAdmin && !isOrgAdmin) {
+    if (!userCanAccess) {
       return res.status(403).json({ success: false, message: '無權更新此組織' });
     }
 
@@ -199,7 +198,7 @@ async function updateOrganization(req: NextApiRequest, res: NextApiResponse, id:
     } = req.body;
 
     // 只有管理員可以更新狀態
-    if (status && !isAdmin) {
+    if (status && !userIsAdmin) {
       return res.status(403).json({ success: false, message: '只有管理員可以更新組織狀態' });
     }
 
@@ -217,7 +216,7 @@ async function updateOrganization(req: NextApiRequest, res: NextApiResponse, id:
           ...(location && { location }),
           ...(media && { media }),
           ...(details && { details }),
-          ...(status && isAdmin && { status }),
+          ...(status && userIsAdmin && { status }),
           updatedAt: new Date()
         }
       },
@@ -247,7 +246,7 @@ async function deleteOrganization(req: NextApiRequest, res: NextApiResponse, id:
     }
 
     // 只有管理員可以刪除組織
-    if (session.user.role !== UserRole.ADMIN) {
+    if (!isAdmin(session.user)) {
       return res.status(403).json({ success: false, message: '只有管理員可以刪除組織' });
     }
 
