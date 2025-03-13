@@ -118,8 +118,8 @@ const UserSchema: Schema = new Schema({
     skills: [String],
     languages: [String],
     location: {
-      type: { type: String, default: 'Point' },
-      coordinates: [Number]
+      type: { type: String, enum: ['Point'], required: false },
+      coordinates: { type: [Number], required: false }
     },
     // 社交媒體帳號
     socialMedia: {
@@ -209,6 +209,7 @@ const UserSchema: Schema = new Schema({
   timestamps: true
 });
 
-UserSchema.index({ 'profile.location': '2dsphere' });
+// 使用sparse索引，只有當location欄位存在時才建立索引
+UserSchema.index({ 'profile.location': '2dsphere' }, { sparse: true });
 
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

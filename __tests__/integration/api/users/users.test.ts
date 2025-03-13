@@ -13,8 +13,16 @@ const testUser = {
   password: 'Password123',
   role: UserRole.USER,
   profile: {
-    // 確保location字段有正確的格式
-    location: undefined
+    // 不包含location欄位
+    bio: '測試用戶簡介'
+  }
+};
+
+// 帶有有效地理位置的測試用戶
+const testUserWithLocation = {
+  ...testUser,
+  location: {
+    coordinates: [121.5654, 25.0330] // 台北市座標
   }
 };
 

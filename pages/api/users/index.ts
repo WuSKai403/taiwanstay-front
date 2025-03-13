@@ -92,7 +92,7 @@ async function getUsers(req: NextApiRequest, res: NextApiResponse) {
 async function createUser(req: NextApiRequest, res: NextApiResponse) {
   try {
     // 從請求體中獲取用戶數據
-    const { name, email, password, role = UserRole.USER } = req.body;
+    const { name, email, password, role = UserRole.USER, location, profile = {} } = req.body;
 
     // 基本驗證
     if (!name || !email || !password) {
@@ -120,12 +120,12 @@ async function createUser(req: NextApiRequest, res: NextApiResponse) {
 
     // 創建新用戶
     // 注意：在實際應用中，應該對密碼進行加密
-    const newUser = new User({
+    const userData = {
       name,
       email,
       password, // 實際應用中應該使用bcrypt等工具加密
       role,
-      profile: {},
+      profile: { ...profile },
       privacySettings: {
         email: 'PRIVATE',
         phone: 'PRIVATE',
@@ -153,7 +153,17 @@ async function createUser(req: NextApiRequest, res: NextApiResponse) {
         languages: 'PRIVATE',
         bio: 'PRIVATE'
       }
-    });
+    };
+
+    // 如果提供了有效的位置資訊，則添加到用戶資料中
+    if (location && location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
+      (userData.profile as any).location = {
+        type: 'Point',
+        coordinates: location.coordinates
+      };
+    }
+
+    const newUser = new User(userData);
 
     await newUser.save();
 

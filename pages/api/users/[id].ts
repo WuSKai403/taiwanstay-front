@@ -53,7 +53,7 @@ async function getUser(req: NextApiRequest, res: NextApiResponse, id: string) {
 async function updateUser(req: NextApiRequest, res: NextApiResponse, id: string) {
   try {
     // 從請求體中獲取更新數據
-    const { name, email, profile, role, privacySettings } = req.body;
+    const { name, email, profile, role, privacySettings, location } = req.body;
 
     // 查詢用戶
     const user = await User.findById(id);
@@ -81,6 +81,20 @@ async function updateUser(req: NextApiRequest, res: NextApiResponse, id: string)
         ...user.profile,
         ...profile
       };
+    }
+
+    // 如果提供了有效的位置資訊，則更新位置資料
+    if (location) {
+      if (location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
+        // 有效的位置資訊
+        user.profile.location = {
+          type: 'Point',
+          coordinates: location.coordinates
+        };
+      } else if (location === null) {
+        // 明確移除位置資訊
+        user.profile.location = undefined;
+      }
     }
 
     // 更新隱私設置
