@@ -8,6 +8,7 @@ import Host from '@/models/Host';
 import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
 import { UserRole } from '@/types';
 import { isAdmin } from '@/utils/roleUtils';
+import { getSession } from 'next-auth/react';
 
 /**
  * @swagger
@@ -121,13 +122,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     await connectToDatabase();
 
+    // 獲取用戶會話
+    const session = await getSession({ req });
+
+    // 檢查用戶是否已登入
+    if (!session || !session.user) {
+      return res.status(401).json({ message: '未授權，請先登入' });
+    }
+
+    // 確保用戶ID存在
+    const userId = session.user.id;
+    if (!userId) {
+      return res.status(401).json({ message: '無效的用戶ID' });
+    }
+
     switch (req.method) {
       case 'GET':
-        return getApplications(req, res);
+        return getApplications(req, res, userId);
       case 'POST':
-        return createApplication(req, res);
+        return createApplication(req, res, userId);
       default:
-        return res.status(405).json({ success: false, message: '方法不允許' });
+        return res.status(405).json({ message: '方法不允許' });
     }
   } catch (error: any) {
     console.error('申請API錯誤:', error);
@@ -138,72 +153,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 /**
  * 獲取申請列表
  */
-async function getApplications(req: NextApiRequest, res: NextApiResponse) {
+async function getApplications(req: NextApiRequest, res: NextApiResponse, userId: string) {
   try {
-    // 檢查用戶是否已登入
-    const session = await getServerSession(req, res, authOptions);
-    if (!session) {
-      return res.status(401).json({ success: false, message: '未授權' });
-    }
-
-    const {
-      limit = 10,
-      page = 1,
-      status,
-      opportunityId,
-      hostId,
-      sort = 'createdAt',
-      order = 'desc'
-    } = req.query;
-
-    const limitNum = parseInt(limit as string);
-    const pageNum = parseInt(page as string);
-    const skip = (pageNum - 1) * limitNum;
+    // 從查詢參數中獲取分頁和排序信息
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+    const sort = req.query.sort as string || 'createdAt';
+    const order = req.query.order as string || 'desc';
+    const status = req.query.status as string;
 
     // 構建查詢條件
-    const query: any = {};
-
-    // 根據用戶角色設置查詢條件
-    const userIsAdmin = isAdmin(session.user);
-
-    if (!userIsAdmin) {
-      // 普通用戶只能查看自己的申請
-      query.userId = session.user.id;
-    }
-
+    const query: any = { userId };
     if (status) {
       query.status = status;
     }
 
-    if (opportunityId) {
-      query.opportunityId = opportunityId;
-    }
-
-    if (hostId) {
-      query.hostId = hostId;
-    }
-
-    // 獲取總數
-    const total = await Application.countDocuments(query);
-
-    // 獲取申請列表
+    // 執行查詢
     const applications = await Application.find(query)
-      .sort({ [sort as string]: order === 'desc' ? -1 : 1 })
+      .populate('opportunityId', 'title slug shortDescription type location media')
+      .populate('hostId', 'name profileImage')
+      .sort({ [sort]: order === 'asc' ? 1 : -1 })
       .skip(skip)
-      .limit(limitNum)
-      .populate('opportunityId', 'title slug location')
-      .populate('hostId', 'name slug')
-      .select('-__v');
+      .limit(limit);
 
     return res.status(200).json({
       success: true,
       data: {
         applications,
         pagination: {
-          total,
-          page: pageNum,
-          limit: limitNum,
-          pages: Math.ceil(total / limitNum)
+          total: applications.length,
+          page: page,
+          limit: limit,
+          pages: Math.ceil(applications.length / limit)
         }
       }
     });
@@ -216,7 +198,7 @@ async function getApplications(req: NextApiRequest, res: NextApiResponse) {
 /**
  * 創建申請
  */
-async function createApplication(req: NextApiRequest, res: NextApiResponse) {
+async function createApplication(req: NextApiRequest, res: NextApiResponse, userId: string) {
   try {
     // 檢查用戶是否已登入
     const session = await getServerSession(req, res, authOptions);
@@ -239,7 +221,7 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse) {
 
     // 檢查用戶是否已經申請過該工作機會
     const existingApplication = await Application.findOne({
-      userId: session.user.id,
+      userId: userId,
       opportunityId
     });
 
@@ -249,14 +231,14 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse) {
 
     // 創建申請
     const application = await Application.create({
-      userId: session.user.id,
+      userId: userId,
       opportunityId,
       hostId: opportunity.hostId,
       status: ApplicationStatus.PENDING,
       applicationDetails,
       communications: {
         messages: [{
-          sender: session.user.id,
+          sender: userId,
           content: applicationDetails.message,
           timestamp: new Date(),
           read: false
