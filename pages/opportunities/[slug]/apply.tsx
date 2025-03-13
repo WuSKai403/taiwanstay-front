@@ -5,8 +5,9 @@ import { useSession } from 'next-auth/react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
-import { OpportunityType } from '../../../models/enums/OpportunityType';
-import { connectToDatabase } from '../../../lib/mongodb';
+import { OpportunityType } from '@/models/enums/OpportunityType';
+import { connectToDatabase } from '@/lib/mongodb';
+import Layout from '@/components/layout/Layout';
 
 // 定義申請表單數據接口
 interface ApplicationFormData {
@@ -227,12 +228,7 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
   }
 
   return (
-    <>
-      <Head>
-        <title>申請 {opportunity.title} - TaiwanStay</title>
-        <meta name="description" content={`申請 ${opportunity.title} 的工作機會`} />
-      </Head>
-
+    <Layout title={`申請 ${opportunity.title} - TaiwanStay`} description={`申請 ${opportunity.title} 的工作機會`}>
       <div className="bg-gray-50 min-h-screen">
         {/* 頁面標題 */}
         <div className="bg-primary-600 py-6 px-4 sm:px-6 lg:px-8 text-white">
@@ -557,7 +553,7 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
           )}
         </div>
       </div>
-    </>
+    </Layout>
   );
 };
 

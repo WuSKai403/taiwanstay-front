@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 import { OpportunityType } from '../../models/enums/OpportunityType';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
+import Layout from '../../components/layout/Layout';
 
 // 機會類型標籤顏色映射
 const typeColorMap = {
@@ -269,12 +270,7 @@ const OpportunitiesPage: NextPage = () => {
   };
 
   return (
-    <>
-      <Head>
-        <title>探索工作機會 - TaiwanStay</title>
-        <meta name="description" content="探索台灣各地的工作換宿機會，體驗不同的生活方式" />
-      </Head>
-
+    <Layout title="探索工作機會 - TaiwanStay" description="探索台灣各地的工作換宿機會，體驗不同的生活方式">
       <div className="bg-gray-50 min-h-screen">
         {/* 頁面標題 */}
         <div className="bg-primary-600 py-12 px-4 sm:px-6 lg:px-8 text-white">
@@ -422,38 +418,40 @@ const OpportunitiesPage: NextPage = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {opportunities.map((opportunity: Opportunity) => (
-                  <Link href={`/opportunities/${opportunity.slug}`} key={opportunity.id}>
-                    <a className="block bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="relative h-48 bg-gray-200">
-                        {opportunity.media && opportunity.media.images && opportunity.media.images[0] ? (
-                          <Image
-                            src={opportunity.media.images[0].url}
-                            alt={opportunity.title}
-                            layout="fill"
-                            objectFit="cover"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                            <span className="text-gray-400">無圖片</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <div className="flex items-center mb-2">
-                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded ${typeColorMap[opportunity.type as OpportunityType] || 'bg-gray-100 text-gray-800'}`}>
-                            {typeNameMap[opportunity.type as OpportunityType] || '其他'}
-                          </span>
-                          <span className="ml-2 text-xs text-gray-500">
-                            {opportunity.location?.city || opportunity.location?.region || '地點未指定'}
-                          </span>
+                  <Link
+                    href={`/opportunities/${opportunity.slug}`}
+                    key={opportunity.id}
+                    className="block bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                  >
+                    <div className="relative h-48 bg-gray-200">
+                      {opportunity.media && opportunity.media.images && opportunity.media.images[0] ? (
+                        <Image
+                          src={opportunity.media.images[0].url}
+                          alt={opportunity.title}
+                          layout="fill"
+                          objectFit="cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                          <span className="text-gray-400">無圖片</span>
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{opportunity.title}</h3>
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{opportunity.shortDescription}</p>
-                        <div className="flex items-center text-sm text-gray-500">
-                          <span>主辦方: {opportunity.host?.name || '未指定'}</span>
-                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <div className="flex items-center mb-2">
+                        <span className={`text-xs font-medium px-2.5 py-0.5 rounded ${typeColorMap[opportunity.type as OpportunityType] || 'bg-gray-100 text-gray-800'}`}>
+                          {typeNameMap[opportunity.type as OpportunityType] || '其他'}
+                        </span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          {opportunity.location?.city || opportunity.location?.region || '地點未指定'}
+                        </span>
                       </div>
-                    </a>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{opportunity.title}</h3>
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{opportunity.shortDescription}</p>
+                      <div className="flex items-center text-sm text-gray-500">
+                        <span>主辦方: {opportunity.host?.name || '未指定'}</span>
+                      </div>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -496,7 +494,7 @@ const OpportunitiesPage: NextPage = () => {
           </div>
         </div>
       </div>
-    </>
+    </Layout>
   );
 };
 

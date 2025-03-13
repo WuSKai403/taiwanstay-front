@@ -10,6 +10,7 @@ import SocialMediaIcons from '../../components/SocialMediaIcons';
 import { connectToDatabase } from '../../lib/mongodb';
 import { Opportunity } from '../../models/index';
 import { useSession } from 'next-auth/react';
+import Layout from '../../components/layout/Layout';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('../../components/MapComponent'), {
@@ -273,12 +274,7 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
   }
 
   return (
-    <>
-      <Head>
-        <title>{opportunity.title} - TaiwanStay</title>
-        <meta name="description" content={opportunity.shortDescription} />
-      </Head>
-
+    <Layout title={`${opportunity.title} - TaiwanStay`} description={opportunity.shortDescription}>
       <div className="bg-gray-50 min-h-screen">
         {/* 頁面標題 */}
         <div className="bg-primary-600 py-8 px-4 sm:px-6 lg:px-8 text-white">
@@ -858,7 +854,7 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
           </div>
         </div>
       </div>
-    </>
+    </Layout>
   );
 };
 

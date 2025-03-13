@@ -1,7 +1,7 @@
 import { ReactNode, useState } from 'react';
 import Head from 'next/head';
 import Header from './Header';
-// import Footer from './Footer';
+import Footer from './Footer';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 
@@ -52,7 +52,7 @@ export default function Layout({
         {children}
       </main>
 
-      {/* {showFooter && <Footer />} */}
+      {showFooter && <Footer />}
     </div>
   );
 }

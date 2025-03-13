@@ -28,20 +28,21 @@ export default function Navbar({
       </button>
       {status !== 'loading' &&
         (session?.user ? (
-          <Link href={`/profile/${session.user.id || ''}`}>
-            <a className="w-8 h-8 rounded-full overflow-hidden">
-              <Image
-                src={
-                  session.user.image ||
-                  `https://avatar.tobi.sh/${session.user.name}`
-                }
-                alt={session.user.name || 'User'}
-                width={300}
-                height={300}
-                placeholder="blur"
-                blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQYV2PYsGHDfwAHNAMQumvbogAAAABJRU5ErkJggg=="
-              />
-            </a>
+          <Link
+            href={`/profile/${session.user.id || ''}`}
+            className="w-8 h-8 rounded-full overflow-hidden"
+          >
+            <Image
+              src={
+                session.user.image ||
+                `https://avatar.tobi.sh/${session.user.name}`
+              }
+              alt={session.user.name || 'User'}
+              width={300}
+              height={300}
+              placeholder="blur"
+              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQYV2PYsGHDfwAHNAMQumvbogAAAABJRU5ErkJggg=="
+            />
           </Link>
         ) : (
           <button
