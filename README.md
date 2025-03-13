@@ -28,6 +28,51 @@ You will need to create a [GitHub OAuth App](https://docs.github.com/en/develope
 
 https://mongodb.vercel.app
 
+## Testing
+
+This project uses Jest for testing. The tests are organized into three categories:
+
+- **Unit Tests**: Test individual components and functions in isolation
+- **Integration Tests**: Test the interaction between different parts of the application
+- **End-to-End Tests**: Test the complete application flow
+
+### Running Tests
+
+To run the tests, you need to have Node.js installed on your machine. Then, you can use the following commands:
+
+```bash
+# Install dependencies
+npm install
+
+# Run all tests
+npm test
+
+# Run tests in watch mode (useful during development)
+npm run test:watch
+
+# Generate test coverage report
+npm run test:coverage
+```
+
+### Test Environment
+
+The tests use an in-memory MongoDB server for database operations, so you don't need to have MongoDB installed locally. The test environment is configured in the following files:
+
+- `jest.config.js`: Jest configuration
+- `jest.setup.js`: Global test setup
+- `scripts/test-setup.js`: Database setup for tests
+- `.env.test`: Environment variables for testing
+
+### Continuous Integration
+
+This project uses GitHub Actions for continuous integration. The CI workflow is defined in `.github/workflows/test.yml`. It runs automatically on push to main and development branches, and on pull requests to these branches.
+
+The CI process includes:
+1. Installing dependencies
+2. Running linting checks
+3. Running all tests
+4. Uploading coverage reports to Codecov
+
 ## Vercel + MongoDB Integration
 
 https://vercel.com/integrations/mongodbatlas
@@ -39,3 +84,6 @@ https://vercel.com/integrations/mongodbatlas
 - [NextAuth.js](https://next-auth.js.org/)
 - [MongoDB Atlas](https://www.mongodb.com/atlas/database)
 - [Vercel](https://vercel.com/)
+- [Jest](https://jestjs.io/) (Testing)
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/) (Component Testing)
+- [MongoDB Memory Server](https://github.com/nodkz/mongodb-memory-server) (Testing Database)
