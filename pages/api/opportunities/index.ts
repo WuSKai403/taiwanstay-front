@@ -57,16 +57,29 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
         shortDescription: opportunity.shortDescription,
         status: opportunity.status,
         type: opportunity.type,
-        location: opportunity.location,
+        location: {
+          city: opportunity.location?.city,
+          region: opportunity.location?.region,
+          coordinates: opportunity.location?.coordinates?.coordinates ?
+            [opportunity.location.coordinates.coordinates[0], opportunity.location.coordinates.coordinates[1]] :
+            undefined
+        },
         host: opportunity.hostId ? {
           id: (opportunity.hostId as any)._id,
           name: (opportunity.hostId as any).name,
           description: (opportunity.hostId as any).description
         } : null,
+        media: opportunity.media,
         createdAt: opportunity.createdAt,
         updatedAt: opportunity.updatedAt
       })),
-      pagination
+      pagination: {
+        currentPage: pagination.currentPage,
+        totalPages: pagination.totalPages,
+        totalItems: pagination.totalItems,
+        hasNextPage: pagination.hasNextPage,
+        hasPrevPage: pagination.hasPrevPage
+      }
     });
   } catch (error) {
     console.error('獲取工作機會列表失敗:', error);

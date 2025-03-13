@@ -2,3 +2,11 @@ name,slug,description,status,type,category,contactEmail,city,country,lat,lng
 有機農場,organic-farm,我們是一個專注於有機農業的小型農場，提供各種有機蔬果種植體驗和生態教育活動。,ACTIVE,FARM,永續農業,host1@example.com,宜蘭縣,台灣,24.7021,121.7377
 生態旅館,eco-lodge,位於山區的生態旅館，提供自然體驗和環境教育，致力於推廣永續旅遊。,ACTIVE,HOSTEL,生態旅遊,host2@example.com,南投縣,台灣,23.9609,120.9720
 文化工作室,cultural-studio,專注於台灣傳統文化保存和推廣的工作室，提供各種文化體驗和工藝學習機會。,ACTIVE,ART_CENTER,文化保存,host3@example.com,台南市,台灣,22.9997,120.2270
+蘭嶼藍海潛店,lanyu-blue-ocean-dive,蘭嶼專業潛水中心，提供潛水課程、導潛服務和海洋生態教育，致力於海洋保育。,ACTIVE,OUTDOOR_ACTIVITY,海洋活動,lanyu.dive@example.com,蘭嶼,台灣,22.0444,121.5503
+綠島海龜潛水,green-island-turtle-dive,綠島資深潛水中心，專注於海龜保育和珊瑚礁生態教育，提供專業潛水體驗。,ACTIVE,OUTDOOR_ACTIVITY,海洋活動,green.dive@example.com,綠島,台灣,22.6611,121.4925
+恆春陽光民宿,hengchun-sunshine-bnb,位於恆春古城附近的特色民宿，提供在地文化體驗和墾丁自然生態導覽。,ACTIVE,HOMESTAY,生態旅遊,hengchun.bnb@example.com,恆春,台灣,22.0021,120.7444
+小琉球海景民宿,liuqiu-seaview-bnb,小琉球海景第一排民宿，專注於海龜生態保育和海洋環境教育活動。,ACTIVE,HOMESTAY,生態旅遊,liuqiu.bnb@example.com,小琉球,台灣,22.3425,120.3699
+蘭嶼拼板舟民宿,lanyu-canoe-homestay,由達悟族人經營的特色民宿，提供傳統文化體驗和海洋活動。,ACTIVE,HOMESTAY,文化保存,lanyu.homestay@example.com,蘭嶼,台灣,22.0541,121.5294
+綠島星空民宿,green-island-starry-bnb,綠島特色民宿，提供夜間觀星和海洋生態體驗，致力於環境永續。,ACTIVE,HOMESTAY,生態旅遊,green.starry@example.com,綠島,台灣,22.6542,121.4836
+恆春珊瑚潛水,hengchun-coral-dive,墾丁專業潛水中心，專注於珊瑚礁保育和海洋教育，提供多樣化潛水課程。,ACTIVE,OUTDOOR_ACTIVITY,海洋活動,hengchun.dive@example.com,恆春,台灣,21.9458,120.7892
+小琉球海龜潛店,liuqiu-turtle-dive,小琉球專業潛水中心，以海龜保育為主題，提供浮潛和潛水體驗。,ACTIVE,OUTDOOR_ACTIVITY,海洋活動,liuqiu.dive@example.com,小琉球,台灣,22.3392,120.3631

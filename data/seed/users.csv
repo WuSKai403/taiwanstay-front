@@ -10,3 +10,11 @@ name,email,password,role,image
 組織管理員1,org1@example.com,password123,host,https://picsum.photos/seed/org1/200/200
 組織管理員2,org2@example.com,password123,host,https://picsum.photos/seed/org2/200/200
 系統管理員,admin@example.com,password123,admin,https://picsum.photos/seed/admin/200/200
+蘭嶼藍海潛店管理員,lanyu.dive@example.com,password123,host,https://picsum.photos/seed/lanyu1/200/200
+綠島海龜潛水管理員,green.dive@example.com,password123,host,https://picsum.photos/seed/green1/200/200
+恆春陽光民宿管理員,hengchun.bnb@example.com,password123,host,https://picsum.photos/seed/hengchun1/200/200
+小琉球海景民宿管理員,liuqiu.bnb@example.com,password123,host,https://picsum.photos/seed/liuqiu1/200/200
+蘭嶼拼板舟民宿管理員,lanyu.homestay@example.com,password123,host,https://picsum.photos/seed/lanyu2/200/200
+綠島星空民宿管理員,green.starry@example.com,password123,host,https://picsum.photos/seed/green2/200/200
+恆春珊瑚潛水管理員,hengchun.dive@example.com,password123,host,https://picsum.photos/seed/hengchun2/200/200
+小琉球海龜潛店管理員,liuqiu.dive@example.com,password123,host,https://picsum.photos/seed/liuqiu2/200/200

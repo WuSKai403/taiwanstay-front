@@ -59,7 +59,7 @@ const typeNameMap = {
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('../../components/MapComponent'), {
   ssr: false,
-  loading: () => <div className="h-96 bg-gray-200 flex items-center justify-center">地圖載入中...</div>
+  loading: () => <div className="h-[600px] bg-gray-200 flex items-center justify-center">地圖載入中...</div>
 });
 
 // 定義機會類型接口
@@ -102,6 +102,7 @@ const OpportunitiesPage: NextPage = () => {
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState('newest'); // 排序選項
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list'); // 視圖模式：列表或地圖
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -109,6 +110,7 @@ const OpportunitiesPage: NextPage = () => {
     hasNextPage: false,
     hasPrevPage: false
   });
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false); // 追蹤初始載入是否完成
   const router = useRouter();
 
   // 從URL查詢參數中獲取初始值
@@ -190,9 +192,13 @@ const OpportunitiesPage: NextPage = () => {
         hasNextPage: data.pagination.hasNextPage,
         hasPrevPage: data.pagination.hasPrevPage
       });
+
+      // 標記初始載入完成
+      setInitialLoadComplete(true);
     } catch (err) {
       setError((err as Error).message);
       console.error('獲取機會列表錯誤:', err);
+      setInitialLoadComplete(true); // 即使出錯也標記為完成
     } finally {
       setLoading(false);
     }
@@ -269,6 +275,38 @@ const OpportunitiesPage: NextPage = () => {
     }, undefined, { shallow: true });
   };
 
+  // 處理視圖模式切換
+  const handleViewModeChange = (mode: 'list' | 'map') => {
+    setViewMode(mode);
+  };
+
+  // 將機會數據轉換為地圖標記
+  const opportunityMarkers = opportunities
+    .filter(opp => opp.location?.coordinates)
+    .map(opp => ({
+      id: opp.id,
+      position: [
+        opp.location!.coordinates![1],
+        opp.location!.coordinates![0]
+      ] as [number, number],
+      title: opp.title,
+      popupContent: (
+        `<div class="text-center">
+          <h3 class="font-semibold">${opp.title}</h3>
+          <p class="text-sm text-gray-600">${opp.location?.city || ''}</p>
+          <a href="/opportunities/${opp.slug}" class="text-primary-600 hover:underline text-sm">查看詳情</a>
+        </div>`
+      )
+    }));
+
+  // 計算地圖中心點（所有機會的平均位置）
+  const mapCenter = opportunityMarkers.length > 0
+    ? [
+        opportunityMarkers.reduce((sum, marker) => sum + marker.position[0], 0) / opportunityMarkers.length,
+        opportunityMarkers.reduce((sum, marker) => sum + marker.position[1], 0) / opportunityMarkers.length
+      ] as [number, number]
+    : [23.6978, 120.9605] as [number, number]; // 台灣中心點
+
   return (
     <Layout title="探索工作機會 - TaiwanStay" description="探索台灣各地的工作換宿機會，體驗不同的生活方式">
       <div className="bg-gray-50 min-h-screen">
@@ -304,7 +342,7 @@ const OpportunitiesPage: NextPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
               <div>
                 <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
-                  工作類型
+                  機會類型
                 </label>
                 <select
                   id="type"
@@ -314,9 +352,9 @@ const OpportunitiesPage: NextPage = () => {
                   onChange={handleFilterChange}
                 >
                   <option value="">所有類型</option>
-                  {Object.values(OpportunityType).map((type) => (
+                  {Object.entries(typeNameMap).map(([type, name]) => (
                     <option key={type} value={type}>
-                      {typeNameMap[type]}
+                      {name}
                     </option>
                   ))}
                 </select>
@@ -334,27 +372,11 @@ const OpportunitiesPage: NextPage = () => {
                   onChange={handleFilterChange}
                 >
                   <option value="">所有地點</option>
-                  <option value="台北市">台北市</option>
-                  <option value="新北市">新北市</option>
-                  <option value="桃園市">桃園市</option>
-                  <option value="台中市">台中市</option>
-                  <option value="台南市">台南市</option>
-                  <option value="高雄市">高雄市</option>
-                  <option value="宜蘭縣">宜蘭縣</option>
-                  <option value="花蓮縣">花蓮縣</option>
-                  <option value="台東縣">台東縣</option>
-                  <option value="屏東縣">屏東縣</option>
-                  <option value="南投縣">南投縣</option>
-                  <option value="雲林縣">雲林縣</option>
-                  <option value="嘉義縣">嘉義縣</option>
-                  <option value="嘉義市">嘉義市</option>
-                  <option value="新竹縣">新竹縣</option>
-                  <option value="新竹市">新竹市</option>
-                  <option value="苗栗縣">苗栗縣</option>
-                  <option value="彰化縣">彰化縣</option>
-                  <option value="澎湖縣">澎湖縣</option>
-                  <option value="金門縣">金門縣</option>
-                  <option value="連江縣">連江縣</option>
+                  <option value="north">北部</option>
+                  <option value="central">中部</option>
+                  <option value="south">南部</option>
+                  <option value="east">東部</option>
+                  <option value="islands">離島</option>
                 </select>
               </div>
 
@@ -395,103 +417,182 @@ const OpportunitiesPage: NextPage = () => {
             </div>
           </div>
 
-          {/* 機會列表 */}
-          <div className="bg-white shadow-sm rounded-lg p-4">
-            {loading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
-              </div>
-            ) : error ? (
-              <div className="text-center py-12">
-                <p className="text-red-500">{error}</p>
-                <button
-                  onClick={fetchOpportunities}
-                  className="mt-4 bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors"
-                >
-                  重試
-                </button>
-              </div>
-            ) : opportunities.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500">沒有找到符合條件的工作機會</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {opportunities.map((opportunity: Opportunity) => (
-                  <Link
-                    href={`/opportunities/${opportunity.slug}`}
-                    key={opportunity.id}
-                    className="block bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-                  >
-                    <div className="relative h-48 bg-gray-200">
-                      {opportunity.media && opportunity.media.images && opportunity.media.images[0] ? (
-                        <Image
-                          src={opportunity.media.images[0].url}
-                          alt={opportunity.title}
-                          layout="fill"
-                          objectFit="cover"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                          <span className="text-gray-400">無圖片</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <div className="flex items-center mb-2">
-                        <span className={`text-xs font-medium px-2.5 py-0.5 rounded ${typeColorMap[opportunity.type as OpportunityType] || 'bg-gray-100 text-gray-800'}`}>
-                          {typeNameMap[opportunity.type as OpportunityType] || '其他'}
-                        </span>
-                        <span className="ml-2 text-xs text-gray-500">
-                          {opportunity.location?.city || opportunity.location?.region || '地點未指定'}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{opportunity.title}</h3>
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{opportunity.shortDescription}</p>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <span>主辦方: {opportunity.host?.name || '未指定'}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* 分頁控制 */}
-            {!loading && !error && opportunities.length > 0 && (
-              <div className="flex justify-center mt-8">
-                <nav className="flex items-center">
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage - 1)}
-                    disabled={!pagination.hasPrevPage}
-                    className={`px-3 py-1 rounded-md mr-2 ${
-                      pagination.hasPrevPage
-                        ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    }`}
-                  >
-                    上一頁
-                  </button>
-
-                  <span className="text-gray-700">
-                    第 {pagination.currentPage} 頁，共 {pagination.totalPages} 頁
-                  </span>
-
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage + 1)}
-                    disabled={!pagination.hasNextPage}
-                    className={`px-3 py-1 rounded-md ml-2 ${
-                      pagination.hasNextPage
-                        ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    }`}
-                  >
-                    下一頁
-                  </button>
-                </nav>
-              </div>
-            )}
+          {/* 視圖切換按鈕 */}
+          <div className="flex justify-between items-center mb-6">
+            <div className="text-gray-700">
+              {!initialLoadComplete || loading ? (
+                <span className="inline-flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-primary-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  載入中...
+                </span>
+              ) : (
+                <>共找到 <span className="font-semibold">{pagination.totalItems}</span> 個機會</>
+              )}
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => handleViewModeChange('list')}
+                className={`px-4 py-2 rounded-md ${
+                  viewMode === 'list'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                列表視圖
+              </button>
+              <button
+                onClick={() => handleViewModeChange('map')}
+                className={`px-4 py-2 rounded-md ${
+                  viewMode === 'map'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                地圖視圖
+              </button>
+            </div>
           </div>
+
+          {/* 內容區域 - 根據視圖模式顯示不同內容 */}
+          {!initialLoadComplete || loading ? (
+            <div className="flex flex-col justify-center items-center py-12 bg-white rounded-lg shadow-sm">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500 mb-4"></div>
+              <p className="text-gray-600">正在載入機會資料...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 p-4 rounded-md text-red-800">
+              <p>{error}</p>
+            </div>
+          ) : (
+            <>
+              {/* 列表視圖 */}
+              {viewMode === 'list' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {opportunities.map((opportunity) => (
+                    <Link key={opportunity.id} href={`/opportunities/${opportunity.slug}`}>
+                      <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                        <div className="relative h-48">
+                          {opportunity.media?.images && opportunity.media.images.length > 0 ? (
+                            <Image
+                              src={opportunity.media.images[0].url}
+                              alt={opportunity.media.images[0].alt || opportunity.title}
+                              fill
+                              style={{ objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                              <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                              </svg>
+                            </div>
+                          )}
+                          <div className="absolute top-2 left-2">
+                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-md ${typeColorMap[opportunity.type]}`}>
+                              {typeNameMap[opportunity.type]}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1">{opportunity.title}</h3>
+                          {opportunity.shortDescription && (
+                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">{opportunity.shortDescription}</p>
+                          )}
+                          <div className="flex items-center text-gray-500 text-sm">
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                            <span>{opportunity.location?.city || '地點未指定'}</span>
+                          </div>
+                          {opportunity.host && (
+                            <div className="flex items-center text-gray-500 text-sm mt-1">
+                              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                              </svg>
+                              <span>{opportunity.host.name}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* 地圖視圖 */}
+              {viewMode === 'map' && (
+                <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  <div className="h-[600px]">
+                    <MapComponent
+                      position={mapCenter}
+                      markers={opportunityMarkers}
+                      zoom={8}
+                      height="600px"
+                      enableClustering={true}
+                      onMarkerClick={(id) => {
+                        const opportunity = opportunities.find(opp => opp.id === id);
+                        if (opportunity) {
+                          router.push(`/opportunities/${opportunity.slug}`);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 分頁 */}
+              {pagination.totalPages > 1 && (
+                <div className="flex justify-center mt-8">
+                  <nav className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage - 1)}
+                      disabled={!pagination.hasPrevPage}
+                      className={`px-3 py-1 rounded-md ${
+                        pagination.hasPrevPage
+                          ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      上一頁
+                    </button>
+                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`px-3 py-1 rounded-md ${
+                          page === pagination.currentPage
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handlePageChange(pagination.currentPage + 1)}
+                      disabled={!pagination.hasNextPage}
+                      className={`px-3 py-1 rounded-md ${
+                        pagination.hasNextPage
+                          ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      }`}
+                    >
+                      下一頁
+                    </button>
+                  </nav>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </Layout>

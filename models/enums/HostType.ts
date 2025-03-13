@@ -11,5 +11,6 @@ export enum HostType {
   RESTAURANT = 'RESTAURANT',         // 餐廳
   ART_CENTER = 'ART_CENTER',         // 藝術中心
   ANIMAL_SHELTER = 'ANIMAL_SHELTER', // 動物收容所
+  OUTDOOR_ACTIVITY = 'OUTDOOR_ACTIVITY', // 戶外活動
   OTHER = 'OTHER'                    // 其他
 }
