@@ -20,7 +20,7 @@ interface ApplicationFormData {
     pets: boolean;
     details?: string;
   };
-  answers: {
+  answers?: {
     question: string;
     answer: string;
   }[];
@@ -70,7 +70,7 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
       pets: false,
       details: ''
     },
-    answers: opportunity.applicationProcess?.questions
+    answers: opportunity.applicationProcess && opportunity.applicationProcess.questions
       ? opportunity.applicationProcess.questions.map(q => ({ question: q, answer: '' }))
       : [],
     specialRequirements: '',
@@ -131,6 +131,9 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
   // 處理問題回答變化
   const handleAnswerChange = (index: number, value: string) => {
     setFormData(prev => {
+      if (!prev.answers) {
+        return prev;
+      }
       const newAnswers = [...prev.answers];
       newAnswers[index] = { ...newAnswers[index], answer: value };
       return {
@@ -186,7 +189,7 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
             endDate: formData.endDate ? new Date(formData.endDate) : undefined,
             duration: formData.duration,
             travelingWith: formData.travelingWith,
-            answers: formData.answers,
+            answers: formData.answers || [],
             specialRequirements: formData.specialRequirements,
             dietaryRestrictions: formData.dietaryRestrictions,
             languages: formData.languages,
@@ -518,7 +521,7 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
                   </div>
 
                   {/* 主辦方自定義問題 */}
-                  {formData.answers.length > 0 && (
+                  {formData.answers && formData.answers.length > 0 && (
                     <div className="space-y-6">
                       <h4 className="text-md font-medium">主辦方問題</h4>
                       {formData.answers.map((item, index) => (
@@ -559,3 +562,44 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
 };
 
 export default ApplyPage;
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  // 從 URL 參數中提取 slug
+  const { slug } = context.params as { slug: string };
+
+  try {
+    // 連接到數據庫
+    await connectToDatabase();
+
+    // 發送 API 請求獲取機會詳情
+    const protocol = context.req.headers.host?.includes('localhost') ? 'http' : 'https';
+    const host = context.req.headers.host;
+    const response = await fetch(`${protocol}://${host}/api/opportunities/${slug}`);
+
+    if (!response.ok) {
+      // 如果 API 返回錯誤，返回 404 頁面
+      return {
+        notFound: true
+      };
+    }
+
+    const data = await response.json();
+
+    // 確保 applicationProcess 屬性存在
+    const opportunity = {
+      ...data.opportunity,
+      applicationProcess: data.opportunity.applicationProcess || { questions: [] }
+    };
+
+    return {
+      props: {
+        opportunity
+      }
+    };
+  } catch (error) {
+    console.error('獲取機會詳情失敗:', error);
+    return {
+      notFound: true
+    };
+  }
+};
