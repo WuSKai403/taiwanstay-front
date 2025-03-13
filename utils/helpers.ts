@@ -1,16 +1,5 @@
 import { Opportunity } from '../models/index';
-
-// 根據環境選擇不同的導入方式
-let nanoidModule;
-if (process.env.NODE_ENV === 'test') {
-  // 在測試環境中使用 CommonJS 導入
-  nanoidModule = require('./nanoid');
-} else {
-  // 在非測試環境中使用 ESM 導入
-  nanoidModule = require('nanoid');
-}
-
-const { nanoid } = nanoidModule;
+import { nanoid } from 'nanoid';
 
 /**
  * 生成唯一的公開 ID

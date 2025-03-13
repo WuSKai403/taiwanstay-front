@@ -10,25 +10,38 @@ interface Params extends ParsedUrlQuery {
 }
 
 export const getStaticPaths = async () => {
-  // You should remove this try-catch block once your MongoDB Cluster is fully provisioned
-  try {
-    await clientPromise;
-  } catch (e: any) {
-    // cluster is still provisioning
+  // 在開發環境中返回空路徑，使用 fallback 模式
+  if (process.env.NODE_ENV === 'development') {
     return {
       paths: [],
-      fallback: true
+      fallback: 'blocking'
     };
   }
 
-  const results = await getAllUsers();
-  const paths = results.flatMap(({ users }) =>
-    users.map((user) => ({ params: { username: user.username } }))
-  );
-  return {
-    paths,
-    fallback: true
-  };
+  // 在生產環境中嘗試獲取用戶列表
+  try {
+    await clientPromise;
+    const results = await getAllUsers();
+
+    // 確保用戶名是有效的字符串
+    const paths = results.flatMap(({ users }) =>
+      users
+        .filter(user => typeof user.username === 'string' && user.username.length > 0)
+        .map(user => ({ params: { username: user.username } }))
+    );
+
+    return {
+      paths,
+      fallback: 'blocking' // 使用 blocking 而不是 true，以避免閃爍
+    };
+  } catch (e: any) {
+    console.error('Error generating static paths:', e);
+    // 如果出錯，返回空路徑
+    return {
+      paths: [],
+      fallback: 'blocking'
+    };
+  }
 };
 
 export const getStaticProps: GetStaticProps = async (context) => {

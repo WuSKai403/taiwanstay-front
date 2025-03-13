@@ -3,9 +3,13 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { MongoDBAdapter } from '@next-auth/mongodb-adapter';
 import { clientPromise } from '../../../lib/mongodb';
 import { User } from '../../../models/index';
+import { UserRole } from '../../../models/enums';
 
 // 檢查環境變數是否開啟認證
 const isAuthEnabled = process.env.ENABLE_AUTH !== 'false';
+
+// 使用 any 類型來解決類型問題
+type AnyUser = any;
 
 export const authOptions: NextAuthOptions = {
   // 配置 MongoDB 適配器
@@ -26,14 +30,14 @@ export const authOptions: NextAuthOptions = {
         email: { label: '電子郵件', type: 'email' },
         password: { label: '密碼', type: 'password' }
       },
-      async authorize(credentials, req) {
+      async authorize(credentials, req): Promise<AnyUser> {
         // 如果認證被禁用，返回測試用戶
         if (!isAuthEnabled) {
           return {
             id: 'test-user-id',
             name: 'Test User',
             email: 'test@example.com',
-            role: 'USER'
+            role: UserRole.USER
           };
         }
 
@@ -93,8 +97,12 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       // 將令牌中的資料添加到會話中
       if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        // 使用類型斷言和安全的類型檢查
+        const id = typeof token.id === 'string' ? token.id : '';
+        session.user.id = id;
+
+        // 使用 as any 類型斷言來解決類型問題
+        session.user.role = (token.role || UserRole.USER) as any;
       }
       return session;
     }
