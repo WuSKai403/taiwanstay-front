@@ -1,0 +1,3 @@
+name,slug,description,status,type,contactEmail,city,country,lat,lng
+台灣永續發展協會,taiwan-sustainable-development,致力於推動台灣永續發展的非營利組織，關注環境保護、社區營造和文化保存。,ACTIVE,NGO,org1@example.com,台北市,台灣,25.0330,121.5654
+文化交流基金會,cultural-exchange-foundation,促進國際文化交流和理解的基金會，提供各種文化體驗和學習機會。,ACTIVE,FOUNDATION,org2@example.com,高雄市,台灣,22.6273,120.3014

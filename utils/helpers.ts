@@ -1,5 +1,4 @@
 import { Opportunity } from '../models/index';
-import { nanoid } from 'nanoid';
 
 /**
  * 生成唯一的公開 ID
@@ -7,7 +6,13 @@ import { nanoid } from 'nanoid';
  * @returns 生成的公開 ID
  */
 export function generatePublicId(size: number = 10): string {
-  return nanoid(size);
+  // 使用簡單的隨機字符串生成方法替代 nanoid
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < size; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
 /**

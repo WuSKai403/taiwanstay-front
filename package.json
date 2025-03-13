@@ -8,7 +8,8 @@
     "setup": "NODE_OPTIONS='--experimental-json-modules' node ./scripts/setup.mjs",
     "test": "npx jest",
     "test:watch": "npx jest --watch",
-    "test:ci": "npx jest --ci --forceExit"
+    "test:ci": "npx jest --ci --forceExit",
+    "seed": "ts-node scripts/seed-db.ts"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -24,6 +25,7 @@
     "@types/node": "^17.0.45",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.2.19",
+    "csv-parse": "^5.6.0",
     "date-fns": "^4.1.0",
     "dotenv": "^16.0.1",
     "js-cookie": "^3.0.1",

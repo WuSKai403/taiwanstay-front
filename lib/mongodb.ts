@@ -1,8 +1,17 @@
 import mongoose from 'mongoose';
 import { MongoClient } from 'mongodb';
 
-// MongoDB連接URI
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/taiwanstay';
+// 獲取環境變數
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+const MONGODB_DB = process.env.MONGODB_DB || 'taiwanstay';
+
+// 根據環境變數設定資料庫名稱
+const DB_NAME = NODE_ENV === 'production'
+  ? MONGODB_DB
+  : NODE_ENV === 'development'
+    ? `${MONGODB_DB}_dev`
+    : `${MONGODB_DB}_${NODE_ENV}`;
 
 // 連接選項
 const options = {
@@ -45,7 +54,7 @@ export const clientPromise = clientPromiseInternal;
  */
 export async function getDb() {
   const client = await clientPromise;
-  return client.db();
+  return client.db(DB_NAME);
 }
 
 /**
@@ -67,12 +76,14 @@ export async function connectToDatabase() {
 
   try {
     // 連接到MongoDB
-    const db = await mongoose.connect(MONGODB_URI);
+    const db = await mongoose.connect(MONGODB_URI, {
+      dbName: DB_NAME
+    });
 
     // 更新連接狀態
     isConnected = db.connection.readyState === 1;
 
-    console.log('MongoDB連接成功');
+    console.log(`MongoDB連接成功，使用資料庫: ${DB_NAME}`);
   } catch (error) {
     console.error('MongoDB連接失敗:', error);
     throw error;

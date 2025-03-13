@@ -1,0 +1,4 @@
+name,slug,description,status,type,category,contactEmail,city,country,lat,lng
+有機農場,organic-farm,我們是一個專注於有機農業的小型農場，提供各種有機蔬果種植體驗和生態教育活動。,ACTIVE,FARM,永續農業,host1@example.com,宜蘭縣,台灣,24.7021,121.7377
+生態旅館,eco-lodge,位於山區的生態旅館，提供自然體驗和環境教育，致力於推廣永續旅遊。,ACTIVE,HOSTEL,生態旅遊,host2@example.com,南投縣,台灣,23.9609,120.9720
+文化工作室,cultural-studio,專注於台灣傳統文化保存和推廣的工作室，提供各種文化體驗和工藝學習機會。,ACTIVE,ART_CENTER,文化保存,host3@example.com,台南市,台灣,22.9997,120.2270

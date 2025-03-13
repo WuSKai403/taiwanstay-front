@@ -1,0 +1,12 @@
+name,email,password,role,image
+測試用戶1,user1@example.com,password123,user,https://picsum.photos/seed/user1/200/200
+測試用戶2,user2@example.com,password123,user,https://picsum.photos/seed/user2/200/200
+測試用戶3,user3@example.com,password123,user,https://picsum.photos/seed/user3/200/200
+測試用戶4,user4@example.com,password123,user,https://picsum.photos/seed/user4/200/200
+測試用戶5,user5@example.com,password123,user,https://picsum.photos/seed/user5/200/200
+主辦方管理員1,host1@example.com,password123,host,https://picsum.photos/seed/host1/200/200
+主辦方管理員2,host2@example.com,password123,host,https://picsum.photos/seed/host2/200/200
+主辦方管理員3,host3@example.com,password123,host,https://picsum.photos/seed/host3/200/200
+組織管理員1,org1@example.com,password123,host,https://picsum.photos/seed/org1/200/200
+組織管理員2,org2@example.com,password123,host,https://picsum.photos/seed/org2/200/200
+系統管理員,admin@example.com,password123,admin,https://picsum.photos/seed/admin/200/200
