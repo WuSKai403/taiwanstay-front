@@ -147,9 +147,15 @@ const OpportunitiesPage: NextPage = () => {
       // 構建查詢參數
       const params = new URLSearchParams();
 
-      // 添加分頁參數
-      params.append('page', pagination.currentPage.toString());
-      params.append('limit', '10');
+      // 添加分頁參數（僅在列表視圖模式下使用）
+      if (viewMode === 'list') {
+        params.append('page', pagination.currentPage.toString());
+        params.append('limit', '10');
+      } else {
+        // 地圖視圖模式下獲取所有機會
+        params.append('page', '1');
+        params.append('limit', '100'); // 設置較大的限制以獲取所有機會
+      }
 
       // 添加搜索參數
       if (searchTerm) {
@@ -207,9 +213,13 @@ const OpportunitiesPage: NextPage = () => {
   // 當依賴項變化時獲取數據
   useEffect(() => {
     if (router.isReady) {
-      fetchOpportunities();
+      // 只有在列表視圖模式下才通過這個 effect 獲取資料
+      // 地圖視圖模式下的資料獲取由 handleViewModeChange 函數處理
+      if (viewMode === 'list') {
+        fetchOpportunities();
+      }
     }
-  }, [pagination.currentPage, searchTerm, filters, sortOption, router.isReady]);
+  }, [pagination.currentPage, searchTerm, filters, sortOption, router.isReady, viewMode === 'list']);
 
   // 處理搜尋
   const handleSearch = (e: React.FormEvent) => {
@@ -277,7 +287,82 @@ const OpportunitiesPage: NextPage = () => {
 
   // 處理視圖模式切換
   const handleViewModeChange = (mode: 'list' | 'map') => {
-    setViewMode(mode);
+    // 如果切換到地圖視圖，先設置載入狀態
+    if (mode === 'map' && viewMode !== 'map') {
+      setLoading(true);
+      setInitialLoadComplete(false); // 重置初始載入狀態
+
+      // 使用 async/await 獲取資料
+      const fetchMapData = async () => {
+        try {
+          // 構建查詢參數
+          const params = new URLSearchParams();
+
+          // 地圖視圖模式下獲取所有機會
+          params.append('page', '1');
+          params.append('limit', '500'); // 設置更大的限制以確保獲取所有機會
+
+          // 添加搜索參數
+          if (searchTerm) {
+            params.append('search', searchTerm);
+          }
+
+          // 添加篩選參數
+          if (filters.type) params.append('type', filters.type);
+          if (filters.location) params.append('location', filters.location);
+          if (filters.duration) params.append('duration', filters.duration);
+          if (filters.accommodation) params.append('accommodation', filters.accommodation);
+
+          // 添加排序參數
+          if (sortOption === 'newest') {
+            params.append('sort', 'createdAt');
+            params.append('order', 'desc');
+          } else if (sortOption === 'oldest') {
+            params.append('sort', 'createdAt');
+            params.append('order', 'asc');
+          } else if (sortOption === 'popular') {
+            params.append('sort', 'stats.views');
+            params.append('order', 'desc');
+          }
+
+          // 發送請求
+          const response = await fetch(`/api/opportunities?${params.toString()}`);
+
+          if (!response.ok) {
+            throw new Error('獲取機會列表失敗');
+          }
+
+          const data = await response.json();
+
+          // 更新狀態
+          setOpportunities(data.opportunities);
+          setPagination({
+            currentPage: data.pagination.currentPage,
+            totalPages: data.pagination.totalPages,
+            totalItems: data.pagination.totalItems,
+            hasNextPage: data.pagination.hasNextPage,
+            hasPrevPage: data.pagination.hasPrevPage
+          });
+
+          // 標記初始載入完成
+          setInitialLoadComplete(true);
+        } catch (err) {
+          setError((err as Error).message);
+          console.error('獲取機會列表錯誤:', err);
+          setInitialLoadComplete(true); // 即使出錯也標記為完成
+        } finally {
+          setLoading(false);
+          // 確保在資料載入完成後再設置視圖模式
+          setViewMode(mode);
+        }
+      };
+
+      // 立即執行獲取資料的函數
+      fetchMapData();
+    } else {
+      // 如果切換到列表視圖，直接設置視圖模式
+      setViewMode(mode);
+    }
   };
 
   // 將機會數據轉換為地圖標記
@@ -285,16 +370,25 @@ const OpportunitiesPage: NextPage = () => {
     .filter(opp => opp.location?.coordinates)
     .map(opp => ({
       id: opp.id,
+      slug: opp.slug,
       position: [
         opp.location!.coordinates![1],
         opp.location!.coordinates![0]
       ] as [number, number],
       title: opp.title,
+      type: opp.type,
       popupContent: (
-        `<div class="text-center">
-          <h3 class="font-semibold">${opp.title}</h3>
-          <p class="text-sm text-gray-600">${opp.location?.city || ''}</p>
-          <a href="/opportunities/${opp.slug}" class="text-primary-600 hover:underline text-sm">查看詳情</a>
+        `<div class="p-4">
+          <h3 class="font-semibold text-base mb-2">${opp.title}</h3>
+          ${opp.location?.city ? `<p class="text-sm text-gray-600 mb-2">${opp.location.city}</p>` : ''}
+          ${opp.shortDescription ?
+            `<p class="text-sm text-gray-600 mb-3">${opp.shortDescription.substring(0, 100)}${opp.shortDescription.length > 100 ? '...' : ''}</p>`
+            : ''}
+          <div class="flex justify-center">
+            <a href="/opportunities/${opp.slug}" class="inline-block border border-primary-600 text-primary-600 text-xs px-4 py-1.5 rounded hover:bg-gray-50 hover:text-primary-700 hover:border-primary-700 transition-colors">
+              查看詳情
+            </a>
+          </div>
         </div>`
       )
     }));
@@ -531,20 +625,73 @@ const OpportunitiesPage: NextPage = () => {
               {/* 地圖視圖 */}
               {viewMode === 'map' && (
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <div className="h-[600px]">
+                  <div className="h-[600px] relative">
+                    {/* 只有在資料完全載入後才顯示地圖 */}
                     <MapComponent
                       position={mapCenter}
                       markers={opportunityMarkers}
-                      zoom={8}
+                      zoom={7}
                       height="600px"
                       enableClustering={true}
+                      showZoomControl={true}
+                      showLocationControl={false}
+                      dataFullyLoaded={!loading && initialLoadComplete}
                       onMarkerClick={(id) => {
-                        const opportunity = opportunities.find(opp => opp.id === id);
-                        if (opportunity) {
-                          router.push(`/opportunities/${opportunity.slug}`);
-                        }
+                        // 點擊標記時不做任何跳轉，只顯示彈窗
+                        // 用戶需要點擊彈窗中的"查看詳情"按鈕才會跳轉
+                        console.log('標記點擊:', id);
                       }}
                     />
+                  </div>
+                  <div className="p-4 border-t border-gray-200">
+                    <h3 className="text-lg font-semibold mb-2">地圖說明</h3>
+                    <p className="text-sm text-gray-600 mb-2">
+                      地圖上的標記代表各種工作機會的位置。數字表示該位置有多少個機會。
+                    </p>
+                    <div className="flex items-center mt-2">
+                      <div className="w-6 h-6 mr-2 relative">
+                        <div style={{
+                          width: '24px',
+                          height: '24px',
+                          backgroundColor: '#FFFFFF',
+                          borderRadius: '50%',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+                          border: '2px solid #2563EB'
+                        }}></div>
+                      </div>
+                      <span className="text-sm text-gray-700">單一機會</span>
+                    </div>
+                    <div className="flex items-center mt-2">
+                      <div className="w-6 h-6 mr-2 relative">
+                        <div style={{
+                          width: '24px',
+                          height: '24px',
+                          backgroundColor: '#FFFFFF',
+                          borderRadius: '50%',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+                          border: '2px solid #2563EB',
+                          position: 'relative'
+                        }}>
+                          <div style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            backgroundColor: '#2563EB',
+                            color: 'white',
+                            borderRadius: '50%',
+                            width: '18px',
+                            height: '18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            border: '1.5px solid white'
+                          }}>3</div>
+                        </div>
+                      </div>
+                      <span className="text-sm text-gray-700">多個機會</span>
+                    </div>
                   </div>
                 </div>
               )}

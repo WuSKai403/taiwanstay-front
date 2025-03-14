@@ -1,28 +1,40 @@
-import { useEffect, useRef } from 'react';
-import L from 'leaflet';
+import { useState, useEffect, useRef } from 'react';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet.locatecontrol/dist/L.Control.Locate.min.css';
+import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
+import { useLeafletMap } from './hooks/useLeafletMap';
+import { useMapMarkers, MapMarker } from './hooks/useMapMarkers';
 
-// 修復 Leaflet 默認圖標問題
-const fixLeafletIcon = () => {
-  // 重新定義默認圖標
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
+// 獲取機會類型的顯示名稱
+const getTypeDisplayName = (type: string): string => {
+  const typeNameMap: Record<string, string> = {
+    'FARMING': '農場體驗',
+    'GARDENING': '園藝工作',
+    'ANIMAL_CARE': '動物照顧',
+    'CONSTRUCTION': '建築工作',
+    'HOSPITALITY': '接待服務',
+    'COOKING': '烹飪工作',
+    'CLEANING': '清潔工作',
+    'CHILDCARE': '兒童照顧',
+    'ELDERLY_CARE': '老人照顧',
+    'TEACHING': '教學工作',
+    'LANGUAGE_EXCHANGE': '語言交流',
+    'CREATIVE': '創意工作',
+    'DIGITAL_NOMAD': '數位遊牧',
+    'ADMINISTRATION': '行政工作',
+    'MAINTENANCE': '維修工作',
+    'TOURISM': '旅遊工作',
+    'CONSERVATION': '保育工作',
+    'COMMUNITY': '社區工作',
+    'EVENT': '活動工作',
+    'OTHER': '其他機會',
+    'unknown': '未分類'
+  };
 
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: '/images/marker-icon-2x.png',
-    iconUrl: '/images/marker-icon.png',
-    shadowUrl: '/images/marker-shadow.png',
-  });
+  return typeNameMap[type] || '未知類型';
 };
-
-interface MapMarker {
-  position: [number, number]; // [緯度, 經度]
-  title: string;
-  id?: string;
-  popupContent?: React.ReactNode | string;
-}
 
 interface MapComponentProps {
   position: [number, number]; // 地圖中心點 [緯度, 經度]
@@ -31,6 +43,11 @@ interface MapComponentProps {
   height?: string; // 地圖高度
   onMarkerClick?: (markerId: string) => void; // 標記點點擊事件
   enableClustering?: boolean; // 是否啟用標記點聚合
+  showZoomControl?: boolean; // 是否顯示縮放控制項
+  showFullscreenControl?: boolean; // 是否顯示全屏控制項
+  showLocationControl?: boolean; // 是否顯示定位控制項
+  highlightedMarkerId?: string; // 高亮顯示的標記ID
+  dataFullyLoaded?: boolean; // 資料是否完全載入
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
@@ -39,107 +56,194 @@ const MapComponent: React.FC<MapComponentProps> = ({
   zoom = 13,
   height = '100%',
   onMarkerClick,
-  enableClustering = true
+  enableClustering = true,
+  showZoomControl = true,
+  showFullscreenControl = false,
+  showLocationControl = false,
+  highlightedMarkerId,
+  dataFullyLoaded = true // 默認為 true，向後兼容
 }) => {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markerClusterGroupRef = useRef<any>(null);
+  const [isLoading, setIsLoading] = useState(!dataFullyLoaded);
+  const componentIdRef = useRef(`map-${Math.random().toString(36).substr(2, 9)}`);
 
+  // 使用自定義 Hook 初始化地圖
+  const { mapRef, mapInstance, isMapReady } = useLeafletMap({
+    center: position,
+    zoom,
+    showZoomControl,
+    showFullscreenControl,
+    showLocationControl,
+  });
+
+  // 使用自定義 Hook 管理標記
+  useMapMarkers(mapInstance, markers, {
+    enableClustering,
+    highlightedMarkerId,
+    onMarkerClick,
+    clusteringZoomThreshold: 12, // 在縮放級別12以上停止聚合
+    groupZoomThreshold: 15, // 在縮放級別15以上才分組顯示
+  });
+
+  // 當資料載入狀態變化時更新 loading 狀態
   useEffect(() => {
-    // 修復 Leaflet 圖標問題
-    fixLeafletIcon();
+    setIsLoading(!dataFullyLoaded);
+  }, [dataFullyLoaded]);
 
-    if (!mapRef.current) return;
-
-    // 確保地圖容器已經渲染並可見
-    const initializeMap = () => {
-      // 確保 mapRef.current 不為 null
-      if (!mapRef.current) return;
-
-      // 確保只初始化一次地圖
-      if (!mapInstanceRef.current) {
-        // 初始化地圖
-        const map = L.map(mapRef.current).setView(position, zoom);
-
-        // 添加 OpenStreetMap 圖層
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        // 如果啟用聚合，創建一個標記點聚合組
-        if (enableClustering) {
-          markerClusterGroupRef.current = L.markerClusterGroup();
-          map.addLayer(markerClusterGroupRef.current);
-        }
-
-        mapInstanceRef.current = map;
-      }
-
-      const map = mapInstanceRef.current;
-      if (!map) return;
-
-      // 重新計算地圖大小，解決在隱藏/顯示容器時的問題
-      map.invalidateSize();
-
-      // 更新地圖中心點和縮放級別
-      map.setView(position, zoom);
-
-      // 清除所有現有標記
-      if (enableClustering && markerClusterGroupRef.current) {
-        markerClusterGroupRef.current.clearLayers();
-      } else {
-        map.eachLayer((layer) => {
-          if (layer instanceof L.Marker) {
-            map.removeLayer(layer);
-          }
-        });
-      }
-
-      // 如果有提供標記點數組，則添加多個標記
-      if (markers && markers.length > 0) {
-        markers.forEach((marker) => {
-          const markerInstance = L.marker(marker.position)
-            .bindPopup(marker.popupContent?.toString() || marker.title);
-
-          // 如果提供了點擊事件處理函數和標記ID，則添加點擊事件
-          if (onMarkerClick && marker.id) {
-            markerInstance.on('click', () => {
-              onMarkerClick(marker.id!);
-            });
+  return (
+    <div className="relative w-full h-full" id={componentIdRef.current}>
+      <div ref={mapRef} style={{ height, width: '100%' }} className="leaflet-map-container">
+        <style jsx global>{`
+          .leaflet-map-container {
+            position: relative;
+            z-index: 0;
           }
 
-          // 根據是否啟用聚合，將標記添加到不同的圖層
-          if (enableClustering && markerClusterGroupRef.current) {
-            markerClusterGroupRef.current.addLayer(markerInstance);
-          } else {
-            markerInstance.addTo(map);
+          .custom-popup .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            box-shadow: 0 3px 14px rgba(0,0,0,0.2);
           }
-        });
-      }
-      // 如果沒有提供標記點數組但有提供位置，則添加單個標記
-      else if (markers.length === 0 && position) {
-        L.marker(position)
-          .addTo(map)
-          .bindPopup("位置")
-          .openPopup();
-      }
-    };
 
-    // 使用 setTimeout 確保 DOM 已完全渲染
-    setTimeout(initializeMap, 0);
+          .custom-popup .leaflet-popup-content {
+            margin: 0;
+            padding: 0;
+          }
 
-    // 清理函數
-    return () => {
-      if (mapInstanceRef.current) {
-        // 在組件卸載時清理地圖
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-        markerClusterGroupRef.current = null;
-      }
-    };
-  }, [position, markers, zoom, enableClustering, onMarkerClick]);
+          .custom-popup .leaflet-popup-tip {
+            box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+          }
 
-  return <div ref={mapRef} className="w-full" style={{ height }} />;
+          /* 標記彈出窗口樣式 */
+          .marker-popup h3 {
+            margin-bottom: 0.5rem;
+          }
+
+          .marker-popup a {
+            text-decoration: none;
+          }
+
+          .marker-popup .view-details-btn {
+            cursor: pointer;
+          }
+
+          /* 自定義按鈕樣式 */
+          .custom-popup .leaflet-popup-content a {
+            display: inline-block;
+            border: 1px solid #2563EB;
+            color: #2563EB;
+            font-size: 0.75rem;
+            padding: 0.375rem 1rem;
+            border-radius: 0.25rem;
+            transition: all 0.2s;
+            text-decoration: none;
+          }
+
+          .custom-popup .leaflet-popup-content a:hover {
+            background-color: #f9fafb;
+            color: #1d4ed8;
+            border-color: #1d4ed8;
+          }
+
+          /* Fullscreen 控制項樣式 */
+          .leaflet-control-fullscreen a {
+            background: #fff url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABoAAAAaCAYAAACpSkzOAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAE8SURBVEiJ7ZU9SwNBEIafd0khYGFhYSHBIo1gY6cgFvoD/BFiYWEhFhYWFhYWIkIQsbCwEAJiYaGNWFiIhYVFCsFCBIs8i72QXC57H0aJhdnqduZ9dmZ2b1jIpK7rM+CJn+2+MebVp4GqAm4CK8AqsAmkwLlPkAjYA06Bc2APiDIBwDZwCwzqdAMM2+SvgXegXwd4gQ6AJ+CtCvQCHNrET4Ah8FIB+gSOXJtfdIgPgbEF9A5sWWIfwEsd4MkCOQHGFkjqA1myQEaWqgxrZVD4hqzOwFbpkUUZVznI3GdlsJWdqxLUqhy3W5dWxk1VBrKKK7FmqyxR3ZWxWQMpmzLRWZlUZtqQSVOZVcDLNZCZzDRlUgHxDLDRpDKAC2DfNScKgUWgA6wB+8AFcB90/1/pG9tgBVksHYQUAAAAAElFTkSuQmCC') no-repeat 0 0;
+            background-size: 26px 26px;
+          }
+
+          .leaflet-touch .leaflet-control-fullscreen a {
+            background-position: 2px 2px;
+          }
+
+          .leaflet-fullscreen-on .leaflet-control-fullscreen a {
+            background-position: 0 -26px;
+          }
+
+          .leaflet-touch.leaflet-fullscreen-on .leaflet-control-fullscreen a {
+            background-position: 2px -24px;
+          }
+
+          .leaflet-container.leaflet-fullscreen {
+            position: fixed;
+            width: 100% !important;
+            height: 100% !important;
+            top: 0;
+            left: 0;
+            z-index: 99999;
+          }
+
+          .marker-cluster {
+            background-clip: padding-box;
+            border-radius: 20px;
+          }
+
+          .marker-cluster-small {
+            background-color: rgba(181, 226, 140, 0.6);
+          }
+
+          .marker-cluster-small div {
+            background-color: rgba(110, 204, 57, 0.6);
+          }
+
+          .marker-cluster-medium {
+            background-color: rgba(241, 211, 87, 0.6);
+          }
+
+          .marker-cluster-medium div {
+            background-color: rgba(240, 194, 12, 0.6);
+          }
+
+          .marker-cluster-large {
+            background-color: rgba(253, 156, 115, 0.6);
+          }
+
+          .marker-cluster-large div {
+            background-color: rgba(241, 128, 23, 0.6);
+          }
+
+          .cluster-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+          }
+
+          .cluster-small {
+            font-size: 12px;
+          }
+
+          .cluster-medium {
+            font-size: 14px;
+          }
+
+          .cluster-large {
+            font-size: 16px;
+          }
+        `}</style>
+      </div>
+      {/* 載入中覆蓋層 - 在資料載入過程中顯示，防止用戶操作地圖 */}
+      {(isLoading || !dataFullyLoaded) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-80 z-10">
+          <div className="flex flex-col items-center bg-white p-6 rounded-lg shadow-md">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <p className="text-gray-700 font-medium">正在載入地圖資料...</p>
+            <p className="text-gray-500 text-sm mt-2">請稍候，這可能需要一些時間</p>
+          </div>
+        </div>
+      )}
+      {/* 地圖未準備好時的載入指示器 */}
+      {!isMapReady && !isLoading && dataFullyLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-2"></div>
+            <p className="text-gray-600">載入地圖中...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default MapComponent;

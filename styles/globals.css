@@ -17,3 +17,65 @@
     -webkit-mask-image: -webkit-radial-gradient(white, black);
   }
 }
+
+/* Leaflet 地圖自定義樣式 */
+.custom-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.custom-popup .leaflet-popup-content {
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+.custom-popup .leaflet-popup-tip {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* 聚合標記樣式 */
+.marker-cluster {
+  background-clip: padding-box;
+  border-radius: 50%;
+  text-align: center;
+  font-family: 'Arial', sans-serif;
+}
+
+.marker-cluster div {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.marker-cluster-small {
+  background-color: rgba(59, 130, 246, 0.8);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.marker-cluster-medium {
+  background-color: rgba(99, 102, 241, 0.8);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.marker-cluster-large {
+  background-color: rgba(79, 70, 229, 0.8);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+/* 自定義標記樣式 */
+.custom-map-marker {
+  transition: transform 0.2s ease-out;
+}
+
+.custom-map-marker:hover {
+  transform: scale(1.1);
+  z-index: 1000 !important;
+}
