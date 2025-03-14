@@ -22,6 +22,31 @@ interface UseMapMarkersOptions {
   groupZoomThreshold?: number;
 }
 
+// 機會類型中文名稱映射
+const typeNameMap: Record<string, string> = {
+  'FARMING': '農場體驗',
+  'GARDENING': '園藝工作',
+  'ANIMAL_CARE': '動物照顧',
+  'CONSTRUCTION': '建築工作',
+  'HOSPITALITY': '接待服務',
+  'COOKING': '烹飪工作',
+  'CLEANING': '清潔工作',
+  'CHILDCARE': '兒童照顧',
+  'ELDERLY_CARE': '老人照顧',
+  'TEACHING': '教學工作',
+  'LANGUAGE_EXCHANGE': '語言交流',
+  'CREATIVE': '創意工作',
+  'DIGITAL_NOMAD': '數位遊牧',
+  'ADMINISTRATION': '行政工作',
+  'MAINTENANCE': '維修工作',
+  'TOURISM': '旅遊工作',
+  'CONSERVATION': '保育工作',
+  'COMMUNITY': '社區工作',
+  'EVENT': '活動工作',
+  'OTHER': '其他機會',
+  'unknown': '未分類'
+};
+
 export const useMapMarkers = (
   mapInstance: L.Map | null,
   markers: MapMarker[],
@@ -62,11 +87,20 @@ export const useMapMarkers = (
   const updateMarkers = () => {
     if (!mapInstance) return;
 
+    console.log('useMapMarkers: 更新標記', markers.length, '個標記');
+
     // 清除現有標記
     clearMarkers();
 
+    // 如果沒有標記，直接返回
+    if (markers.length === 0) {
+      console.log('useMapMarkers: 沒有標記，跳過更新');
+      return;
+    }
+
     // 創建集群組（如果啟用）
     if (enableClustering && !markerClusterGroupRef.current) {
+      console.log('useMapMarkers: 創建標記集群組');
       markerClusterGroupRef.current = (L as any).markerClusterGroup({
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true,
@@ -185,6 +219,37 @@ export const useMapMarkers = (
           title: markerData.title || '',
         });
 
+        // 設置懸停效果
+        marker.on('mouseover', () => {
+          // 放大標記
+          marker.setIcon(createCustomIcon(true));
+
+          // 如果沒有彈出窗口，則顯示簡單的提示
+          if (!marker.getPopup()) {
+            const tooltipContent = `
+              <div class="font-semibold">${markerData.title || '未命名機會'}</div>
+              <div class="text-xs text-gray-600">${markerData.type ? typeNameMap[markerData.type] || '未分類' : '未分類'}</div>
+            `;
+            marker.bindTooltip(tooltipContent, {
+              direction: 'top',
+              offset: [0, -10],
+              className: 'custom-tooltip'
+            }).openTooltip();
+          }
+        });
+
+        marker.on('mouseout', () => {
+          // 如果不是高亮標記，則恢復原來的大小
+          if (markerData.id !== highlightedMarkerId) {
+            marker.setIcon(createCustomIcon(false));
+          }
+
+          // 關閉提示
+          if (marker.getTooltip()) {
+            marker.closeTooltip();
+          }
+        });
+
         // 設置點擊事件
         if (onMarkerClick) {
           marker.on('click', () => {
@@ -247,17 +312,30 @@ export const useMapMarkers = (
   useEffect(() => {
     if (!mapInstance) return;
 
-    updateMarkers();
+    console.log('useMapMarkers: 依賴項變化，更新標記', markers.length);
+
+    // 確保清除現有標記，即使沒有新標記
+    clearMarkers();
+
+    // 只有在有標記時才執行更新標記的操作
+    if (markers.length > 0) {
+      updateMarkers();
+    }
 
     // 添加縮放事件監聽器
     const handleZoomEnd = () => {
-      updateMarkers();
+      console.log('useMapMarkers: 縮放結束，更新標記');
+      // 只有在有標記時才執行更新標記的操作
+      if (markers.length > 0) {
+        updateMarkers();
+      }
     };
 
     mapInstance.on('zoomend', handleZoomEnd);
 
     // 清理函數
     return () => {
+      console.log('useMapMarkers: 清理標記');
       mapInstance.off('zoomend', handleZoomEnd);
       clearMarkers();
     };
@@ -273,7 +351,7 @@ export const useMapMarkers = (
 
   // 如果高亮的標記變化，打開彈出窗口
   useEffect(() => {
-    if (!mapInstance || !highlightedMarkerId) return;
+    if (!mapInstance || !highlightedMarkerId || markers.length === 0) return;
 
     // 查找高亮標記
     const highlightedMarker = currentMarkersRef.current.find(
@@ -316,7 +394,7 @@ export const useMapMarkers = (
         mapInstance.setView(highlightedMarker.position, mapInstance.getZoom());
       }
     }
-  }, [mapInstance, highlightedMarkerId, groupZoomThreshold]);
+  }, [mapInstance, highlightedMarkerId, groupZoomThreshold, markers.length]);
 
   return {
     clearMarkers,

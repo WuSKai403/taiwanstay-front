@@ -6,6 +6,7 @@ import 'leaflet.locatecontrol/dist/L.Control.Locate.min.css';
 import 'leaflet-fullscreen/dist/leaflet.fullscreen.css';
 import { useLeafletMap } from './hooks/useLeafletMap';
 import { useMapMarkers, MapMarker } from './hooks/useMapMarkers';
+import { LeafletInstance as L } from './hooks/useLeaflet';
 
 // 獲取機會類型的顯示名稱
 const getTypeDisplayName = (type: string): string => {
@@ -76,18 +77,62 @@ const MapComponent: React.FC<MapComponentProps> = ({
   });
 
   // 使用自定義 Hook 管理標記
-  useMapMarkers(mapInstance, markers, {
+  const { clearMarkers, updateMarkers } = useMapMarkers(mapInstance, markers, {
     enableClustering,
     highlightedMarkerId,
     onMarkerClick,
-    clusteringZoomThreshold: 12, // 在縮放級別12以上停止聚合
-    groupZoomThreshold: 15, // 在縮放級別15以上才分組顯示
+    clusteringZoomThreshold: 12,
+    groupZoomThreshold: 15,
   });
+
+  // 當標記變化時更新標記
+  useEffect(() => {
+    if (mapInstance && isMapReady && !isLoading) {
+      console.log('MapComponent: 標記變化，更新標記', markers.length, '個標記');
+      updateMarkers();
+    }
+  }, [mapInstance, isMapReady, isLoading, markers, updateMarkers]);
 
   // 當資料載入狀態變化時更新 loading 狀態
   useEffect(() => {
+    console.log('MapComponent: 資料載入狀態變化', dataFullyLoaded ? '已完成' : '載入中');
     setIsLoading(!dataFullyLoaded);
   }, [dataFullyLoaded]);
+
+  // 當地圖實例變化時，確保地圖視圖更新到正確的位置
+  useEffect(() => {
+    if (mapInstance && isMapReady && !isLoading) {
+      console.log('MapComponent: 更新地圖視圖位置', position, '標記數量:', markers.length);
+
+      // 設置地圖視圖到指定位置
+      mapInstance.setView(position, zoom, {
+        animate: true,
+        duration: 0.5
+      });
+
+      // 如果有標記，調整地圖視圖以包含所有標記
+      if (markers.length > 0) {
+        try {
+          // 創建一個邊界對象
+          const bounds = L.latLngBounds([]);
+
+          // 將所有標記添加到邊界中
+          markers.forEach(marker => {
+            bounds.extend(marker.position);
+          });
+
+          // 調整地圖視圖以包含所有標記
+          mapInstance.fitBounds(bounds, {
+            padding: [50, 50], // 添加一些內邊距
+            maxZoom: zoom, // 限制最大縮放級別
+            animate: true
+          });
+        } catch (error) {
+          console.error('調整地圖視圖出錯:', error);
+        }
+      }
+    }
+  }, [mapInstance, isMapReady, isLoading, position, zoom, markers]);
 
   return (
     <div className="relative w-full h-full" id={componentIdRef.current}>
@@ -101,28 +146,65 @@ const MapComponent: React.FC<MapComponentProps> = ({
           .custom-popup .leaflet-popup-content-wrapper {
             border-radius: 8px;
             box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+            padding: 0;
+            overflow: hidden;
+            border: 1px solid rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
           }
 
           .custom-popup .leaflet-popup-content {
             margin: 0;
             padding: 0;
+            width: 280px !important;
           }
 
           .custom-popup .leaflet-popup-tip {
             box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+            background-color: white;
           }
 
           /* 標記彈出窗口樣式 */
           .marker-popup h3 {
             margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #1f2937;
           }
 
           .marker-popup a {
             text-decoration: none;
+            transition: all 0.2s ease;
           }
 
           .marker-popup .view-details-btn {
             cursor: pointer;
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background-color: #2563eb;
+            color: white;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+          }
+
+          .marker-popup .view-details-btn:hover {
+            background-color: #1d4ed8;
+            transform: translateY(-1px);
+          }
+
+          /* 自定義提示樣式 */
+          .custom-tooltip {
+            background-color: white;
+            border: 1px solid #2563eb;
+            border-radius: 4px;
+            padding: 6px 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+            font-size: 12px;
+            max-width: 200px;
+          }
+
+          .custom-tooltip .leaflet-tooltip-content {
+            color: #1f2937;
           }
 
           /* 自定義按鈕樣式 */
@@ -239,6 +321,18 @@ const MapComponent: React.FC<MapComponentProps> = ({
           <div className="flex flex-col items-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-2"></div>
             <p className="text-gray-600">載入地圖中...</p>
+          </div>
+        </div>
+      )}
+      {/* 當地圖準備好但沒有標記時顯示提示 */}
+      {isMapReady && !isLoading && dataFullyLoaded && markers.length === 0 && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[400] pointer-events-none">
+          <div className="bg-white bg-opacity-90 p-4 rounded-lg shadow-lg text-center max-w-xs">
+            <svg className="h-12 w-12 text-gray-400 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+            <p className="text-gray-700 font-medium">地圖上沒有顯示任何機會</p>
+            <p className="text-gray-500 text-sm mt-1">請嘗試調整篩選條件</p>
           </div>
         </div>
       )}

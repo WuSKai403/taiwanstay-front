@@ -140,21 +140,24 @@ const OpportunitiesPage: NextPage = () => {
     setPagination(prev => ({ ...prev, currentPage: page }));
   }, [router.isReady]);
 
-  // 獲取機會列表
-  const fetchOpportunities = async () => {
+  // 重構資料獲取邏輯，創建一個通用的函數來處理不同視圖的資料獲取
+  const fetchOpportunitiesData = async (viewType: 'list' | 'map', currentPage: number = 1) => {
     setLoading(true);
+    setError('');
+
     try {
       // 構建查詢參數
       const params = new URLSearchParams();
 
-      // 添加分頁參數（僅在列表視圖模式下使用）
-      if (viewMode === 'list') {
-        params.append('page', pagination.currentPage.toString());
+      // 根據視圖類型設置分頁參數
+      if (viewType === 'list') {
+        params.append('page', currentPage.toString());
         params.append('limit', '10');
       } else {
         // 地圖視圖模式下獲取所有機會
         params.append('page', '1');
-        params.append('limit', '100'); // 設置較大的限制以獲取所有機會
+        params.append('limit', '1000'); // 增加限制以確保獲取所有機會
+        console.log('地圖視圖模式：獲取所有機會數據');
       }
 
       // 添加搜索參數
@@ -199,62 +202,98 @@ const OpportunitiesPage: NextPage = () => {
         hasPrevPage: data.pagination.hasPrevPage
       });
 
-      // 標記初始載入完成
+      // 標記初始載入完成 - 無論是否有資料都標記為完成
       setInitialLoadComplete(true);
+
+      return data;
     } catch (err) {
       setError((err as Error).message);
       console.error('獲取機會列表錯誤:', err);
-      setInitialLoadComplete(true); // 即使出錯也標記為完成
+      // 即使出錯也標記為完成
+      setInitialLoadComplete(true);
+      // 確保在出錯時清空機會列表，避免顯示舊數據
+      setOpportunities([]);
+
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
-  // 當依賴項變化時獲取數據
-  useEffect(() => {
-    if (router.isReady) {
-      // 只有在列表視圖模式下才通過這個 effect 獲取資料
-      // 地圖視圖模式下的資料獲取由 handleViewModeChange 函數處理
-      if (viewMode === 'list') {
-        fetchOpportunities();
+  // 更新篩選條件的通用函數
+  const updateFilters = (newFilters: Partial<typeof filters>, newSearchTerm?: string) => {
+    console.log('更新篩選條件:', newFilters, '搜尋詞:', newSearchTerm);
+
+    // 創建新的篩選條件對象
+    const updatedFilters = newFilters ? { ...filters, ...newFilters } : filters;
+
+    // 創建新的搜尋詞
+    const updatedSearchTerm = newSearchTerm !== undefined ? newSearchTerm : searchTerm;
+
+    // 構建查詢參數
+    const query: Record<string, string> = { ...router.query as Record<string, string> };
+
+    // 更新篩選條件參數
+    Object.entries(newFilters || {}).forEach(([key, value]) => {
+      if (value) {
+        query[key] = value;
+      } else if (query[key]) {
+        delete query[key];
+      }
+    });
+
+    // 更新搜尋詞參數
+    if (newSearchTerm !== undefined) {
+      if (newSearchTerm) {
+        query.search = newSearchTerm;
+      } else if (query.search) {
+        delete query.search;
       }
     }
-  }, [pagination.currentPage, searchTerm, filters, sortOption, router.isReady, viewMode === 'list']);
 
-  // 處理搜尋
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // 重置頁碼
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
-
-    // 更新URL查詢參數
-    const query = { ...router.query, search: searchTerm, page: '1' };
+    // 更新 URL (不觸發數據獲取，由 useEffect 處理)
     router.push({
       pathname: router.pathname,
       query
     }, undefined, { shallow: true });
+
+    // 更新狀態
+    setFilters(updatedFilters);
+    if (newSearchTerm !== undefined) {
+      setSearchTerm(updatedSearchTerm);
+    }
+
+    // 設置載入狀態
+    setLoading(true);
+    setInitialLoadComplete(false);
+  };
+
+  // 簡化後的 fetchOpportunities 函數
+  const fetchOpportunities = () => {
+    console.log('獲取機會數據，當前視圖:', viewMode, '篩選條件:', filters, '搜尋詞:', searchTerm);
+    return fetchOpportunitiesData(viewMode, pagination.currentPage);
+  };
+
+  // 當依賴項變化時獲取數據 - 修改為同時處理列表和地圖視圖
+  useEffect(() => {
+    if (router.isReady) {
+      console.log('依賴項變化，獲取數據，當前視圖:', viewMode);
+      // 只有在非視圖切換導致的狀態變化時才獲取數據
+      // 視圖切換時的數據獲取已經在 handleViewModeChange 中處理
+      fetchOpportunitiesData(viewMode, pagination.currentPage);
+    }
+  }, [pagination.currentPage, searchTerm, filters, sortOption, router.isReady]);
+
+  // 處理搜尋
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateFilters({}, searchTerm);
   };
 
   // 處理篩選
   const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const { name, value } = e.target;
-
-    // 更新篩選條件
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
-
-    // 重置頁碼
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
-
-    // 更新URL查詢參數
-    const query = { ...router.query, [name]: value, page: '1' };
-    router.push({
-      pathname: router.pathname,
-      query
-    }, undefined, { shallow: true });
+    updateFilters({ [name]: value });
   };
 
   // 處理排序
@@ -285,84 +324,44 @@ const OpportunitiesPage: NextPage = () => {
     }, undefined, { shallow: true });
   };
 
-  // 處理視圖模式切換
+  // 處理視圖模式切換 - 簡化邏輯，不再在這裡獲取數據
   const handleViewModeChange = (mode: 'list' | 'map') => {
-    // 如果切換到地圖視圖，先設置載入狀態
-    if (mode === 'map' && viewMode !== 'map') {
+    console.log('切換視圖模式:', mode);
+
+    // 如果當前視圖與目標視圖不同，則需要重新獲取數據
+    if (mode !== viewMode) {
+      // 設置載入狀態
       setLoading(true);
-      setInitialLoadComplete(false); // 重置初始載入狀態
+      setInitialLoadComplete(false);
 
-      // 使用 async/await 獲取資料
-      const fetchMapData = async () => {
-        try {
-          // 構建查詢參數
-          const params = new URLSearchParams();
-
-          // 地圖視圖模式下獲取所有機會
-          params.append('page', '1');
-          params.append('limit', '500'); // 設置更大的限制以確保獲取所有機會
-
-          // 添加搜索參數
-          if (searchTerm) {
-            params.append('search', searchTerm);
-          }
-
-          // 添加篩選參數
-          if (filters.type) params.append('type', filters.type);
-          if (filters.location) params.append('location', filters.location);
-          if (filters.duration) params.append('duration', filters.duration);
-          if (filters.accommodation) params.append('accommodation', filters.accommodation);
-
-          // 添加排序參數
-          if (sortOption === 'newest') {
-            params.append('sort', 'createdAt');
-            params.append('order', 'desc');
-          } else if (sortOption === 'oldest') {
-            params.append('sort', 'createdAt');
-            params.append('order', 'asc');
-          } else if (sortOption === 'popular') {
-            params.append('sort', 'stats.views');
-            params.append('order', 'desc');
-          }
-
-          // 發送請求
-          const response = await fetch(`/api/opportunities?${params.toString()}`);
-
-          if (!response.ok) {
-            throw new Error('獲取機會列表失敗');
-          }
-
-          const data = await response.json();
-
-          // 更新狀態
-          setOpportunities(data.opportunities);
-          setPagination({
-            currentPage: data.pagination.currentPage,
-            totalPages: data.pagination.totalPages,
-            totalItems: data.pagination.totalItems,
-            hasNextPage: data.pagination.hasNextPage,
-            hasPrevPage: data.pagination.hasPrevPage
-          });
-
-          // 標記初始載入完成
-          setInitialLoadComplete(true);
-        } catch (err) {
-          setError((err as Error).message);
-          console.error('獲取機會列表錯誤:', err);
-          setInitialLoadComplete(true); // 即使出錯也標記為完成
-        } finally {
-          setLoading(false);
-          // 確保在資料載入完成後再設置視圖模式
-          setViewMode(mode);
-        }
-      };
-
-      // 立即執行獲取資料的函數
-      fetchMapData();
-    } else {
-      // 如果切換到列表視圖，直接設置視圖模式
+      // 直接設置視圖模式
       setViewMode(mode);
+
+      // 如果切換到地圖視圖，重置分頁到第一頁並立即獲取所有數據
+      if (mode === 'map') {
+        // 重置分頁到第一頁
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
+
+        // 立即獲取地圖視圖的所有數據
+        fetchOpportunitiesData('map', 1);
+      } else if (mode === 'list') {
+        // 切換到列表視圖時，獲取當前頁的數據
+        fetchOpportunitiesData('list', pagination.currentPage);
+      }
     }
+  };
+
+  // 清除所有篩選的函數
+  const clearAllFilters = () => {
+    console.log('清除所有篩選');
+
+    // 更新篩選條件和搜尋詞
+    updateFilters({
+      type: '',
+      location: '',
+      duration: '',
+      accommodation: ''
+    }, '');
   };
 
   // 將機會數據轉換為地圖標記
@@ -625,6 +624,83 @@ const OpportunitiesPage: NextPage = () => {
               {/* 地圖視圖 */}
               {viewMode === 'map' && (
                 <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  {/* 添加當前篩選條件提示 */}
+                  {(filters.type || filters.location || filters.duration || filters.accommodation || searchTerm) && (
+                    <div className="p-3 bg-blue-50 border-b border-blue-100">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-blue-700">當前篩選:</span>
+                        {searchTerm && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            搜尋: {searchTerm}
+                          </span>
+                        )}
+                        {filters.type && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            類型: {typeNameMap[filters.type as keyof typeof typeNameMap]}
+                          </span>
+                        )}
+                        {filters.location && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            地區: {
+                            filters.location === 'north' ? '北部' :
+                            filters.location === 'central' ? '中部' :
+                            filters.location === 'south' ? '南部' :
+                            filters.location === 'east' ? '東部' :
+                            filters.location === 'islands' ? '離島' : filters.location
+                          }
+                          </span>
+                        )}
+                        {filters.duration && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            時間: {
+                            filters.duration === 'short' ? '短期 (1-4週)' :
+                            filters.duration === 'medium' ? '中期 (1-3個月)' :
+                            filters.duration === 'long' ? '長期 (3個月以上)' : filters.duration
+                          }
+                          </span>
+                        )}
+                        {filters.accommodation && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            住宿: {
+                            filters.accommodation === 'provided' ? '提供住宿' :
+                            filters.accommodation === 'not_provided' ? '不提供住宿' : filters.accommodation
+                          }
+                          </span>
+                        )}
+                        <button
+                          onClick={clearAllFilters}
+                          className="ml-auto text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          清除所有篩選
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 顯示地圖上的機會數量 */}
+                  <div className="p-2 bg-gray-50 border-b border-gray-100 text-sm text-gray-600">
+                    地圖上顯示 <span className="font-semibold">{opportunityMarkers.length}</span> 個機會位置
+                    {opportunityMarkers.length < opportunities.length && (
+                      <span className="ml-1 text-yellow-600">
+                        （部分機會因缺少位置資訊而未顯示）
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 當沒有結果時顯示提示訊息 */}
+                  {opportunityMarkers.length === 0 && !loading && initialLoadComplete && (
+                    <div className="p-4 bg-yellow-50 border-b border-yellow-100">
+                      <div className="flex items-center">
+                        <svg className="h-5 w-5 text-yellow-400 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-medium text-yellow-700">
+                          沒有找到符合條件的機會。請嘗試調整篩選條件或清除篩選。
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="h-[600px] relative">
                     {/* 只有在資料完全載入後才顯示地圖 */}
                     <MapComponent
@@ -643,56 +719,82 @@ const OpportunitiesPage: NextPage = () => {
                       }}
                     />
                   </div>
-                  <div className="p-4 border-t border-gray-200">
-                    <h3 className="text-lg font-semibold mb-2">地圖說明</h3>
-                    <p className="text-sm text-gray-600 mb-2">
-                      地圖上的標記代表各種工作機會的位置。數字表示該位置有多少個機會。
-                    </p>
-                    <div className="flex items-center mt-2">
-                      <div className="w-6 h-6 mr-2 relative">
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          backgroundColor: '#FFFFFF',
-                          borderRadius: '50%',
-                          boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
-                          border: '2px solid #2563EB'
-                        }}></div>
-                      </div>
-                      <span className="text-sm text-gray-700">單一機會</span>
-                    </div>
-                    <div className="flex items-center mt-2">
-                      <div className="w-6 h-6 mr-2 relative">
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          backgroundColor: '#FFFFFF',
-                          borderRadius: '50%',
-                          boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
-                          border: '2px solid #2563EB',
-                          position: 'relative'
-                        }}>
+
+                  {/* 地圖說明 - 只有在有標記時顯示 */}
+                  {opportunityMarkers.length > 0 && (
+                    <div className="p-4 border-t border-gray-200">
+                      <h3 className="text-lg font-semibold mb-2">地圖說明</h3>
+                      <p className="text-sm text-gray-600 mb-2">
+                        地圖上的標記代表各種工作機會的位置。數字表示該位置有多少個機會。
+                      </p>
+                      <div className="flex items-center mt-2">
+                        <div className="w-6 h-6 mr-2 relative">
                           <div style={{
-                            position: 'absolute',
-                            top: '-6px',
-                            right: '-6px',
-                            backgroundColor: '#2563EB',
-                            color: 'white',
+                            width: '24px',
+                            height: '24px',
+                            backgroundColor: '#FFFFFF',
                             borderRadius: '50%',
-                            width: '18px',
-                            height: '18px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '11px',
-                            fontWeight: 'bold',
-                            border: '1.5px solid white'
-                          }}>3</div>
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+                            border: '2px solid #2563EB'
+                          }}></div>
                         </div>
+                        <span className="text-sm text-gray-700">單一機會</span>
                       </div>
-                      <span className="text-sm text-gray-700">多個機會</span>
+                      <div className="flex items-center mt-2">
+                        <div className="w-6 h-6 mr-2 relative">
+                          <div style={{
+                            width: '24px',
+                            height: '24px',
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: '50%',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+                            border: '2px solid #2563EB',
+                            position: 'relative'
+                          }}>
+                            <div style={{
+                              position: 'absolute',
+                              top: '-6px',
+                              right: '-6px',
+                              backgroundColor: '#2563EB',
+                              color: 'white',
+                              borderRadius: '50%',
+                              width: '18px',
+                              height: '18px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              border: '1.5px solid white'
+                            }}>3</div>
+                          </div>
+                        </div>
+                        <span className="text-sm text-gray-700">多個機會</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* 當沒有結果時顯示建議 */}
+                  {opportunityMarkers.length === 0 && !loading && initialLoadComplete && (
+                    <div className="p-4 border-t border-gray-200">
+                      <h3 className="text-lg font-semibold mb-2">找不到符合條件的機會</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        目前沒有符合您篩選條件的工作機會。以下是一些建議：
+                      </p>
+                      <ul className="list-disc pl-5 text-sm text-gray-600 space-y-2">
+                        <li>嘗試減少篩選條件的數量</li>
+                        <li>使用更廣泛的搜尋詞</li>
+                        <li>選擇不同的地區或機會類型</li>
+                        <li>清除所有篩選條件，查看所有可用機會</li>
+                      </ul>
+                      <button
+                        onClick={clearAllFilters}
+                        className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                      >
+                        清除所有篩選
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
