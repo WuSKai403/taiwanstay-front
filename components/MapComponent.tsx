@@ -104,32 +104,41 @@ const MapComponent: React.FC<MapComponentProps> = ({
     if (mapInstance && isMapReady && !isLoading) {
       console.log('MapComponent: 更新地圖視圖位置', position, '標記數量:', markers.length);
 
-      // 設置地圖視圖到指定位置
-      mapInstance.setView(position, zoom, {
-        animate: true,
-        duration: 0.5
-      });
-
-      // 如果有標記，調整地圖視圖以包含所有標記
-      if (markers.length > 0) {
-        try {
-          // 創建一個邊界對象
-          const bounds = L.latLngBounds([]);
-
-          // 將所有標記添加到邊界中
-          markers.forEach(marker => {
-            bounds.extend(marker.position);
+      try {
+        // 檢查地圖是否已完全初始化並且有效
+        if (mapInstance.getContainer() && mapInstance.getContainer().offsetWidth > 0) {
+          // 設置地圖視圖到指定位置
+          mapInstance.setView(position, zoom, {
+            animate: true,
+            duration: 0.5
           });
 
-          // 調整地圖視圖以包含所有標記
-          mapInstance.fitBounds(bounds, {
-            padding: [50, 50], // 添加一些內邊距
-            maxZoom: zoom, // 限制最大縮放級別
-            animate: true
-          });
-        } catch (error) {
-          console.error('調整地圖視圖出錯:', error);
+          // 如果有標記，調整地圖視圖以包含所有標記
+          if (markers.length > 0) {
+            try {
+              // 創建一個邊界對象
+              const bounds = L.latLngBounds([]);
+
+              // 將所有標記添加到邊界中
+              markers.forEach(marker => {
+                bounds.extend(marker.position);
+              });
+
+              // 調整地圖視圖以包含所有標記
+              mapInstance.fitBounds(bounds, {
+                padding: [50, 50], // 添加一些內邊距
+                maxZoom: zoom, // 限制最大縮放級別
+                animate: true
+              });
+            } catch (error) {
+              console.error('調整地圖視圖出錯:', error);
+            }
+          }
+        } else {
+          console.log('MapComponent: 地圖尚未完全初始化，跳過視圖更新');
         }
+      } catch (error) {
+        console.error('MapComponent: 更新地圖視圖時發生錯誤', error);
       }
     }
   }, [mapInstance, isMapReady, isLoading, position, zoom, markers]);

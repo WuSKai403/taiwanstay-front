@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NextPage } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -7,6 +7,10 @@ import { OpportunityType } from '../../models/enums/OpportunityType';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import Layout from '../../components/layout/Layout';
+import { SearchIcon, ListIcon, MapIcon } from '../../components/icons/Icons';
+
+// 定義視圖模式類型
+type ViewMode = 'list' | 'map';
 
 // 機會類型標籤顏色映射
 const typeColorMap = {
@@ -113,6 +117,9 @@ const OpportunitiesPage: NextPage = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false); // 追蹤初始載入是否完成
   const router = useRouter();
 
+  // 添加 AbortController 的 ref
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // 從URL查詢參數中獲取初始值
   useEffect(() => {
     const { query } = router;
@@ -142,55 +149,108 @@ const OpportunitiesPage: NextPage = () => {
 
   // 重構資料獲取邏輯，創建一個通用的函數來處理不同視圖的資料獲取
   const fetchOpportunitiesData = async (viewType: 'list' | 'map', currentPage: number = 1) => {
+    // 如果有正在進行的請求，取消它
+    if (abortControllerRef.current) {
+      console.log('取消先前的請求');
+      abortControllerRef.current.abort();
+    }
+
+    // 創建新的 AbortController
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     setLoading(true);
     setError('');
 
     try {
+      // 從 URL 獲取最新的查詢參數
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlViewMode = urlParams.get('view') as ViewMode || 'list';
+      const urlPage = parseInt(urlParams.get('page') || '1', 10);
+
+      // 使用 URL 參數或傳入的參數
+      const finalViewType = urlViewMode || viewType;
+      const finalPage = urlPage || currentPage;
+
       // 構建查詢參數
       const params = new URLSearchParams();
 
       // 根據視圖類型設置分頁參數
-      if (viewType === 'list') {
-        params.append('page', currentPage.toString());
+      if (finalViewType === 'list') {
+        params.append('page', finalPage.toString());
         params.append('limit', '10');
+
+        // 添加排序參數 (僅列表視圖)
+        const urlSort = urlParams.get('sort') || sortOption;
+        if (urlSort === 'newest') {
+          params.append('sort', 'createdAt');
+          params.append('order', 'desc');
+        } else if (urlSort === 'oldest') {
+          params.append('sort', 'createdAt');
+          params.append('order', 'asc');
+        } else if (urlSort === 'popular') {
+          params.append('sort', 'stats.views');
+          params.append('order', 'desc');
+        }
       } else {
         // 地圖視圖模式下獲取所有機會
         params.append('page', '1');
         params.append('limit', '1000'); // 增加限制以確保獲取所有機會
         console.log('地圖視圖模式：獲取所有機會數據');
+
+        // 地圖視圖不使用排序參數，因為排序在地圖上沒有意義
+        // 默認使用最新發布排序
+        params.append('sort', 'createdAt');
+        params.append('order', 'desc');
       }
 
       // 添加搜索參數
-      if (searchTerm) {
-        params.append('search', searchTerm);
+      const urlSearch = urlParams.get('search') || searchTerm;
+      if (urlSearch) {
+        params.append('search', urlSearch);
       }
 
       // 添加篩選參數
-      if (filters.type) params.append('type', filters.type);
-      if (filters.location) params.append('location', filters.location);
-      if (filters.duration) params.append('duration', filters.duration);
-      if (filters.accommodation) params.append('accommodation', filters.accommodation);
+      const urlType = urlParams.get('type') || filters.type;
+      const urlLocation = urlParams.get('location') || filters.location;
+      const urlDuration = urlParams.get('duration') || filters.duration;
+      const urlAccommodation = urlParams.get('accommodation') || filters.accommodation;
 
-      // 添加排序參數
-      if (sortOption === 'newest') {
-        params.append('sort', 'createdAt');
-        params.append('order', 'desc');
-      } else if (sortOption === 'oldest') {
-        params.append('sort', 'createdAt');
-        params.append('order', 'asc');
-      } else if (sortOption === 'popular') {
-        params.append('sort', 'stats.views');
-        params.append('order', 'desc');
-      }
+      if (urlType) params.append('type', urlType);
+      if (urlLocation) params.append('location', urlLocation);
+      if (urlDuration) params.append('duration', urlDuration);
+      if (urlAccommodation) params.append('accommodation', urlAccommodation);
 
-      // 發送請求
-      const response = await fetch(`/api/opportunities?${params.toString()}`);
+      // 記錄 API 請求參數
+      console.log(`API 請求參數 (${finalViewType} 視圖):`, params.toString());
+      console.log('當前篩選條件:', JSON.stringify({
+        type: urlType,
+        location: urlLocation,
+        duration: urlDuration,
+        accommodation: urlAccommodation
+      }));
+
+      // 發送請求，添加 signal 參數
+      const response = await fetch(`/api/opportunities?${params.toString()}`, {
+        signal: abortController.signal
+      });
 
       if (!response.ok) {
         throw new Error('獲取機會列表失敗');
       }
 
       const data = await response.json();
+      console.log(`獲取到 ${data.opportunities.length} 個機會，總計 ${data.pagination.totalItems} 個`);
+
+      // 記錄獲取到的機會基本信息
+      if (data.opportunities.length > 0) {
+        console.log('機會列表:');
+        data.opportunities.forEach((opp: Opportunity, index: number) => {
+          console.log(`${index + 1}. ${opp.title} (${opp.location?.city || '無城市'}, ${opp.location?.region || '無地區'})`);
+        });
+      } else {
+        console.log('沒有找到符合條件的機會');
+      }
 
       // 更新狀態
       setOpportunities(data.opportunities);
@@ -202,11 +262,41 @@ const OpportunitiesPage: NextPage = () => {
         hasPrevPage: data.pagination.hasPrevPage
       });
 
+      // 確保視圖模式與 URL 一致
+      if (finalViewType !== viewMode) {
+        setViewMode(finalViewType);
+      }
+
+      // 確保篩選條件與 URL 一致
+      setFilters({
+        type: urlType || '',
+        location: urlLocation || '',
+        duration: urlDuration || '',
+        accommodation: urlAccommodation || ''
+      });
+
+      // 確保搜索詞與 URL 一致
+      if (urlSearch !== searchTerm) {
+        setSearchTerm(urlSearch || '');
+      }
+
+      // 確保排序選項與 URL 一致
+      const urlSort = urlParams.get('sort');
+      if (urlSort && urlSort !== sortOption) {
+        setSortOption(urlSort);
+      }
+
       // 標記初始載入完成 - 無論是否有資料都標記為完成
       setInitialLoadComplete(true);
 
       return data;
     } catch (err) {
+      // 忽略被取消的請求錯誤
+      if ((err as Error).name === 'AbortError') {
+        console.log('請求被取消');
+        return null;
+      }
+
       setError((err as Error).message);
       console.error('獲取機會列表錯誤:', err);
       // 即使出錯也標記為完成
@@ -216,13 +306,22 @@ const OpportunitiesPage: NextPage = () => {
 
       return null;
     } finally {
-      setLoading(false);
+      // 只有當這個請求是最新的（未被取消）時，才設置 loading 為 false
+      if (abortControllerRef.current === abortController) {
+        setLoading(false);
+        abortControllerRef.current = null;
+      }
     }
   };
 
   // 更新篩選條件的通用函數
   const updateFilters = (newFilters: Partial<typeof filters>, newSearchTerm?: string) => {
     console.log('更新篩選條件:', newFilters, '搜尋詞:', newSearchTerm);
+
+    // 取消之前的請求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
 
     // 創建新的篩選條件對象
     const updatedFilters = newFilters ? { ...filters, ...newFilters } : filters;
@@ -251,7 +350,10 @@ const OpportunitiesPage: NextPage = () => {
       }
     }
 
-    // 更新 URL (不觸發數據獲取，由 useEffect 處理)
+    // 重置頁碼
+    delete query.page;
+
+    // 更新 URL
     router.push({
       pathname: router.pathname,
       query
@@ -263,9 +365,17 @@ const OpportunitiesPage: NextPage = () => {
       setSearchTerm(updatedSearchTerm);
     }
 
+    // 重置分頁到第一頁
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+
     // 設置載入狀態
     setLoading(true);
-    setInitialLoadComplete(false);
+
+    // 立即獲取數據，不等待 useEffect
+    console.log('篩選條件更新後立即獲取數據');
+    setTimeout(() => {
+      fetchOpportunitiesData(viewMode, 1);
+    }, 0);
   };
 
   // 簡化後的 fetchOpportunities 函數
@@ -277,17 +387,52 @@ const OpportunitiesPage: NextPage = () => {
   // 當依賴項變化時獲取數據 - 修改為同時處理列表和地圖視圖
   useEffect(() => {
     if (router.isReady) {
-      console.log('依賴項變化，獲取數據，當前視圖:', viewMode);
-      // 只有在非視圖切換導致的狀態變化時才獲取數據
-      // 視圖切換時的數據獲取已經在 handleViewModeChange 中處理
+      console.log('URL 參數變化，獲取數據，當前視圖:', viewMode);
+
+      // 取消之前的請求
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      // 設置加載狀態
+      setLoading(true);
+
+      // 獲取數據
       fetchOpportunitiesData(viewMode, pagination.currentPage);
     }
-  }, [pagination.currentPage, searchTerm, filters, sortOption, router.isReady]);
+  }, [router.query, router.isReady]); // 只監聽 URL 參數變化
 
-  // 處理搜尋
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateFilters({}, searchTerm);
+  // 處理搜索輸入變化
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  // 處理搜索提交
+  const handleSearch = (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
+
+    // 重置頁碼並更新 URL
+    const newParams = new URLSearchParams(router.query as Record<string, string>);
+
+    if (searchTerm) {
+      newParams.set('search', searchTerm);
+    } else {
+      newParams.delete('search');
+    }
+
+    // 重置頁碼
+    newParams.delete('page');
+
+    // 更新 URL
+    router.push({
+      pathname: router.pathname,
+      query: newParams.toString()
+    }, undefined, { shallow: true });
+
+    // 獲取機會數據
+    fetchOpportunitiesData(viewMode, 1);
   };
 
   // 處理篩選
@@ -300,19 +445,53 @@ const OpportunitiesPage: NextPage = () => {
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
 
+    // 在地圖視圖中不執行排序操作
+    if (viewMode === 'map' || loading) {
+      console.log('地圖視圖中或加載過程中不支持排序操作');
+      return;
+    }
+
+    // 如果排序選項沒有變化，則不執行操作
+    if (value === sortOption) {
+      return;
+    }
+
+    // 取消之前的請求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 設置加載狀態
+    setLoading(true);
+
     // 更新排序選項
     setSortOption(value);
 
-    // 更新URL查詢參數
-    const query = { ...router.query, sort: value };
+    // 更新 URL
+    const newParams = new URLSearchParams(router.query as Record<string, string>);
+    newParams.set('sort', value);
+
     router.push({
       pathname: router.pathname,
-      query
+      query: newParams.toString()
     }, undefined, { shallow: true });
+
+    // 獲取機會數據
+    fetchOpportunitiesData(viewMode, pagination.currentPage);
   };
 
   // 處理頁碼變化
   const handlePageChange = (newPage: number) => {
+    if (loading || newPage === pagination.currentPage) return;
+
+    // 取消之前的請求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 設置加載狀態
+    setLoading(true);
+
     // 更新頁碼
     setPagination(prev => ({ ...prev, currentPage: newPage }));
 
@@ -322,46 +501,73 @@ const OpportunitiesPage: NextPage = () => {
       pathname: router.pathname,
       query
     }, undefined, { shallow: true });
+
+    // 獲取機會數據
+    fetchOpportunitiesData(viewMode, newPage);
   };
 
-  // 處理視圖模式切換 - 簡化邏輯，不再在這裡獲取數據
-  const handleViewModeChange = (mode: 'list' | 'map') => {
-    console.log('切換視圖模式:', mode);
+  // 處理視圖模式變更
+  const handleViewModeChange = (mode: ViewMode) => {
+    if (mode === viewMode || loading) return;
 
-    // 如果當前視圖與目標視圖不同，則需要重新獲取數據
-    if (mode !== viewMode) {
-      // 設置載入狀態
-      setLoading(true);
-      setInitialLoadComplete(false);
-
-      // 直接設置視圖模式
-      setViewMode(mode);
-
-      // 如果切換到地圖視圖，重置分頁到第一頁並立即獲取所有數據
-      if (mode === 'map') {
-        // 重置分頁到第一頁
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-
-        // 立即獲取地圖視圖的所有數據
-        fetchOpportunitiesData('map', 1);
-      } else if (mode === 'list') {
-        // 切換到列表視圖時，獲取當前頁的數據
-        fetchOpportunitiesData('list', pagination.currentPage);
-      }
+    // 取消之前的請求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
+
+    // 設置加載狀態
+    setLoading(true);
+
+    // 更新視圖模式
+    setViewMode(mode);
+
+    // 更新 URL
+    const newParams = new URLSearchParams(router.query as Record<string, string>);
+    newParams.set('view', mode);
+
+    router.push({
+      pathname: router.pathname,
+      query: newParams.toString()
+    }, undefined, { shallow: true });
+
+    // 獲取機會數據
+    fetchOpportunitiesData(mode, 1);
   };
 
   // 清除所有篩選的函數
   const clearAllFilters = () => {
     console.log('清除所有篩選');
 
-    // 更新篩選條件和搜尋詞
-    updateFilters({
+    // 取消之前的請求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // 設置加載狀態
+    setLoading(true);
+
+    // 重置篩選條件
+    setFilters({
       type: '',
       location: '',
       duration: '',
       accommodation: ''
-    }, '');
+    });
+
+    // 重置搜索詞
+    setSearchTerm('');
+
+    // 重置分頁
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+
+    // 更新 URL
+    router.push({
+      pathname: router.pathname,
+      query: { view: viewMode }
+    }, undefined, { shallow: true });
+
+    // 獲取機會數據
+    fetchOpportunitiesData(viewMode, 1);
   };
 
   // 將機會數據轉換為地圖標記
@@ -414,23 +620,52 @@ const OpportunitiesPage: NextPage = () => {
         {/* 搜尋和篩選區 */}
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="bg-white shadow-sm rounded-lg p-4 mb-6">
-            <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
-              <div className="flex-grow">
-                <input
-                  type="text"
-                  placeholder="搜尋工作機會..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <div className="w-full md:w-1/2">
+                <form onSubmit={handleSearch} className="relative">
+                  <input
+                    type="text"
+                    placeholder="搜尋機會..."
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    disabled={loading}
+                  />
+                  <button
+                    type="submit"
+                    className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={loading}
+                  >
+                    <SearchIcon className="h-5 w-5" />
+                  </button>
+                </form>
               </div>
-              <button
-                type="submit"
-                className="bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors"
-              >
-                搜尋
-              </button>
-            </form>
+
+              <div className="flex space-x-2">
+                <button
+                  className={`px-4 py-2 rounded-md ${
+                    viewMode === 'list'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onClick={() => handleViewModeChange('list')}
+                  disabled={loading}
+                >
+                  <ListIcon className="h-5 w-5" />
+                </button>
+                <button
+                  className={`px-4 py-2 rounded-md ${
+                    viewMode === 'map'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onClick={() => handleViewModeChange('map')}
+                  disabled={loading}
+                >
+                  <MapIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
               <div>
@@ -440,9 +675,10 @@ const OpportunitiesPage: NextPage = () => {
                 <select
                   id="type"
                   name="type"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   value={filters.type}
                   onChange={handleFilterChange}
+                  disabled={loading}
                 >
                   <option value="">所有類型</option>
                   {Object.entries(typeNameMap).map(([type, name]) => (
@@ -460,9 +696,10 @@ const OpportunitiesPage: NextPage = () => {
                 <select
                   id="location"
                   name="location"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   value={filters.location}
                   onChange={handleFilterChange}
+                  disabled={loading}
                 >
                   <option value="">所有地點</option>
                   <option value="north">北部</option>
@@ -480,9 +717,10 @@ const OpportunitiesPage: NextPage = () => {
                 <select
                   id="duration"
                   name="duration"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   value={filters.duration}
                   onChange={handleFilterChange}
+                  disabled={loading}
                 >
                   <option value="">所有時間</option>
                   <option value="short">短期 (1-4週)</option>
@@ -498,14 +736,18 @@ const OpportunitiesPage: NextPage = () => {
                 <select
                   id="sort"
                   name="sort"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 ${loading || viewMode === 'map' ? 'opacity-50 cursor-not-allowed' : ''}`}
                   value={sortOption}
                   onChange={handleSortChange}
+                  disabled={loading || viewMode === 'map'} // 在地圖視圖中或加載時禁用排序
                 >
                   <option value="newest">最新發布</option>
                   <option value="oldest">最早發布</option>
                   <option value="popular">最受歡迎</option>
                 </select>
+                {viewMode === 'map' && (
+                  <p className="mt-1 text-xs text-gray-500">在地圖視圖中排序功能不可用</p>
+                )}
               </div>
             </div>
           </div>
@@ -524,34 +766,6 @@ const OpportunitiesPage: NextPage = () => {
               ) : (
                 <>共找到 <span className="font-semibold">{pagination.totalItems}</span> 個機會</>
               )}
-            </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => handleViewModeChange('list')}
-                className={`px-4 py-2 rounded-md ${
-                  viewMode === 'list'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                </svg>
-                列表視圖
-              </button>
-              <button
-                onClick={() => handleViewModeChange('map')}
-                className={`px-4 py-2 rounded-md ${
-                  viewMode === 'map'
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                </svg>
-                地圖視圖
-              </button>
             </div>
           </div>
 
@@ -799,14 +1013,14 @@ const OpportunitiesPage: NextPage = () => {
               )}
 
               {/* 分頁 */}
-              {pagination.totalPages > 1 && (
+              {viewMode === 'list' && pagination.totalPages > 1 && (
                 <div className="flex justify-center mt-8">
                   <nav className="flex items-center space-x-2">
                     <button
                       onClick={() => handlePageChange(pagination.currentPage - 1)}
-                      disabled={!pagination.hasPrevPage}
+                      disabled={!pagination.hasPrevPage || loading}
                       className={`px-3 py-1 rounded-md ${
-                        pagination.hasPrevPage
+                        pagination.hasPrevPage && !loading
                           ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
@@ -817,9 +1031,12 @@ const OpportunitiesPage: NextPage = () => {
                       <button
                         key={page}
                         onClick={() => handlePageChange(page)}
+                        disabled={loading}
                         className={`px-3 py-1 rounded-md ${
                           page === pagination.currentPage
                             ? 'bg-primary-600 text-white'
+                            : loading
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                         }`}
                       >
@@ -828,9 +1045,9 @@ const OpportunitiesPage: NextPage = () => {
                     ))}
                     <button
                       onClick={() => handlePageChange(pagination.currentPage + 1)}
-                      disabled={!pagination.hasNextPage}
+                      disabled={!pagination.hasNextPage || loading}
                       className={`px-3 py-1 rounded-md ${
-                        pagination.hasNextPage
+                        pagination.hasNextPage && !loading
                           ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}

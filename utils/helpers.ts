@@ -81,6 +81,24 @@ export function formatDate(date: Date): string {
 export function buildMongoQuery(query: Record<string, any>): Record<string, any> {
   const mongoQuery: Record<string, any> = {};
 
+  // 台灣城市到地區的映射
+  const cityToRegion: Record<string, string> = {
+    // 北部
+    '台北市': '北部', '臺北市': '北部', '新北市': '北部', '基隆市': '北部',
+    '桃園市': '北部', '新竹市': '北部', '新竹縣': '北部', '宜蘭縣': '北部',
+    // 中部
+    '苗栗縣': '中部', '台中市': '中部', '臺中市': '中部', '彰化縣': '中部',
+    '南投縣': '中部', '雲林縣': '中部',
+    // 南部
+    '嘉義市': '南部', '嘉義縣': '南部', '台南市': '南部', '臺南市': '南部',
+    '高雄市': '南部', '屏東縣': '南部',
+    // 東部
+    '花蓮縣': '東部', '台東縣': '東部', '臺東縣': '東部',
+    // 離島
+    '澎湖縣': '離島', '金門縣': '離島', '連江縣': '離島', '蘭嶼': '離島',
+    '綠島': '離島', '小琉球': '離島'
+  };
+
   // 處理一般查詢參數
   Object.keys(query).forEach(key => {
     // 忽略分頁參數
@@ -117,11 +135,83 @@ export function buildMongoQuery(query: Record<string, any>): Record<string, any>
           mongoQuery[key] = value;
       }
     } else {
-      // 處理一般查詢
-      mongoQuery[key] = value;
+      // 處理特殊篩選條件
+      if (key === 'location') {
+        // 處理地區篩選
+        switch (value) {
+          case 'north':
+            // 北部城市列表
+            mongoQuery['$or'] = [
+              { 'location.region': '北部' },
+              { 'location.city': { $in: ['台北市', '臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '宜蘭縣'] } }
+            ];
+            break;
+          case 'central':
+            // 中部城市列表
+            mongoQuery['$or'] = [
+              { 'location.region': '中部' },
+              { 'location.city': { $in: ['苗栗縣', '台中市', '臺中市', '彰化縣', '南投縣', '雲林縣'] } }
+            ];
+            break;
+          case 'south':
+            // 南部城市列表
+            mongoQuery['$or'] = [
+              { 'location.region': '南部' },
+              { 'location.city': { $in: ['嘉義市', '嘉義縣', '台南市', '臺南市', '高雄市', '屏東縣'] } }
+            ];
+            break;
+          case 'east':
+            // 東部城市列表
+            mongoQuery['$or'] = [
+              { 'location.region': '東部' },
+              { 'location.city': { $in: ['花蓮縣', '台東縣', '臺東縣'] } }
+            ];
+            break;
+          case 'islands':
+            // 離島列表
+            mongoQuery['$or'] = [
+              { 'location.region': '離島' },
+              { 'location.city': { $in: ['澎湖縣', '金門縣', '連江縣', '蘭嶼', '綠島', '小琉球'] } }
+            ];
+            break;
+          default:
+            // 檢查是否為城市名稱，如果是則直接搜尋該城市
+            mongoQuery['location.city'] = value;
+        }
+      } else if (key === 'city') {
+        // 直接處理城市篩選
+        mongoQuery['location.city'] = value;
+      } else if (key === 'duration') {
+        // 處理時間長度篩選
+        switch (value) {
+          case 'short':
+            // 短期 (1-4週): 7-28天
+            mongoQuery['$and'] = mongoQuery['$and'] || [];
+            mongoQuery['$and'].push({ 'workDetails.minimumStay': { $gte: 7 } });
+            mongoQuery['$and'].push({ 'workDetails.maximumStay': { $lte: 28 } });
+            break;
+          case 'medium':
+            // 中期 (1-3個月): 29-90天
+            mongoQuery['$and'] = mongoQuery['$and'] || [];
+            mongoQuery['$and'].push({ 'workDetails.minimumStay': { $gte: 29 } });
+            mongoQuery['$and'].push({ 'workDetails.maximumStay': { $lte: 90 } });
+            break;
+          case 'long':
+            // 長期 (3個月以上): >90天
+            mongoQuery['workDetails.minimumStay'] = { $gte: 91 };
+            break;
+          default:
+            // 如果是其他值，直接使用
+            mongoQuery[key] = value;
+        }
+      } else {
+        // 處理一般查詢
+        mongoQuery[key] = value;
+      }
     }
   });
 
+  console.log('構建的 MongoDB 查詢條件:', JSON.stringify(mongoQuery, null, 2));
   return mongoQuery;
 }
 

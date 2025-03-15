@@ -25,6 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 // 獲取工作機會列表
 async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
   try {
+    console.log('API 請求參數:', req.query);
+
     // 從查詢參數中獲取分頁和排序信息
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -34,8 +36,10 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
 
     // 構建查詢條件
     const query = buildMongoQuery(req.query);
+    console.log('MongoDB 查詢條件:', JSON.stringify(query, null, 2));
 
     // 執行查詢
+    console.log('執行 Opportunity.find 查詢...');
     const opportunities = await Opportunity.find(query)
       .populate('hostId', 'name description contactEmail contactPhone location')
       .sort({ [sort]: order === 'asc' ? 1 : -1 })
@@ -44,6 +48,27 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
 
     // 獲取總數
     const total = await Opportunity.countDocuments(query);
+    console.log(`找到 ${total} 個符合條件的機會`);
+
+    // 記錄每個機會的基本信息
+    if (opportunities.length > 0) {
+      console.log('機會列表:');
+      opportunities.forEach((opp, index) => {
+        console.log(`${index + 1}. ${opp.title} (${opp.location?.city}, ${opp.location?.region || '無地區'}) - 停留時間: ${opp.workDetails?.minimumStay}-${opp.workDetails?.maximumStay || '無上限'} 天`);
+      });
+    } else {
+      console.log('沒有找到符合條件的機會');
+      // 檢查資料庫中是否有任何機會
+      const totalOpportunities = await Opportunity.countDocuments({});
+      console.log(`資料庫中共有 ${totalOpportunities} 個機會`);
+
+      // 檢查幾個城市的機會
+      const cityChecks = ['宜蘭縣', '南投縣', '台南市', '蘭嶼', '綠島', '小琉球'];
+      for (const city of cityChecks) {
+        const count = await Opportunity.countDocuments({ 'location.city': city });
+        console.log(`城市 "${city}" 有 ${count} 個機會`);
+      }
+    }
 
     // 計算分頁信息
     const pagination = calculatePagination(page, limit, total);
