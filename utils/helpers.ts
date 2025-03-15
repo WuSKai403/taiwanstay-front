@@ -99,10 +99,29 @@ export function buildMongoQuery(query: Record<string, any>): Record<string, any>
     '綠島': '離島', '小琉球': '離島'
   };
 
+  // 處理搜尋參數
+  if (query.search) {
+    const searchTerm = query.search.toString();
+    console.log('處理搜尋參數:', searchTerm);
+
+    // 使用 $or 運算符來搜尋多個欄位
+    mongoQuery['$or'] = [
+      { title: { $regex: searchTerm, $options: 'i' } },
+      { shortDescription: { $regex: searchTerm, $options: 'i' } },
+      { description: { $regex: searchTerm, $options: 'i' } },
+      { 'location.city': { $regex: searchTerm, $options: 'i' } },
+      { 'location.region': { $regex: searchTerm, $options: 'i' } },
+      { 'workDetails.tasks': { $regex: searchTerm, $options: 'i' } },
+      { 'workDetails.schedule': { $regex: searchTerm, $options: 'i' } },
+      { 'benefits.description': { $regex: searchTerm, $options: 'i' } },
+      { 'requirements.description': { $regex: searchTerm, $options: 'i' } }
+    ];
+  }
+
   // 處理一般查詢參數
   Object.keys(query).forEach(key => {
-    // 忽略分頁參數
-    if (['page', 'limit', 'sort', 'order'].includes(key)) {
+    // 忽略分頁參數和搜尋參數
+    if (['page', 'limit', 'sort', 'order', 'search'].includes(key)) {
       return;
     }
 
@@ -141,38 +160,89 @@ export function buildMongoQuery(query: Record<string, any>): Record<string, any>
         switch (value) {
           case 'north':
             // 北部城市列表
-            mongoQuery['$or'] = [
-              { 'location.region': '北部' },
-              { 'location.city': { $in: ['台北市', '臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '宜蘭縣'] } }
-            ];
+            if (mongoQuery['$or']) {
+              // 如果已經有 $or 條件（來自搜尋），則使用 $and 來組合條件
+              mongoQuery['$and'] = mongoQuery['$and'] || [];
+              mongoQuery['$and'].push({
+                '$or': [
+                  { 'location.region': '北部' },
+                  { 'location.city': { $in: ['台北市', '臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '宜蘭縣'] } }
+                ]
+              });
+            } else {
+              mongoQuery['$or'] = [
+                { 'location.region': '北部' },
+                { 'location.city': { $in: ['台北市', '臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '宜蘭縣'] } }
+              ];
+            }
             break;
           case 'central':
             // 中部城市列表
-            mongoQuery['$or'] = [
-              { 'location.region': '中部' },
-              { 'location.city': { $in: ['苗栗縣', '台中市', '臺中市', '彰化縣', '南投縣', '雲林縣'] } }
-            ];
+            if (mongoQuery['$or']) {
+              mongoQuery['$and'] = mongoQuery['$and'] || [];
+              mongoQuery['$and'].push({
+                '$or': [
+                  { 'location.region': '中部' },
+                  { 'location.city': { $in: ['苗栗縣', '台中市', '臺中市', '彰化縣', '南投縣', '雲林縣'] } }
+                ]
+              });
+            } else {
+              mongoQuery['$or'] = [
+                { 'location.region': '中部' },
+                { 'location.city': { $in: ['苗栗縣', '台中市', '臺中市', '彰化縣', '南投縣', '雲林縣'] } }
+              ];
+            }
             break;
           case 'south':
             // 南部城市列表
-            mongoQuery['$or'] = [
-              { 'location.region': '南部' },
-              { 'location.city': { $in: ['嘉義市', '嘉義縣', '台南市', '臺南市', '高雄市', '屏東縣'] } }
-            ];
+            if (mongoQuery['$or']) {
+              mongoQuery['$and'] = mongoQuery['$and'] || [];
+              mongoQuery['$and'].push({
+                '$or': [
+                  { 'location.region': '南部' },
+                  { 'location.city': { $in: ['嘉義市', '嘉義縣', '台南市', '臺南市', '高雄市', '屏東縣'] } }
+                ]
+              });
+            } else {
+              mongoQuery['$or'] = [
+                { 'location.region': '南部' },
+                { 'location.city': { $in: ['嘉義市', '嘉義縣', '台南市', '臺南市', '高雄市', '屏東縣'] } }
+              ];
+            }
             break;
           case 'east':
             // 東部城市列表
-            mongoQuery['$or'] = [
-              { 'location.region': '東部' },
-              { 'location.city': { $in: ['花蓮縣', '台東縣', '臺東縣'] } }
-            ];
+            if (mongoQuery['$or']) {
+              mongoQuery['$and'] = mongoQuery['$and'] || [];
+              mongoQuery['$and'].push({
+                '$or': [
+                  { 'location.region': '東部' },
+                  { 'location.city': { $in: ['花蓮縣', '台東縣', '臺東縣'] } }
+                ]
+              });
+            } else {
+              mongoQuery['$or'] = [
+                { 'location.region': '東部' },
+                { 'location.city': { $in: ['花蓮縣', '台東縣', '臺東縣'] } }
+              ];
+            }
             break;
           case 'islands':
             // 離島列表
-            mongoQuery['$or'] = [
-              { 'location.region': '離島' },
-              { 'location.city': { $in: ['澎湖縣', '金門縣', '連江縣', '蘭嶼', '綠島', '小琉球'] } }
-            ];
+            if (mongoQuery['$or']) {
+              mongoQuery['$and'] = mongoQuery['$and'] || [];
+              mongoQuery['$and'].push({
+                '$or': [
+                  { 'location.region': '離島' },
+                  { 'location.city': { $in: ['澎湖縣', '金門縣', '連江縣', '蘭嶼', '綠島', '小琉球'] } }
+                ]
+              });
+            } else {
+              mongoQuery['$or'] = [
+                { 'location.region': '離島' },
+                { 'location.city': { $in: ['澎湖縣', '金門縣', '連江縣', '蘭嶼', '綠島', '小琉球'] } }
+              ];
+            }
             break;
           default:
             // 檢查是否為城市名稱，如果是則直接搜尋該城市
