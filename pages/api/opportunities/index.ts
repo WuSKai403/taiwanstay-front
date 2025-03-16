@@ -54,7 +54,7 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
     if (opportunities.length > 0) {
       console.log('機會列表:');
       opportunities.forEach((opp, index) => {
-        console.log(`${index + 1}. ${opp.title} (${opp.location?.city}, ${opp.location?.region || '無地區'}) - 停留時間: ${opp.workDetails?.minimumStay}-${opp.workDetails?.maximumStay || '無上限'} 天`);
+        console.log(`${index + 1}. ${opp.title} (${opp.location?.city}, ${opp.location?.region || '無地區'}) - 停留時間: ${opp.workTimeSettings?.minimumStay}-${opp.workTimeSettings?.maximumStay || '無上限'} 天`);
       });
     } else {
       console.log('沒有找到符合條件的機會');
@@ -95,6 +95,12 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
           description: (opportunity.hostId as any).description
         } : null,
         media: opportunity.media,
+        workTimeSettings: {
+          minimumStay: opportunity.workTimeSettings?.minimumStay,
+          maximumStay: opportunity.workTimeSettings?.maximumStay,
+          workHoursPerDay: opportunity.workTimeSettings?.workHoursPerDay,
+          workDaysPerWeek: opportunity.workTimeSettings?.workDaysPerWeek
+        },
         createdAt: opportunity.createdAt,
         updatedAt: opportunity.updatedAt
       })),

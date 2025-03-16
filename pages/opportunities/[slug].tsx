@@ -91,10 +91,16 @@ interface OpportunityDetail {
     tasks?: string[];
     skills?: string[];
     learningOpportunities?: string[];
-    workHoursPerWeek?: number;
+    physicalDemand?: 'low' | 'medium' | 'high';
+    languages?: string[];
+  };
+  workTimeSettings?: {
+    workHoursPerDay?: number;
     workDaysPerWeek?: number;
     minimumStay?: number;
     maximumStay?: number;
+    startDate?: string;
+    endDate?: string;
     isOngoing?: boolean;
     seasonality?: {
       spring?: boolean;
@@ -102,8 +108,6 @@ interface OpportunityDetail {
       autumn?: boolean;
       winter?: boolean;
     };
-    physicalDemand?: 'low' | 'medium' | 'high';
-    languages?: string[];
   };
   benefits: {
     accommodation: {
@@ -383,13 +387,13 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                               <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                               </svg>
-                              每週 {opportunity.workDetails?.workHoursPerWeek || '未指定'} 小時
+                              每日 {opportunity.workTimeSettings?.workHoursPerDay || '未指定'} 小時
                             </p>
                             <p className="flex items-center">
                               <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                               </svg>
-                              每週 {opportunity.workDetails?.workDaysPerWeek || '未指定'} 天
+                              每週 {opportunity.workTimeSettings?.workDaysPerWeek || '未指定'} 天
                             </p>
                           </div>
 
@@ -399,14 +403,14 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                               <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                               </svg>
-                              最少 {opportunity.workDetails?.minimumStay || '未指定'} 天
+                              最少 {opportunity.workTimeSettings?.minimumStay || '未指定'} 天
                             </p>
-                            {opportunity.workDetails?.maximumStay && (
+                            {opportunity.workTimeSettings?.maximumStay && (
                               <p className="flex items-center">
                                 <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                                 </svg>
-                                最多 {opportunity.workDetails.maximumStay} 天
+                                最多 {opportunity.workTimeSettings.maximumStay} 天
                               </p>
                             )}
                           </div>
