@@ -206,7 +206,7 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
       return res.status(401).json({ success: false, message: '未授權' });
     }
 
-    const { opportunityId, applicationDetails } = req.body;
+    const { opportunityId, hostId, timeSlotId, applicationDetails } = req.body;
 
     // 驗證必填欄位
     if (!opportunityId || !applicationDetails || !applicationDetails.message || !applicationDetails.startDate || !applicationDetails.duration) {
@@ -219,21 +219,50 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
       return res.status(404).json({ success: false, message: '工作機會不存在' });
     }
 
+    // 檢查時段是否存在（如果提供了時段ID）
+    if (timeSlotId) {
+      const timeSlot = opportunity.timeSlots?.id(timeSlotId);
+      if (!timeSlot) {
+        return res.status(404).json({ success: false, message: '時段不存在' });
+      }
+
+      // 檢查時段是否開放申請
+      if (timeSlot.status !== 'OPEN') {
+        return res.status(400).json({ success: false, message: '該時段已不開放申請' });
+      }
+
+      // 檢查申請的日期是否在時段範圍內
+      const startDate = new Date(applicationDetails.startDate);
+      const endDate = applicationDetails.endDate ? new Date(applicationDetails.endDate) : new Date(startDate.getTime() + applicationDetails.duration * 24 * 60 * 60 * 1000);
+
+      if (startDate < new Date(timeSlot.startDate) || endDate > new Date(timeSlot.endDate)) {
+        return res.status(400).json({ success: false, message: '申請的日期範圍超出了時段的有效期' });
+      }
+
+      // 檢查停留時間是否符合最短要求
+      const durationDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (durationDays < timeSlot.minimumStay) {
+        return res.status(400).json({ success: false, message: `停留時間不得少於 ${timeSlot.minimumStay} 天` });
+      }
+    }
+
     // 檢查用戶是否已經申請過該工作機會
     const existingApplication = await Application.findOne({
       userId: userId,
-      opportunityId
+      opportunityId,
+      ...(timeSlotId ? { timeSlotId } : {})
     });
 
     if (existingApplication) {
-      return res.status(400).json({ success: false, message: '您已經申請過該工作機會' });
+      return res.status(400).json({ success: false, message: '您已經申請過該工作機會的這個時段' });
     }
 
     // 創建申請
     const application = await Application.create({
       userId: userId,
       opportunityId,
-      hostId: opportunity.hostId,
+      hostId: hostId || opportunity.hostId,
+      timeSlotId, // 添加時段ID
       status: ApplicationStatus.PENDING,
       applicationDetails,
       communications: {

@@ -15,6 +15,7 @@ interface ApplicationFormData {
   startDate: string;
   endDate?: string;
   duration: number;
+  timeSlotId?: string; // 新增時段 ID
   travelingWith: {
     partner: boolean;
     children: boolean;
@@ -44,6 +45,18 @@ interface OpportunityDetail {
     id: string;
     name: string;
   };
+  hasTimeSlots: boolean; // 新增是否有時段
+  timeSlots?: { // 新增時段列表
+    id: string;
+    startDate: Date;
+    endDate: Date;
+    defaultCapacity: number;
+    minimumStay: number;
+    appliedCount: number;
+    confirmedCount: number;
+    status: string;
+    description?: string;
+  }[];
   applicationProcess?: {
     questions?: string[];
     instructions?: string;
@@ -60,11 +73,15 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [availableDates, setAvailableDates] = useState<any[]>([]); // 新增可用日期
   const [formData, setFormData] = useState<ApplicationFormData>({
     message: '',
     startDate: '',
     endDate: '',
     duration: 14, // 預設兩週
+    timeSlotId: opportunity.hasTimeSlots && opportunity.timeSlots && opportunity.timeSlots.length > 0
+      ? opportunity.timeSlots[0].id
+      : undefined, // 預設選擇第一個時段
     travelingWith: {
       partner: false,
       children: false,
@@ -87,6 +104,35 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
       router.push(`/auth/signin?callbackUrl=${encodeURIComponent(router.asPath)}`);
     }
   }, [status, router]);
+
+  // 獲取時段的可用日期
+  const fetchAvailableDates = async (timeSlotId: string) => {
+    if (!timeSlotId) return;
+
+    try {
+      const selectedTimeSlot = opportunity.timeSlots?.find(ts => ts.id === timeSlotId);
+      if (!selectedTimeSlot) return;
+
+      const startDate = new Date(selectedTimeSlot.startDate);
+      const endDate = new Date(selectedTimeSlot.endDate);
+
+      const response = await fetch(`/api/opportunities/${opportunity.slug}/date-capacities?startDate=${startDate.toISOString().split('T')[0]}&endDate=${endDate.toISOString().split('T')[0]}&timeSlotId=${timeSlotId}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableDates(data.data || []);
+      }
+    } catch (error) {
+      console.error('獲取可用日期失敗:', error);
+    }
+  };
+
+  // 當選擇的時段變化時，獲取可用日期
+  useEffect(() => {
+    if (formData.timeSlotId) {
+      fetchAvailableDates(formData.timeSlotId);
+    }
+  }, [formData.timeSlotId]);
 
   // 處理表單輸入變化
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -163,6 +209,18 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
     calculateDuration();
   }, [formData.startDate, formData.endDate]);
 
+  // 處理時段選擇變化
+  const handleTimeSlotChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      timeSlotId: value,
+      startDate: '', // 重置開始日期
+      endDate: '', // 重置結束日期
+      duration: 14 // 重置停留時間
+    }));
+  };
+
   // 提交申請
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,6 +242,7 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
         body: JSON.stringify({
           opportunityId: opportunity.id,
           hostId: opportunity.host.id,
+          timeSlotId: formData.timeSlotId, // 新增時段 ID
           applicationDetails: {
             message: formData.message,
             startDate: new Date(formData.startDate),
@@ -292,6 +351,33 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
                 <div className="mb-8">
                   <h3 className="text-lg font-semibold mb-4">基本資訊</h3>
 
+                  {/* 時段選擇 - 只有當機會有時段時才顯示 */}
+                  {opportunity.hasTimeSlots && opportunity.timeSlots && opportunity.timeSlots.length > 0 && (
+                    <div className="mb-6">
+                      <label htmlFor="timeSlotId" className="block text-sm font-medium text-gray-700 mb-1">
+                        選擇時段 <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="timeSlotId"
+                        name="timeSlotId"
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                        value={formData.timeSlotId}
+                        onChange={handleTimeSlotChange}
+                      >
+                        {opportunity.timeSlots.map(timeSlot => (
+                          <option key={timeSlot.id} value={timeSlot.id}>
+                            {new Date(timeSlot.startDate).toLocaleDateString()} 至 {new Date(timeSlot.endDate).toLocaleDateString()}
+                            {timeSlot.description ? ` - ${timeSlot.description}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-sm text-gray-500">
+                        選擇您想要申請的時段。每個時段可能有不同的可用日期和容量。
+                      </p>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                       <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
@@ -305,23 +391,49 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                         value={formData.startDate}
                         onChange={handleInputChange}
-                        min={new Date().toISOString().split('T')[0]}
+                        min={formData.timeSlotId && opportunity.timeSlots
+                          ? new Date(opportunity.timeSlots.find(ts => ts.id === formData.timeSlotId)?.startDate || '').toISOString().split('T')[0]
+                          : new Date().toISOString().split('T')[0]}
+                        max={formData.timeSlotId && opportunity.timeSlots
+                          ? new Date(opportunity.timeSlots.find(ts => ts.id === formData.timeSlotId)?.endDate || '').toISOString().split('T')[0]
+                          : undefined}
                       />
+                      {availableDates.length > 0 && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          {availableDates.filter(d => !d.isAvailable).length > 0
+                            ? '注意：某些日期已滿，請選擇有空位的日期。'
+                            : '所有日期都有空位。'}
+                        </p>
+                      )}
                     </div>
 
                     <div>
                       <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                        預計結束日期
+                        預計結束日期 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="date"
                         id="endDate"
                         name="endDate"
+                        required
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                         value={formData.endDate}
                         onChange={handleInputChange}
                         min={formData.startDate}
+                        max={formData.timeSlotId && opportunity.timeSlots
+                          ? new Date(opportunity.timeSlots.find(ts => ts.id === formData.timeSlotId)?.endDate || '').toISOString().split('T')[0]
+                          : undefined}
                       />
+                      {formData.startDate && formData.endDate && formData.timeSlotId && opportunity.timeSlots && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          停留時間：{formData.duration} 天
+                          {formData.duration < (opportunity.timeSlots.find(ts => ts.id === formData.timeSlotId)?.minimumStay || 0) && (
+                            <span className="text-red-500 ml-1">
+                              （最短停留時間為 {opportunity.timeSlots.find(ts => ts.id === formData.timeSlotId)?.minimumStay} 天）
+                            </span>
+                          )}
+                        </p>
+                      )}
                     </div>
                   </div>
 

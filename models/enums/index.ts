@@ -14,6 +14,7 @@ export { OrganizationStatus } from './OrganizationStatus';
 export { OpportunityType } from './OpportunityType';
 export { OpportunityStatus } from './OpportunityStatus';
 export { WorkType } from './WorkType';
+export { TimeSlotStatus } from './TimeSlotStatus';
 
 // 申請相關枚舉
 export { ApplicationStatus } from './ApplicationStatus';

@@ -3,11 +3,13 @@ import path from 'path';
 import { parse } from 'csv-parse/sync';
 import mongoose from 'mongoose';
 import { User, Host, Organization, Opportunity, Application } from '../models';
+import DateCapacity from '../models/DateCapacity';
 import { UserRole } from '../models/enums/UserRole';
 import { HostStatus, HostType } from '../models/enums';
 import { OrganizationStatus, OrganizationType } from '../models/enums';
 import { OpportunityStatus, OpportunityType } from '../models/enums';
 import { ApplicationStatus } from '../models/enums/ApplicationStatus';
+import { TimeSlotStatus } from '../models/enums/TimeSlotStatus';
 import { generatePublicId } from '../utils/helpers';
 import dotenv from 'dotenv';
 
@@ -59,6 +61,7 @@ async function clearCollections() {
   await Organization.deleteMany({});
   await Opportunity.deleteMany({});
   await Application.deleteMany({});
+  await DateCapacity.deleteMany({});
 }
 
 // 導入用戶資料
@@ -244,8 +247,29 @@ async function importOpportunities() {
     // 生成 publicId
     const publicId = generatePublicId();
 
+    // 處理時段相關欄位
+    const hasTimeSlots = opp.hasTimeSlots === 'true';
+    let timeSlots: any[] = [];
+
+    if (hasTimeSlots) {
+      // 創建時段
+      const timeSlot = {
+        _id: new mongoose.Types.ObjectId(),
+        startDate: new Date(opp.timeSlotStartDate),
+        endDate: new Date(opp.timeSlotEndDate),
+        defaultCapacity: parseInt(opp.timeSlotDefaultCapacity) || 2,
+        minimumStay: parseInt(opp.timeSlotMinimumStay) || 14,
+        appliedCount: 0,
+        confirmedCount: 0,
+        status: TimeSlotStatus.OPEN,
+        description: `${opp.title}的開放時段`,
+        capacityOverrides: []
+      };
+      timeSlots.push(timeSlot);
+    }
+
     // 創建機會
-    await Opportunity.create({
+    const createdOpportunity = await Opportunity.create({
       hostId: host._id,
       title: opp.title,
       slug: opp.slug,
@@ -254,18 +278,33 @@ async function importOpportunities() {
       shortDescription: opp.shortDescription,
       status: opp.status as OpportunityStatus,
       type: opp.type as OpportunityType,
+
+      // 工作詳情 - 移除時間相關欄位
       workDetails: {
-        description: `每週工作 ${opp.workHoursPerWeek} 小時，${opp.workDaysPerWeek} 天。主要工作內容包括...`,
-        workHoursPerWeek: parseInt(opp.workHoursPerWeek),
+        tasks: ['協助日常工作', '參與專案活動', '學習相關技能'],
+        skills: ['溝通能力', '團隊合作', '學習能力'],
+        learningOpportunities: ['專業技能', '文化交流', '永續生活'],
+        physicalDemand: 'medium',
+        languages: ['中文', '英文']
+      },
+
+      // 工作時間設置 - 整體時間框架
+      workTimeSettings: {
+        workHoursPerDay: parseInt(opp.workHoursPerWeek) / parseInt(opp.workDaysPerWeek),
         workDaysPerWeek: parseInt(opp.workDaysPerWeek),
         minimumStay: parseInt(opp.minimumStay) || 7,
         maximumStay: parseInt(opp.maximumStay) || 90,
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+        startDate: hasTimeSlots ? new Date(opp.timeSlotStartDate) : new Date(),
+        endDate: hasTimeSlots ? new Date(opp.timeSlotEndDate) : new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
         isOngoing: true,
-        schedule: '工作時間為週一至週五上午 9 點至下午 5 點，週末休息。',
-        languages: ['中文', '英文']
+        seasonality: {
+          spring: true,
+          summer: true,
+          autumn: true,
+          winter: true
+        }
       },
+
       benefits: {
         accommodation: {
           provided: opp.accommodationProvided === 'true',
@@ -338,17 +377,124 @@ async function importOpportunities() {
         applications: 5 + Math.floor(Math.random() * 15),
         bookmarks: 10 + Math.floor(Math.random() * 40),
         shares: 5 + Math.floor(Math.random() * 15)
-      }
+      },
+      timeSlots: timeSlots,
+      hasTimeSlots: hasTimeSlots
     });
+
+    // 如果有時段，初始化日期容量
+    if (hasTimeSlots && timeSlots.length > 0) {
+      await initializeDateCapacities(
+        createdOpportunity._id,
+        timeSlots[0]._id,
+        new Date(opp.timeSlotStartDate),
+        new Date(opp.timeSlotEndDate),
+        parseInt(opp.timeSlotDefaultCapacity) || 2,
+        opp.slug
+      );
+    }
   }
 
   console.log(`已導入 ${opportunities.length} 筆機會資料`);
+}
+
+// 初始化日期容量
+async function initializeDateCapacities(
+  opportunityId: mongoose.Types.ObjectId,
+  timeSlotId: mongoose.Types.ObjectId,
+  startDate: Date,
+  endDate: Date,
+  defaultCapacity: number,
+  opportunitySlug: string
+): Promise<void> {
+  // 獲取所有日期
+  const allDates: string[] = [];
+  const currentDate = new Date(startDate);
+
+  while (currentDate <= endDate) {
+    allDates.push(formatDate(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // 為每一天創建容量記錄
+  const dateCapacities = [];
+
+  for (const date of allDates) {
+    dateCapacities.push({
+      date,
+      opportunityId,
+      timeSlotId,
+      opportunitySlug,
+      capacity: defaultCapacity,
+      bookedCount: 0
+    });
+  }
+
+  // 批量插入
+  if (dateCapacities.length > 0) {
+    await DateCapacity.insertMany(dateCapacities);
+  }
+}
+
+// 導入日期容量資料
+async function importDateCapacities() {
+  console.log('導入日期容量資料...');
+
+  try {
+    const dateCapacities = readCsvFile(path.join(process.cwd(), 'data/seed/date_capacities.csv'));
+
+    for (const dc of dateCapacities) {
+      // 查找對應的機會
+      const opportunity = await Opportunity.findOne({ slug: dc.opportunitySlug });
+
+      if (!opportunity) {
+        console.warn(`找不到對應的機會: ${dc.opportunitySlug}`);
+        continue;
+      }
+
+      // 查找對應的時段
+      let timeSlotId = dc.timeSlotId;
+      if (!mongoose.Types.ObjectId.isValid(timeSlotId)) {
+        // 如果 timeSlotId 不是有效的 ObjectId，使用機會的第一個時段
+        if (opportunity.timeSlots && opportunity.timeSlots.length > 0) {
+          timeSlotId = opportunity.timeSlots[0]._id;
+        } else {
+          console.warn(`機會 ${dc.opportunitySlug} 沒有時段`);
+          continue;
+        }
+      }
+
+      // 更新日期容量
+      await DateCapacity.updateOne(
+        {
+          date: dc.date,
+          opportunityId: opportunity._id,
+          timeSlotId: timeSlotId
+        },
+        {
+          $set: {
+            capacity: parseInt(dc.capacity),
+            bookedCount: parseInt(dc.bookedCount)
+          }
+        },
+        { upsert: true }
+      );
+    }
+
+    console.log(`已導入 ${dateCapacities.length} 筆日期容量資料`);
+  } catch (error) {
+    console.error('導入日期容量資料失敗:', error);
+    // 如果找不到檔案，不中斷程序
+  }
 }
 
 // 導入申請資料
 async function importApplications() {
   console.log('導入申請資料...');
   const applications = readCsvFile(path.join(process.cwd(), 'data/seed/applications.csv'));
+
+  // 獲取 Application 模型
+  const ApplicationModel = mongoose.model('Application');
 
   for (const app of applications) {
     // 查找對應的用戶
@@ -375,15 +521,37 @@ async function importApplications() {
       continue;
     }
 
-    // 創建申請
-    await Application.create({
+    // 處理時段ID
+    let timeSlotId = null;
+    if (app.timeSlotId && app.timeSlotId.trim() !== '') {
+      // 如果提供了時段ID，查找對應的時段
+      if (opportunity.timeSlots && opportunity.timeSlots.length > 0) {
+        timeSlotId = opportunity.timeSlots[0]._id;
+      }
+    }
+
+    // 處理結束日期
+    let endDate = null;
+    if (app.endDate && app.endDate.trim() !== '') {
+      endDate = new Date(app.endDate);
+    } else if (app.startDate && app.duration) {
+      // 如果沒有提供結束日期，根據開始日期和持續時間計算
+      const startDate = new Date(app.startDate);
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + parseInt(app.duration));
+    }
+
+    // 創建申請資料物件
+    const applicationData = {
       userId: user._id,
       opportunityId: opportunity._id,
       hostId: host._id,
+      timeSlotId: timeSlotId,
       status: app.status as ApplicationStatus,
       applicationDetails: {
         message: app.message,
         startDate: new Date(app.startDate),
+        endDate: endDate,
         duration: parseInt(app.duration),
         travelingWith: {
           partner: false,
@@ -405,15 +573,66 @@ async function importApplications() {
         unreadHostMessages: 1,
         unreadUserMessages: 0
       }
-    });
+    };
 
-    // 更新機會的申請數量
-    await Opportunity.findByIdAndUpdate(opportunity._id, {
-      $inc: { 'applicationProcess.currentApplications': 1, 'stats.applications': 1 }
-    });
+    try {
+      // 直接使用 insertMany 繞過 pre-save 鉤子
+      await ApplicationModel.collection.insertOne(applicationData);
+
+      // 更新機會的申請數量
+      await Opportunity.findByIdAndUpdate(opportunity._id, {
+        $inc: { 'applicationProcess.currentApplications': 1, 'stats.applications': 1 }
+      });
+
+      // 如果有時段ID，手動更新時段的申請數量
+      if (timeSlotId) {
+        await Opportunity.updateOne(
+          { _id: opportunity._id, 'timeSlots._id': timeSlotId },
+          { $inc: { 'timeSlots.$.appliedCount': 1 } }
+        );
+
+        // 如果狀態為已確認，更新時段的確認數量
+        if (app.status === ApplicationStatus.CONFIRMED) {
+          await Opportunity.updateOne(
+            { _id: opportunity._id, 'timeSlots._id': timeSlotId },
+            { $inc: { 'timeSlots.$.confirmedCount': 1 } }
+          );
+        }
+
+        // 手動更新日期容量的已預訂數量
+        if (app.startDate && endDate) {
+          const startDate = new Date(app.startDate);
+          const allDates = [];
+          const currentDate = new Date(startDate);
+
+          while (currentDate <= endDate) {
+            allDates.push(formatDate(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+
+          for (const date of allDates) {
+            await DateCapacity.updateOne(
+              {
+                date,
+                opportunityId: opportunity._id,
+                timeSlotId: timeSlotId
+              },
+              { $inc: { bookedCount: 1 } }
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`導入申請資料失敗: ${app.userEmail} - ${app.opportunitySlug}`, error);
+    }
   }
 
   console.log(`已導入 ${applications.length} 筆申請資料`);
+}
+
+// 日期格式化輔助函數
+function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0];
 }
 
 // 主函數
@@ -431,6 +650,7 @@ async function main() {
     await importHosts();
     await importOrganizations();
     await importOpportunities();
+    await importDateCapacities();
     await importApplications();
 
     console.log('資料導入完成！');

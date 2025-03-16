@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { connectToDatabase } from '../../../lib/mongodb';
 import { Opportunity } from '../../../models/index';
 import { isValidObjectId } from '../../../utils/helpers';
+import { ITimeSlot } from '@/models/Opportunity';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 連接到數據庫
@@ -71,6 +72,7 @@ async function getOpportunityBySlug(req: NextApiRequest, res: NextApiResponse, s
       status: opportunity.status,
       location: opportunity.location,
       workDetails: opportunity.workDetails,
+      workTimeSettings: opportunity.workTimeSettings,
       benefits: opportunity.benefits,
       requirements: opportunity.requirements,
       media: opportunity.media,
@@ -90,6 +92,18 @@ async function getOpportunityBySlug(req: NextApiRequest, res: NextApiResponse, s
         bookmarks: opportunity.stats?.bookmarks || 0,
         views: opportunity.stats?.views || 0
       },
+      hasTimeSlots: opportunity.hasTimeSlots || false,
+      timeSlots: opportunity.timeSlots ? opportunity.timeSlots.map((slot: ITimeSlot) => ({
+        id: slot._id ? slot._id.toString() : '',
+        startDate: slot.startDate,
+        endDate: slot.endDate,
+        defaultCapacity: slot.defaultCapacity,
+        minimumStay: slot.minimumStay,
+        appliedCount: slot.appliedCount,
+        confirmedCount: slot.confirmedCount,
+        status: slot.status,
+        description: slot.description
+      })) : [],
       createdAt: opportunity.createdAt,
       updatedAt: opportunity.updatedAt
     };

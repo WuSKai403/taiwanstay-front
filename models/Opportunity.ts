@@ -1,6 +1,31 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { OpportunityStatus } from './enums/OpportunityStatus';
 import { OpportunityType } from './enums/OpportunityType';
+import { TimeSlotStatus } from './enums/TimeSlotStatus';
+
+// 容量覆蓋介面定義
+export interface ICapacityOverride {
+  _id?: mongoose.Types.ObjectId;
+  startDate: Date; // 覆蓋開始日期
+  endDate: Date; // 覆蓋結束日期
+  capacity: number; // 該日期範圍的容量
+}
+
+// 時段介面定義
+export interface ITimeSlot {
+  _id?: mongoose.Types.ObjectId;
+  startDate: Date; // 時段開始日期
+  endDate: Date; // 時段結束日期
+  defaultCapacity: number; // 默認容量（需求人數）
+  minimumStay: number; // 最短停留天數
+  appliedCount: number; // 已申請人數
+  confirmedCount: number; // 已確認人數
+  status: TimeSlotStatus; // 時段狀態
+  description?: string; // 時段描述
+  capacityOverrides?: ICapacityOverride[]; // 特定日期範圍的容量覆蓋
+  createdAt?: Date;
+  updatedAt?: Date;
+}
 
 export interface IOpportunity extends Document {
   hostId: mongoose.Types.ObjectId;
@@ -13,26 +38,30 @@ export interface IOpportunity extends Document {
   statusNote?: string;
   type: OpportunityType;
 
-  // 工作詳情
+  // 工作詳情 - 移除時間相關欄位
   workDetails: {
     tasks: string[];
     skills: string[];
     learningOpportunities: string[];
-    workHoursPerWeek: number;
-    workDaysPerWeek: number;
-    minimumStay: number; // 以天為單位
-    maximumStay?: number; // 以天為單位
-    startDate?: Date;
-    endDate?: Date;
-    isOngoing: boolean;
+    physicalDemand: 'low' | 'medium' | 'high';
+    languages: string[];
+  };
+
+  // 工作時間設置 - 整體時間框架
+  workTimeSettings: {
+    workHoursPerDay: number; // 每日工作時數
+    workDaysPerWeek: number; // 每週工作天數
+    minimumStay: number; // 最短停留天數（以天為單位）
+    maximumStay?: number; // 最長停留天數（以天為單位）
+    startDate?: Date; // 整體開始日期
+    endDate?: Date; // 整體結束日期
+    isOngoing: boolean; // 是否長期有效
     seasonality?: {
       spring: boolean;
       summer: boolean;
       autumn: boolean;
       winter: boolean;
     };
-    physicalDemand: 'low' | 'medium' | 'high';
-    languages: string[];
   };
 
   // 提供的福利
@@ -125,9 +154,37 @@ export interface IOpportunity extends Document {
     shares: number;
   };
 
+  // 時段資訊
+  timeSlots?: ITimeSlot[];
+  hasTimeSlots: boolean; // 是否有時段需求
+
   createdAt: Date;
   updatedAt: Date;
 }
+
+// 容量覆蓋模式定義
+const CapacityOverrideSchema: Schema = new Schema({
+  startDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
+  capacity: { type: Number, required: true, min: 1 }
+});
+
+// 時段模式定義
+const TimeSlotSchema: Schema = new Schema({
+  startDate: { type: Date, required: true },
+  endDate: { type: Date, required: true },
+  defaultCapacity: { type: Number, required: true, min: 1 }, // 改名為 defaultCapacity 更清晰
+  minimumStay: { type: Number, required: true, min: 1, default: 14 }, // 最短停留天數，默認 14 天
+  appliedCount: { type: Number, default: 0 },
+  confirmedCount: { type: Number, default: 0 },
+  status: {
+    type: String,
+    enum: Object.values(TimeSlotStatus),
+    default: TimeSlotStatus.OPEN
+  },
+  description: { type: String },
+  capacityOverrides: [CapacityOverrideSchema] // 特定日期範圍的容量覆蓋
+}, { timestamps: true });
 
 const OpportunitySchema: Schema = new Schema({
   hostId: { type: Schema.Types.ObjectId, ref: 'Host', required: true },
@@ -148,30 +205,34 @@ const OpportunitySchema: Schema = new Schema({
     required: true
   },
 
-  // 工作詳情
+  // 工作詳情 - 移除時間相關欄位
   workDetails: {
     tasks: [{ type: String, required: true }],
     skills: [{ type: String }],
     learningOpportunities: [{ type: String }],
-    workHoursPerWeek: { type: Number, required: true },
-    workDaysPerWeek: { type: Number, required: true },
-    minimumStay: { type: Number, required: true }, // 以天為單位
-    maximumStay: { type: Number }, // 以天為單位
-    startDate: { type: Date },
-    endDate: { type: Date },
-    isOngoing: { type: Boolean, default: true },
-    seasonality: {
-      spring: { type: Boolean, default: true },
-      summer: { type: Boolean, default: true },
-      autumn: { type: Boolean, default: true },
-      winter: { type: Boolean, default: true }
-    },
     physicalDemand: {
       type: String,
       enum: ['low', 'medium', 'high'],
       default: 'medium'
     },
     languages: [{ type: String, required: true }]
+  },
+
+  // 工作時間設置 - 整體時間框架
+  workTimeSettings: {
+    workHoursPerDay: { type: Number, required: true }, // 每日工作時數
+    workDaysPerWeek: { type: Number, required: true }, // 每週工作天數
+    minimumStay: { type: Number, required: true }, // 最短停留天數
+    maximumStay: { type: Number }, // 最長停留天數
+    startDate: { type: Date }, // 整體開始日期
+    endDate: { type: Date }, // 整體結束日期
+    isOngoing: { type: Boolean, default: true }, // 是否長期有效
+    seasonality: {
+      spring: { type: Boolean, default: true },
+      summer: { type: Boolean, default: true },
+      autumn: { type: Boolean, default: true },
+      winter: { type: Boolean, default: true }
+    }
   },
 
   // 提供的福利
@@ -274,21 +335,68 @@ const OpportunitySchema: Schema = new Schema({
     shares: { type: Number, default: 0 }
   },
 
+  // 時段資訊
+  timeSlots: [TimeSlotSchema],
+  hasTimeSlots: { type: Boolean, default: false },
+
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, {
   timestamps: true
 });
 
-OpportunitySchema.index({ 'location.coordinates': '2dsphere' });
-OpportunitySchema.index({ title: 'text', description: 'text', shortDescription: 'text', 'workDetails.tasks': 'text', 'workDetails.skills': 'text', 'workDetails.learningOpportunities': 'text' });
+// 添加索引
 OpportunitySchema.index({ slug: 1 }, { unique: true });
+OpportunitySchema.index({ publicId: 1 }, { unique: true });
 OpportunitySchema.index({ hostId: 1 });
 OpportunitySchema.index({ status: 1 });
 OpportunitySchema.index({ type: 1 });
-OpportunitySchema.index({ 'workDetails.startDate': 1, 'workDetails.endDate': 1 });
-OpportunitySchema.index({ 'workDetails.minimumStay': 1 });
-OpportunitySchema.index({ 'location.country': 1, 'location.city': 1 });
-OpportunitySchema.index({ publicId: 1 }, { unique: true });
+OpportunitySchema.index({ 'location.city': 1 });
+OpportunitySchema.index({ 'location.country': 1 });
+OpportunitySchema.index({ 'location.coordinates': '2dsphere' });
+OpportunitySchema.index({ 'workTimeSettings.startDate': 1 });
+OpportunitySchema.index({ 'workTimeSettings.endDate': 1 });
+OpportunitySchema.index({ 'workTimeSettings.isOngoing': 1 });
+OpportunitySchema.index({ 'timeSlots.startDate': 1 });
+OpportunitySchema.index({ 'timeSlots.endDate': 1 });
+OpportunitySchema.index({ 'timeSlots.status': 1 });
+OpportunitySchema.index({ 'timeSlots.defaultCapacity': 1 });
+OpportunitySchema.index({ 'timeSlots.startDate': 1, 'timeSlots.endDate': 1 });
+OpportunitySchema.index({ 'timeSlots.status': 1, 'timeSlots.defaultCapacity': 1 });
+OpportunitySchema.index({ hasTimeSlots: 1 });
+
+// 保存前更新 hasTimeSlots 欄位
+OpportunitySchema.pre('save', function(next) {
+  const opportunity = this as unknown as IOpportunity;
+  opportunity.hasTimeSlots = Array.isArray(opportunity.timeSlots) && opportunity.timeSlots.length > 0;
+  next();
+});
+
+// 檢查時段狀態並自動更新
+OpportunitySchema.pre('save', function(next) {
+  const opportunity = this as unknown as IOpportunity;
+
+  if (opportunity.timeSlots && opportunity.timeSlots.length > 0) {
+    opportunity.timeSlots.forEach(slot => {
+      // 如果已申請人數達到默認容量，將狀態設為已滿
+      if (slot.appliedCount >= slot.defaultCapacity && slot.status === TimeSlotStatus.OPEN) {
+        slot.status = TimeSlotStatus.FILLED;
+      }
+
+      // 如果已申請人數減少，且狀態為已滿，將狀態設回開放
+      if (slot.appliedCount < slot.defaultCapacity && slot.status === TimeSlotStatus.FILLED) {
+        slot.status = TimeSlotStatus.OPEN;
+      }
+
+      // 如果結束日期已過，將狀態設為已關閉
+      if (new Date(slot.endDate) < new Date() &&
+          (slot.status === TimeSlotStatus.OPEN || slot.status === TimeSlotStatus.FILLED)) {
+        slot.status = TimeSlotStatus.CLOSED;
+      }
+    });
+  }
+
+  next();
+});
 
 export default mongoose.models.Opportunity || mongoose.model<IOpportunity>('Opportunity', OpportunitySchema);
