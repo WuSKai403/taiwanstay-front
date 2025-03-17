@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
-import { connectToDatabase } from '@/lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import Application from '@/models/Application';
 import Opportunity from '@/models/Opportunity';
 import Host from '@/models/Host';
@@ -120,7 +120,7 @@ import { getSession } from 'next-auth/react';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    await connectToDatabase();
+    await dbConnect();
 
     // 獲取用戶會話
     const session = await getSession({ req });

@@ -2,11 +2,13 @@ import NextAuth, { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { MongoDBAdapter } from '@next-auth/mongodb-adapter';
 import { clientPromise } from '../../../lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import { User } from '../../../models/index';
 import { UserRole } from '../../../models/enums';
 
 // 檢查環境變數是否開啟認證
 const isAuthEnabled = process.env.ENABLE_AUTH !== 'false';
+console.log('Auth enabled status:', isAuthEnabled, 'ENABLE_AUTH=', process.env.ENABLE_AUTH);
 
 // 使用 any 類型來解決類型問題
 type AnyUser = any;
@@ -33,11 +35,13 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials, req): Promise<AnyUser> {
         // 如果認證被禁用，返回測試用戶
         if (!isAuthEnabled) {
+          console.log('認證已禁用，使用測試用戶');
           return {
             id: 'test-user-id',
             name: 'Test User',
             email: 'test@example.com',
-            role: UserRole.USER
+            role: UserRole.USER,
+            hostId: '65f2d1f2e5c57e9b4c3a1234' // 添加一個測試主機ID
           };
         }
 
@@ -46,6 +50,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          // 連接到數據庫
+          await dbConnect();
+
           // 查找用戶
           const user = await User.findOne({ email: credentials.email });
           if (!user) {
@@ -64,7 +71,8 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             email: user.email,
             role: user.role,
-            image: user.profile?.avatar
+            image: user.profile?.avatar,
+            hostId: user.hostId?.toString()
           };
         } catch (error) {
           console.error('認證失敗:', error);
@@ -90,6 +98,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
+        token.hostId = user.hostId;
       }
       return token;
     },
@@ -103,6 +112,7 @@ export const authOptions: NextAuthOptions = {
 
         // 使用 as any 類型斷言來解決類型問題
         session.user.role = (token.role || UserRole.USER) as any;
+        session.user.hostId = token.hostId as any;
       }
       return session;
     }

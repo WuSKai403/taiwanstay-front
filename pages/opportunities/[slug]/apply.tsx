@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { NextPage, GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 import { OpportunityType } from '@/models/enums/OpportunityType';
-import { connectToDatabase } from '@/lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import Layout from '@/components/layout/Layout';
 
 // 定義申請表單數據接口
@@ -100,8 +100,25 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
 
   // 檢查用戶是否已登入
   useEffect(() => {
+    // 檢查是否為開發環境且認證已禁用
+    const isDev = process.env.NODE_ENV === 'development';
+    const authDisabled = process.env.NEXT_PUBLIC_ENABLE_AUTH === 'false';
+
+    console.log('環境檢查:', { isDev, authDisabled, status });
+
     if (status === 'unauthenticated') {
-      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(router.asPath)}`);
+      if (isDev && authDisabled) {
+        // 在開發環境中且認證已禁用，嘗試自動登入
+        console.log('開發環境：嘗試自動登入');
+        signIn('credentials', {
+          email: 'test@example.com',
+          password: 'password',
+          redirect: false
+        });
+      } else {
+        // 正常重定向到登入頁面
+        router.push(`/auth/signin?callbackUrl=${encodeURIComponent(router.asPath)}`);
+      }
     }
   }, [status, router]);
 
@@ -677,7 +694,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   try {
     // 連接到數據庫
-    await connectToDatabase();
+    await dbConnect();
 
     // 發送 API 請求獲取機會詳情
     const protocol = context.req.headers.host?.includes('localhost') ? 'http' : 'https';

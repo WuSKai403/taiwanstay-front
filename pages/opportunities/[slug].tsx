@@ -167,6 +167,18 @@ interface OpportunityDetail {
     bookmarks: number;
     views: number;
   };
+  hasTimeSlots?: boolean;
+  timeSlots?: Array<{
+    id: string;
+    startDate: string | Date;
+    endDate: string | Date;
+    defaultCapacity: number;
+    minimumStay: number;
+    appliedCount: number;
+    confirmedCount: number;
+    status: string;
+    description?: string;
+  }>;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -454,6 +466,63 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                           </div>
                         )}
                       </div>
+
+                      {/* 時段列表 */}
+                      {opportunity.hasTimeSlots && (
+                        <div className="mb-8" id="available-timeslots">
+                          <h2 className="text-2xl font-bold mb-4">可用時段</h2>
+                          {opportunity.timeSlots && opportunity.timeSlots.length > 0 ? (
+                            <div className="grid gap-4">
+                              {opportunity.timeSlots.map((slot) => (
+                                <div key={slot.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <h3 className="font-semibold text-lg">
+                                      {new Date(slot.startDate).toLocaleDateString('zh-TW')} 至 {new Date(slot.endDate).toLocaleDateString('zh-TW')}
+                                    </h3>
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                      slot.status === 'OPEN' ? 'bg-green-100 text-green-800' :
+                                      slot.status === 'CLOSED' ? 'bg-red-100 text-red-800' :
+                                      'bg-yellow-100 text-yellow-800'
+                                    }`}>
+                                      {slot.status === 'OPEN' ? '開放申請' :
+                                       slot.status === 'CLOSED' ? '已關閉' : '即將滿額'}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                      <p className="text-gray-600">最短停留時間</p>
+                                      <p className="font-medium">{slot.minimumStay} 天</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-600">剩餘名額</p>
+                                      <p className="font-medium">{slot.defaultCapacity - slot.confirmedCount} / {slot.defaultCapacity}</p>
+                                    </div>
+                                  </div>
+                                  {slot.description && (
+                                    <div className="mt-2 text-sm text-gray-600">
+                                      <p>{slot.description}</p>
+                                    </div>
+                                  )}
+                                  <div className="mt-4">
+                                    <Link href={`/opportunities/${opportunity.slug}/apply?timeSlotId=${slot.id}`} className="inline-block bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors">
+                                      申請此時段
+                                    </Link>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                              <div className="flex items-center">
+                                <svg className="h-5 w-5 text-yellow-400 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                                <p className="text-yellow-700">目前沒有可用的時段。請稍後再查看或直接聯繫主辦方。</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* 地圖區域 */}
                       {opportunity.location?.coordinates && (
@@ -830,6 +899,33 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
 
                 {error && (
                   <div className="text-red-500 text-sm mb-4 text-center">{error}</div>
+                )}
+
+                {/* 時段摘要 */}
+                {opportunity.hasTimeSlots && opportunity.timeSlots && opportunity.timeSlots.length > 0 && (
+                  <div className="border-t border-gray-200 pt-4 mb-4">
+                    <h3 className="font-semibold text-lg mb-2">可用時段</h3>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {opportunity.timeSlots
+                        .filter(slot => slot.status === 'OPEN')
+                        .map(slot => (
+                          <div key={slot.id} className="bg-gray-50 p-3 rounded-md border border-gray-200">
+                            <p className="text-sm font-medium">
+                              {new Date(slot.startDate).toLocaleDateString('zh-TW')} 至 {new Date(slot.endDate).toLocaleDateString('zh-TW')}
+                            </p>
+                            <div className="flex justify-between items-center mt-1 text-xs text-gray-600">
+                              <span>最短 {slot.minimumStay} 天</span>
+                              <span>剩餘 {slot.defaultCapacity - slot.confirmedCount} 名額</span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                    <div className="mt-2 text-center">
+                      <Link href="#available-timeslots" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+                        查看所有時段
+                      </Link>
+                    </div>
+                  </div>
                 )}
 
                 {/* 統計資訊 */}

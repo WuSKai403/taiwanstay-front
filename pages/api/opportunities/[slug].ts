@@ -1,12 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { connectToDatabase } from '../../../lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import { Opportunity } from '../../../models/index';
 import { isValidObjectId } from '../../../utils/helpers';
 import { ITimeSlot } from '@/models/Opportunity';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 連接到數據庫
-  await connectToDatabase();
+  await dbConnect();
 
   // 獲取 slug 參數
   const { slug } = req.query;
