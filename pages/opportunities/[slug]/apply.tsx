@@ -102,7 +102,7 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
   useEffect(() => {
     // 檢查是否為開發環境且認證已禁用
     const isDev = process.env.NODE_ENV === 'development';
-    const authDisabled = process.env.NEXT_PUBLIC_ENABLE_AUTH === 'false';
+    const authDisabled = process.env.ENABLE_AUTH === 'false';
 
     console.log('環境檢查:', { isDev, authDisabled, status });
 

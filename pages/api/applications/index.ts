@@ -6,7 +6,6 @@ import Application from '@/models/Application';
 import Opportunity from '@/models/Opportunity';
 import Host from '@/models/Host';
 import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
-import { UserRole } from '@/types';
 import { isAdmin } from '@/utils/roleUtils';
 import { getSession } from 'next-auth/react';
 

@@ -11,6 +11,10 @@ import { connectToDatabase } from '../../lib/mongodb';
 import { Opportunity } from '../../models/index';
 import { useSession } from 'next-auth/react';
 import Layout from '../../components/layout/Layout';
+import TimeSlotFilter from '../../components/opportunities/TimeSlotFilter';
+import TimeSlotCalendar from '../../components/opportunities/TimeSlotCalendar';
+import TimeSlotManager from '../../components/opportunities/TimeSlotManager';
+import TimeSlotDisplay from '@/components/opportunities/TimeSlotDisplay';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('../../components/MapComponent'), {
@@ -188,7 +192,7 @@ interface OpportunityDetailProps {
 }
 
 const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) => {
-  const [activeTab, setActiveTab] = useState<'description' | 'requirements' | 'host'>('description');
+  const [activeTab, setActiveTab] = useState<'description' | 'requirements' | 'host' | 'timeslots'>('description');
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -342,499 +346,123 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                   )}
                 </div>
 
-                {/* 標籤導航 */}
-                <div className="border-b border-gray-200">
-                  <nav className="flex -mb-px">
-                    <button
-                      onClick={() => setActiveTab('description')}
-                      className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                        activeTab === 'description'
-                          ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      機會詳情
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('requirements')}
-                      className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                        activeTab === 'requirements'
-                          ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      要求與福利
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('host')}
-                      className={`py-4 px-6 font-medium text-sm border-b-2 ${
-                        activeTab === 'host'
-                          ? 'border-primary-500 text-primary-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      主辦方資訊
-                    </button>
-                  </nav>
-                </div>
-
-                {/* 內容區域 */}
                 <div className="p-6">
-                  {activeTab === 'description' && (
-                    <div>
-                      {/* 詳細描述 */}
-                      <div className="mb-8">
-                        <h2 className="text-2xl font-bold mb-4">關於這個機會</h2>
-                        <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: opportunity.description }} />
+                  {/* 1. 基本資訊 */}
+                  <div className="prose max-w-none mb-8">
+                    <h2 className="text-2xl font-bold mb-4">{opportunity.title}</h2>
+                    {opportunity.description && (
+                      <div dangerouslySetInnerHTML={{ __html: opportunity.description }} />
+                    )}
+                  </div>
+
+                  {/* 2. 時段資訊 */}
+                  {opportunity.hasTimeSlots && opportunity.timeSlots && opportunity.timeSlots.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4">可申請時段</h3>
+                      <TimeSlotDisplay
+                        startDate={opportunity.timeSlots[0].startDate}
+                        endDate={opportunity.timeSlots[opportunity.timeSlots.length - 1].endDate}
+                        defaultCapacity={opportunity.timeSlots[0].defaultCapacity}
+                        minimumStay={opportunity.timeSlots[0].minimumStay}
+                        appliedCount={opportunity.timeSlots.reduce((total, slot) => total + slot.appliedCount, 0)}
+                      />
+                    </div>
+                  )}
+
+                  {/* 3. 工作詳情 */}
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold mb-4">工作詳情</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2">工作時間</h4>
+                        <p className="flex items-center mb-2">
+                          <span className="text-gray-600 mr-2">每日工時：</span>
+                          <span>{opportunity.workTimeSettings?.workHoursPerDay || '未指定'} 小時</span>
+                        </p>
+                        <p className="flex items-center">
+                          <span className="text-gray-600 mr-2">每週工作：</span>
+                          <span>{opportunity.workTimeSettings?.workDaysPerWeek || '未指定'} 天</span>
+                        </p>
                       </div>
 
-                      {/* 工作詳情 */}
-                      <div className="mb-8">
-                        <h2 className="text-2xl font-bold mb-4">工作詳情</h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-lg mb-2">工作時間</h3>
-                            <p className="flex items-center mb-2">
-                              <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                              </svg>
-                              每日 {opportunity.workTimeSettings?.workHoursPerDay || '未指定'} 小時
-                            </p>
-                            <p className="flex items-center">
-                              <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                              </svg>
-                              每週 {opportunity.workTimeSettings?.workDaysPerWeek || '未指定'} 天
-                            </p>
-                          </div>
-
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-lg mb-2">停留時間</h3>
-                            <p className="flex items-center mb-2">
-                              <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                              </svg>
-                              最少 {opportunity.workTimeSettings?.minimumStay || '未指定'} 天
-                            </p>
-                            {opportunity.workTimeSettings?.maximumStay && (
-                              <p className="flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                </svg>
-                                最多 {opportunity.workTimeSettings.maximumStay} 天
-                              </p>
-                            )}
-                          </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-lg mb-2">提供福利</h4>
+                        <div className="space-y-2">
+                          <p className="flex items-center">
+                            <span className="text-gray-600 mr-2">住宿：</span>
+                            <span>{opportunity.benefits?.accommodation?.provided ? '提供' : '不提供'}</span>
+                          </p>
+                          <p className="flex items-center">
+                            <span className="text-gray-600 mr-2">餐食：</span>
+                            <span>{opportunity.benefits?.meals?.provided ? `提供 (${opportunity.benefits.meals.count}餐)` : '不提供'}</span>
+                          </p>
                         </div>
+                      </div>
+                    </div>
+                  </div>
 
-                        {/* 工作任務 */}
-                        {opportunity.workDetails?.tasks && opportunity.workDetails.tasks.length > 0 && (
-                          <div className="mb-6">
-                            <h3 className="font-semibold text-lg mb-2">工作任務</h3>
-                            <ul className="list-disc pl-5 space-y-1">
-                              {opportunity.workDetails.tasks.map((task, index) => (
-                                <li key={index}>{task}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* 學習機會 */}
-                        {opportunity.workDetails?.learningOpportunities && opportunity.workDetails.learningOpportunities.length > 0 && (
-                          <div className="mb-6">
-                            <h3 className="font-semibold text-lg mb-2">學習機會</h3>
-                            <ul className="list-disc pl-5 space-y-1">
-                              {opportunity.workDetails.learningOpportunities.map((item, index) => (
-                                <li key={index}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* 語言要求 */}
-                        {opportunity.workDetails?.languages && opportunity.workDetails.languages.length > 0 && (
-                          <div className="mb-6">
-                            <h3 className="font-semibold text-lg mb-2">語言要求</h3>
-                            <div className="flex flex-wrap gap-2">
-                              {opportunity.workDetails.languages.map((language, index) => (
-                                <span key={index} className="inline-block px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full">
-                                  {language}
-                                </span>
-                              ))}
-                            </div>
+                  {/* 4. 主辦方資訊 */}
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold mb-4">主辦方資訊</h3>
+                    <div className="flex items-center mb-4">
+                      <div className="relative w-16 h-16 rounded-full overflow-hidden mr-4">
+                        {opportunity.host?.profileImage ? (
+                          <Image
+                            src={opportunity.host.profileImage}
+                            alt={opportunity.host.name}
+                            layout="fill"
+                            objectFit="cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <span className="text-gray-500 text-xl font-bold">
+                              {opportunity.host?.name?.charAt(0) || '?'}
+                            </span>
                           </div>
                         )}
                       </div>
+                      <div>
+                        <h4 className="text-lg font-semibold">{opportunity.host?.name}</h4>
+                        {opportunity.host?.description && (
+                          <p className="text-gray-600 mt-1">{opportunity.host.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-                      {/* 時段列表 */}
-                      {opportunity.hasTimeSlots && (
-                        <div className="mb-8" id="available-timeslots">
-                          <h2 className="text-2xl font-bold mb-4">可用時段</h2>
-                          {opportunity.timeSlots && opportunity.timeSlots.length > 0 ? (
-                            <div className="grid gap-4">
-                              {opportunity.timeSlots.map((slot) => (
-                                <div key={slot.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <h3 className="font-semibold text-lg">
-                                      {new Date(slot.startDate).toLocaleDateString('zh-TW')} 至 {new Date(slot.endDate).toLocaleDateString('zh-TW')}
-                                    </h3>
-                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                      slot.status === 'OPEN' ? 'bg-green-100 text-green-800' :
-                                      slot.status === 'CLOSED' ? 'bg-red-100 text-red-800' :
-                                      'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                      {slot.status === 'OPEN' ? '開放申請' :
-                                       slot.status === 'CLOSED' ? '已關閉' : '即將滿額'}
-                                    </span>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-4 text-sm">
-                                    <div>
-                                      <p className="text-gray-600">最短停留時間</p>
-                                      <p className="font-medium">{slot.minimumStay} 天</p>
-                                    </div>
-                                    <div>
-                                      <p className="text-gray-600">剩餘名額</p>
-                                      <p className="font-medium">{slot.defaultCapacity - slot.confirmedCount} / {slot.defaultCapacity}</p>
-                                    </div>
-                                  </div>
-                                  {slot.description && (
-                                    <div className="mt-2 text-sm text-gray-600">
-                                      <p>{slot.description}</p>
-                                    </div>
-                                  )}
-                                  <div className="mt-4">
-                                    <Link href={`/opportunities/${opportunity.slug}/apply?timeSlotId=${slot.id}`} className="inline-block bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 transition-colors">
-                                      申請此時段
-                                    </Link>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                              <div className="flex items-center">
-                                <svg className="h-5 w-5 text-yellow-400 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                </svg>
-                                <p className="text-yellow-700">目前沒有可用的時段。請稍後再查看或直接聯繫主辦方。</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* 地圖區域 */}
-                      {opportunity.location?.coordinates && (
-                        <div className="mt-6 bg-white rounded-lg shadow-md p-4">
-                          <h3 className="text-xl font-semibold mb-4">位置</h3>
-                          <div className="h-[400px] rounded-lg overflow-hidden">
-                            <MapComponent
-                              position={[
+                  {/* 5. 位置資訊 */}
+                  {opportunity.location?.coordinates && (
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4">位置</h3>
+                      <div className="h-[300px] rounded-lg overflow-hidden">
+                        <MapComponent
+                          position={[
+                            opportunity.location.coordinates.coordinates[1],
+                            opportunity.location.coordinates.coordinates[0]
+                          ]}
+                          markers={[
+                            {
+                              id: opportunity.id,
+                              position: [
                                 opportunity.location.coordinates.coordinates[1],
                                 opportunity.location.coordinates.coordinates[0]
-                              ]}
-                              markers={[
-                                {
-                                  id: opportunity.id,
-                                  position: [
-                                    opportunity.location.coordinates.coordinates[1],
-                                    opportunity.location.coordinates.coordinates[0]
-                                  ],
-                                  title: opportunity.title,
-                                  type: opportunity.type,
-                                  popupContent: `
-                                    <div class="p-4">
-                                      <h3 class="font-semibold text-base mb-2 text-gray-800">${opportunity.title}</h3>
-                                      <p class="text-sm text-gray-600 mb-2">${opportunity.location.address || ''}</p>
-                                    </div>
-                                  `
-                                }
-                              ]}
-                              zoom={14}
-                              height="400px"
-                              showZoomControl={true}
-                              showLocationControl={true}
-                              enableClustering={true}
-                            />
-                          </div>
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${opportunity.location.coordinates.coordinates[1]},${opportunity.location.coordinates.coordinates[0]}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                              </svg>
-                              在 Google 地圖中查看
-                            </a>
-                            <button
-                              onClick={() => {
-                                if (opportunity.location.address) {
-                                  navigator.clipboard.writeText(opportunity.location.address);
-                                  alert('地址已複製到剪貼簿');
-                                }
-                              }}
-                              className="inline-flex items-center px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-                            >
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M8 2a1 1 0 000 2h2a1 1 0 100-2H8z" />
-                                <path d="M3 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v6h-4.586l1.293-1.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L10.414 13H15v3a2 2 0 01-2 2H5a2 2 0 01-2-2V5zM15 11h2a1 1 0 110 2h-2v-2z" />
-                              </svg>
-                              複製地址
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 圖片畫廊 */}
-                      {opportunity.media?.images && opportunity.media.images.length > 1 && (
-                        <div className="mb-8">
-                          <h2 className="text-2xl font-bold mb-4">圖片集</h2>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            {opportunity.media.images.slice(1).map((image, index) => (
-                              <div key={index} className="relative h-40 rounded-lg overflow-hidden">
-                                <Image
-                                  src={image.url}
-                                  alt={image.alt || `${opportunity.title} - 圖片 ${index + 1}`}
-                                  layout="fill"
-                                  objectFit="cover"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {activeTab === 'requirements' && (
-                    <div>
-                      {/* 福利 */}
-                      <div className="mb-8">
-                        <h2 className="text-2xl font-bold mb-4">提供的福利</h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                          {/* 住宿 */}
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-lg mb-2">住宿</h3>
-                            {opportunity.benefits?.accommodation?.provided ? (
-                              <>
-                                <p className="flex items-center text-green-600 mb-2">
-                                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                  </svg>
-                                  提供住宿
-                                </p>
-                                {opportunity.benefits.accommodation.type && (
-                                  <p className="ml-7">
-                                    {opportunity.benefits.accommodation.type === 'private_room' && '獨立房間'}
-                                    {opportunity.benefits.accommodation.type === 'shared_room' && '共享房間'}
-                                    {opportunity.benefits.accommodation.type === 'dormitory' && '宿舍'}
-                                    {opportunity.benefits.accommodation.type === 'camping' && '露營'}
-                                    {opportunity.benefits.accommodation.type === 'other' && '其他'}
-                                  </p>
-                                )}
-                                {opportunity.benefits.accommodation.description && (
-                                  <p className="ml-7 text-gray-600 mt-1">{opportunity.benefits.accommodation.description}</p>
-                                )}
-                              </>
-                            ) : (
-                              <p className="flex items-center text-red-600">
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                                不提供住宿
-                              </p>
-                            )}
-                          </div>
-
-                          {/* 餐食 */}
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-lg mb-2">餐食</h3>
-                            {opportunity.benefits?.meals?.provided ? (
-                              <>
-                                <p className="flex items-center text-green-600 mb-2">
-                                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                  </svg>
-                                  提供餐食
-                                </p>
-                                {opportunity.benefits.meals.count && (
-                                  <p className="ml-7">每天 {opportunity.benefits.meals.count} 餐</p>
-                                )}
-                                {opportunity.benefits.meals.description && (
-                                  <p className="ml-7 text-gray-600 mt-1">{opportunity.benefits.meals.description}</p>
-                                )}
-                              </>
-                            ) : (
-                              <p className="flex items-center text-red-600">
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
-                                </svg>
-                                不提供餐食
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 其他福利 */}
-                        {opportunity.benefits?.otherBenefits && opportunity.benefits.otherBenefits.length > 0 && (
-                          <div className="mb-6">
-                            <h3 className="font-semibold text-lg mb-2">其他福利</h3>
-                            <ul className="list-disc pl-5 space-y-1">
-                              {opportunity.benefits.otherBenefits.map((benefit, index) => (
-                                <li key={index}>{benefit}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 要求 */}
-                      <div className="mb-8">
-                        <h2 className="text-2xl font-bold mb-4">申請要求</h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                          <div className="bg-gray-50 p-4 rounded-lg">
-                            <h3 className="font-semibold text-lg mb-2">基本要求</h3>
-                            <ul className="space-y-2">
-                              {opportunity.requirements?.minAge && (
-                                <li className="flex items-center">
-                                  <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                                  </svg>
-                                  最低年齡: {opportunity.requirements.minAge} 歲
-                                </li>
-                              )}
-                              <li className="flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
-                                </svg>
-                                接受情侶: {opportunity.requirements?.acceptsCouples ? '是' : '否'}
-                              </li>
-                              <li className="flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                </svg>
-                                接受家庭: {opportunity.requirements?.acceptsFamilies ? '是' : '否'}
-                              </li>
-                              <li className="flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-                                </svg>
-                                接受寵物: {opportunity.requirements?.acceptsPets ? '是' : '否'}
-                              </li>
-                              <li className="flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
-                                </svg>
-                                需要駕照: {opportunity.requirements?.drivingLicenseRequired ? '是' : '否'}
-                              </li>
-                            </ul>
-                          </div>
-
-                          {/* 其他要求 */}
-                          {opportunity.requirements?.otherRequirements && opportunity.requirements.otherRequirements.length > 0 && (
-                            <div className="bg-gray-50 p-4 rounded-lg">
-                              <h3 className="font-semibold text-lg mb-2">其他要求</h3>
-                              <ul className="list-disc pl-5 space-y-1">
-                                {opportunity.requirements.otherRequirements.map((req, index) => (
-                                  <li key={index}>{req}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeTab === 'host' && (
-                    <div>
-                      {/* 主辦方資訊 */}
-                      <div className="mb-8">
-                        <h2 className="text-2xl font-bold mb-4">關於主辦方</h2>
-
-                        <div className="flex items-center mb-6">
-                          <div className="relative w-16 h-16 rounded-full overflow-hidden mr-4">
-                            {opportunity.host?.profileImage ? (
-                              <Image
-                                src={opportunity.host.profileImage}
-                                alt={opportunity.host.name}
-                                layout="fill"
-                                objectFit="cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                <span className="text-gray-500 text-xl font-bold">
-                                  {opportunity.host?.name?.charAt(0) || '?'}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-semibold">{opportunity.host?.name}</h3>
-                            {opportunity.host?.memberSince && (
-                              <p className="text-gray-600">
-                                會員自 {new Date(opportunity.host.memberSince).getFullYear()} 年
-                              </p>
-                            )}
-                            {opportunity.host?.verificationStatus === 'verified' && (
-                              <p className="text-green-600 flex items-center mt-1">
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                </svg>
-                                已認證
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {opportunity.host?.description && (
-                          <div className="mb-6">
-                            <h3 className="font-semibold text-lg mb-2">主辦方介紹</h3>
-                            <p className="text-gray-700">{opportunity.host.description}</p>
-                          </div>
-                        )}
-
-                        {opportunity.host?.responseRate && (
-                          <div className="mb-6">
-                            <h3 className="font-semibold text-lg mb-2">回應資訊</h3>
-                            <p className="flex items-center mb-2">
-                              <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                              </svg>
-                              回應率: {opportunity.host.responseRate}%
-                            </p>
-                            {opportunity.host?.responseTime && (
-                              <p className="flex items-center">
-                                <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                回應時間: {opportunity.host.responseTime}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {opportunity.host?.socialMedia && Object.values(opportunity.host.socialMedia).some(value => value) && (
-                          <div className="mb-6">
-                            <h3 className="font-semibold text-lg mb-2">社群媒體</h3>
-                            <SocialMediaIcons links={opportunity.host.socialMedia} size="md" />
-                          </div>
-                        )}
-
-                        <div className="mt-6">
-                          <button
-                            onClick={() => router.push(`/messages/new?hostId=${opportunity.host?.id}`)}
-                            className="bg-primary-600 text-white px-6 py-2 rounded-md hover:bg-primary-700 transition-colors"
-                          >
-                            聯絡主辦方
-                          </button>
-                        </div>
+                              ],
+                              title: opportunity.title,
+                              type: opportunity.type,
+                              popupContent: `
+                                <div class="p-4">
+                                  <h3 class="font-semibold text-base mb-2 text-gray-800">${opportunity.title}</h3>
+                                  <p class="text-sm text-gray-600 mb-2">${opportunity.location.address || ''}</p>
+                                </div>
+                              `
+                            }
+                          ]}
+                          zoom={14}
+                          height="300px"
+                          showZoomControl={true}
+                          showLocationControl={true}
+                          enableClustering={true}
+                        />
                       </div>
                     </div>
                   )}

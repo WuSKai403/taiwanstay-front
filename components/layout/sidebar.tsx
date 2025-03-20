@@ -5,12 +5,12 @@ import {
   CogIcon,
   HomeIcon,
   MapIcon,
-  SearchCircleIcon,
-  SpeakerphoneIcon,
+  MagnifyingGlassCircleIcon,
+  MegaphoneIcon,
   UserGroupIcon,
-  ViewGridAddIcon,
-  XIcon
-} from '@heroicons/react/outline';
+  Squares2X2Icon,
+  XMarkIcon
+} from '@heroicons/react/24/outline';
 import Directory from './directory';
 import { ResultProps } from '@/lib/api/user';
 
@@ -71,7 +71,7 @@ export default function Sidebar({
                     onClick={() => setSidebarOpen(false)}
                   >
                     <span className="sr-only">Close sidebar</span>
-                    <XIcon className="h-6 w-6 text-white" aria-hidden="true" />
+                    <XMarkIcon className="h-6 w-6 text-white" aria-hidden="true" />
                   </button>
                 </div>
               </Transition.Child>
@@ -91,12 +91,12 @@ const navigation = [
   { name: 'Dashboard', href: '#', icon: HomeIcon, current: false },
   { name: 'Calendar', href: '#', icon: CalendarIcon, current: false },
   { name: 'Teams', href: '#', icon: UserGroupIcon, current: false },
-  { name: 'Directory', href: '#', icon: SearchCircleIcon, current: true },
-  { name: 'Announcements', href: '#', icon: SpeakerphoneIcon, current: false },
+  { name: 'Directory', href: '#', icon: MagnifyingGlassCircleIcon, current: true },
+  { name: 'Announcements', href: '#', icon: MegaphoneIcon, current: false },
   { name: 'Office Map', href: '#', icon: MapIcon, current: false }
 ];
 const secondaryNavigation = [
-  { name: 'Apps', href: '#', icon: ViewGridAddIcon },
+  { name: 'Apps', href: '#', icon: Squares2X2Icon },
   { name: 'Settings', href: '#', icon: CogIcon }
 ];
 

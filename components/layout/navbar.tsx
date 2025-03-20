@@ -2,7 +2,7 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { useState } from 'react';
 import { LoadingDots } from '@/components/icons';
 import Image from 'next/image';
-import { MenuIcon } from '@heroicons/react/outline';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
 export default function Navbar({
@@ -24,7 +24,7 @@ export default function Navbar({
         onClick={() => setSidebarOpen(true)}
       >
         <span className="sr-only">Open sidebar</span>
-        <MenuIcon className="h-6 w-6" aria-hidden="true" />
+        <Bars3Icon className="h-6 w-6" aria-hidden="true" />
       </button>
       {status !== 'loading' &&
         (session?.user ? (

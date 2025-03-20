@@ -125,3 +125,6 @@ export interface Notification {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// 時段相關類型
+export * from './opportunity';

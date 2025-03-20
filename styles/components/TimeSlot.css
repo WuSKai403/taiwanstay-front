@@ -1,0 +1,147 @@
+/* 時段卡片動畫 */
+.time-slot-card {
+  transition: all 0.3s ease-in-out;
+  transform-origin: center;
+}
+
+.time-slot-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.time-slot-card:active {
+  transform: translateY(0);
+}
+
+/* 時段狀態標籤動畫 */
+.time-slot-status {
+  transition: all 0.2s ease-in-out;
+}
+
+.time-slot-status:hover {
+  transform: scale(1.05);
+}
+
+/* 日曆視圖動畫 */
+.calendar-day {
+  transition: all 0.2s ease-in-out;
+}
+
+.calendar-day:hover {
+  transform: scale(1.05);
+  z-index: 1;
+}
+
+/* 篩選器動畫 */
+.filter-container {
+  transition: all 0.3s ease-in-out;
+}
+
+.filter-container.collapsed {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+/* 表單元素動畫 */
+.time-slot-form input,
+.time-slot-form select {
+  transition: all 0.2s ease-in-out;
+}
+
+.time-slot-form input:focus,
+.time-slot-form select:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 按鈕動畫 */
+.time-slot-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.time-slot-button:hover {
+  transform: translateY(-1px);
+}
+
+.time-slot-button:active {
+  transform: translateY(0);
+}
+
+/* 載入動畫 */
+.time-slot-loading {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+/* 錯誤提示動畫 */
+.time-slot-error {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+  10%, 90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+  20%, 80% {
+    transform: translate3d(2px, 0, 0);
+  }
+  30%, 50%, 70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%, 60% {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+
+/* 成功提示動畫 */
+.time-slot-success {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 響應式設計 */
+@media (max-width: 640px) {
+  .time-slot-card {
+    margin: 0.5rem 0;
+  }
+
+  .calendar-day {
+    min-height: 80px;
+  }
+}
+
+/* 深色模式支援 */
+@media (prefers-color-scheme: dark) {
+  .time-slot-card {
+    background-color: #1f2937;
+    border-color: #374151;
+  }
+
+  .time-slot-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
+
+  .time-slot-form input:focus,
+  .time-slot-form select:focus {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+}
