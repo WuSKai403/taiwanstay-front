@@ -1,5 +1,9 @@
 import { CloudinaryImageConfig, CloudinaryResource, CloudinaryImageResource } from './types';
-import type { CloudinaryUploadWidgetOptions, CloudinaryUploadWidgetResults } from 'next-cloudinary';
+import type {
+  CloudinaryUploadWidgetOptions,
+  CloudinaryUploadWidgetResults,
+  CloudinaryUploadWidgetInfo
+} from 'next-cloudinary';
 
 export const generateTransformation = (config: CloudinaryImageConfig): string => {
   const transformations: string[] = [];
@@ -30,11 +34,23 @@ export const formatBytes = (bytes: number): string => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
-export const convertToImageResource = (info: CloudinaryResource): CloudinaryImageResource => {
+export const convertToImageResource = (info: CloudinaryUploadWidgetInfo): CloudinaryImageResource => {
+  if (!info.public_id || !info.secure_url) {
+    throw new Error('Missing required fields in CloudinaryResource');
+  }
+
+  const resource: CloudinaryResource = {
+    public_id: info.public_id,
+    secure_url: info.secure_url,
+    version_id: info.version_id as string | undefined,
+    signature: info.signature as string | undefined,
+    api_key: info.api_key as string | undefined
+  };
+
   return {
-    ...info,
-    thumbnailUrl: info.secure_url.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200/'),
-    previewUrl: info.secure_url.replace('/upload/', '/upload/c_scale,w_600/')
+    ...resource,
+    thumbnailUrl: resource.secure_url.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200/'),
+    previewUrl: resource.secure_url.replace('/upload/', '/upload/c_scale,w_600/')
   };
 };
 

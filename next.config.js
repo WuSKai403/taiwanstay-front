@@ -8,7 +8,8 @@ const nextConfig = {
       'avatar.tobi.sh',
       'cloudflare-ipfs.com',
       'loremflickr.com',
-      'picsum.photos'
+      'picsum.photos',
+      'images.unsplash.com'
     ]
   },
   experimental: {

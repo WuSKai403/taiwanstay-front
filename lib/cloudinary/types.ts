@@ -1,7 +1,9 @@
 import { CloudinaryUploadWidgetResults, CloudinaryUploadWidgetInfo } from 'next-cloudinary';
 
 // Cloudinary 資源基本介面
-export interface CloudinaryResource extends Omit<CloudinaryUploadWidgetInfo, 'thumbnail_url'> {
+export interface CloudinaryResource {
+  public_id: string;
+  secure_url: string;
   version_id?: string;
   signature?: string;
   api_key?: string;
