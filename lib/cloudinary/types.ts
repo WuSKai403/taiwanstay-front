@@ -1,27 +1,10 @@
 import { CloudinaryUploadWidgetResults, CloudinaryUploadWidgetInfo } from 'next-cloudinary';
 
 // Cloudinary 資源基本介面
-export interface CloudinaryResource extends CloudinaryUploadWidgetInfo {
-  asset_id: string;
-  public_id: string;
-  version: number;
-  version_id: string;
-  signature: string;
-  width: number;
-  height: number;
-  format: string;
-  resource_type: string;
-  created_at: string;
-  tags: string[];
-  bytes: number;
-  type: string;
-  etag: string;
-  placeholder: boolean;
-  url: string;
-  secure_url: string;
-  folder: string;
-  original_filename: string;
-  api_key: string;
+export interface CloudinaryResource extends Omit<CloudinaryUploadWidgetInfo, 'thumbnail_url'> {
+  version_id?: string;
+  signature?: string;
+  api_key?: string;
 }
 
 // 上傳結果介面
@@ -63,6 +46,7 @@ export interface CloudinaryImageConfig {
 
 // 圖片資源介面（用於前端顯示）
 export interface CloudinaryImageResource extends CloudinaryResource {
+  public_id: string;  // 用於訪問和傳遞上傳資產的唯一標識符
   thumbnailUrl: string;
   previewUrl: string;
   transformedUrl?: string;

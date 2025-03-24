@@ -3,6 +3,7 @@ import { connectToDatabase } from '../../../lib/mongodb';
 import { Opportunity, Host } from '../../../models/index';
 import { OpportunityStatus } from '../../../models/enums';
 import { generateSlug, buildMongoQuery, calculatePagination, isValidObjectId, generatePublicId } from '../../../utils/helpers';
+import mongoose from 'mongoose';
 
 // 創建Express應用程序（用於測試）
 export const app = null;
@@ -38,22 +39,49 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
     const query = buildMongoQuery(req.query);
     console.log('MongoDB 查詢條件:', JSON.stringify(query, null, 2));
 
-    // 執行查詢
-    console.log('執行 Opportunity.find 查詢...');
-    const opportunities = await Opportunity.find(query)
-      .populate('hostId', 'name description contactEmail contactPhone location')
-      .sort({ [sort]: order === 'asc' ? 1 : -1 })
-      .skip(skip)
-      .limit(limit);
+    // 最多重試3次
+    let retries = 0;
+    const maxRetries = 3;
+    let opportunities: any[] = [];
+    let total = 0;
 
-    // 獲取總數
-    const total = await Opportunity.countDocuments(query);
-    console.log(`找到 ${total} 個符合條件的機會`);
+    while (retries < maxRetries) {
+      try {
+        // 執行查詢
+        console.log(`執行 Opportunity.find 查詢... (嘗試 ${retries + 1}/${maxRetries})`);
+        opportunities = await Opportunity.find(query)
+          .populate('hostId', 'name description contactEmail contactPhone location')
+          .sort({ [sort]: order === 'asc' ? 1 : -1 })
+          .skip(skip)
+          .limit(limit)
+          .setOptions({ maxTimeMS: 20000 }); // 設置查詢超時為20秒
+
+        // 獲取總數
+        total = await Opportunity.countDocuments(query)
+          .setOptions({ maxTimeMS: 10000 }); // 設置計數查詢超時為10秒
+        console.log(`找到 ${total} 個符合條件的機會`);
+
+        // 如果成功，跳出循環
+        break;
+      } catch (err) {
+        retries++;
+        console.error(`查詢失敗 (${retries}/${maxRetries}):`, err);
+
+        if (retries >= maxRetries) {
+          // 最後一次重試也失敗了，拋出錯誤
+          throw err;
+        }
+
+        // 等待一段時間後重試
+        console.log(`等待 ${retries * 1000}ms 後重試...`);
+        await new Promise(resolve => setTimeout(resolve, retries * 1000));
+      }
+    }
 
     // 記錄每個機會的基本信息
     if (opportunities.length > 0) {
       console.log('機會列表:');
-      opportunities.forEach((opp, index) => {
+      opportunities.forEach((opp: any, index: number) => {
         console.log(`${index + 1}. ${opp.title} (${opp.location?.city}, ${opp.location?.region || '無地區'}) - 停留時間: ${opp.workTimeSettings?.minimumStay}-${opp.workTimeSettings?.maximumStay || '無上限'} 天`);
       });
     } else {
@@ -75,7 +103,7 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
 
     // 返回結果
     return res.status(200).json({
-      opportunities: opportunities.map(opportunity => ({
+      opportunities: opportunities.map((opportunity: any) => ({
         id: opportunity._id,
         title: opportunity.title,
         slug: opportunity.slug,
@@ -114,7 +142,27 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
     });
   } catch (error) {
     console.error('獲取工作機會列表失敗:', error);
-    return res.status(500).json({ message: '獲取工作機會列表時發生錯誤', error: (error as Error).message });
+
+    // 檢查錯誤類型，提供更詳細的錯誤訊息
+    let errorMessage = '獲取工作機會列表時發生錯誤';
+    let statusCode = 500;
+
+    if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
+      errorMessage = 'MongoDB連接超時，請稍後再試';
+      console.error('MongoDB連接超時詳情:', {
+        connectionState: mongoose.connection.readyState,
+        errorName: error.name,
+        errorMessage: error.message
+      });
+    } else if (error.name === 'MongoTimeoutError') {
+      errorMessage = 'MongoDB查詢超時，請縮小搜尋範圍或稍後再試';
+    }
+
+    return res.status(statusCode).json({
+      message: errorMessage,
+      error: (error as Error).message,
+      code: error.name
+    });
   }
 }
 

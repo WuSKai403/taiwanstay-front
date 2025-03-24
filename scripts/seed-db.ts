@@ -70,16 +70,108 @@ async function importUsers() {
   const users = readCsvFile(path.join(process.cwd(), 'data/seed/users.csv'));
 
   for (const user of users) {
-    await User.create({
-      name: user.name,
-      email: user.email,
-      password: user.password,
-      role: user.role,
-      image: user.image,
-      profile: {
-        avatar: user.image
-      }
-    });
+    // 基本資料（所有角色都需要）
+    const baseProfile = {
+      avatar: user.image,
+      birthDate: new Date('1990-01-01'),
+      emergencyContact: {
+        name: '緊急聯絡人',
+        phone: '0912345678',
+        relationship: '親屬'
+      },
+      physicalCondition: '良好',
+      preferredWorkHours: 20,
+      workExperience: [{
+        title: '無工作經驗',
+        description: '尚無相關工作經驗',
+        duration: '0年'
+      }]
+    };
+
+    // 根據角色設定不同的資料
+    let roleSpecificProfile = {};
+    let finalProfile = {};
+
+    if (user.role === UserRole.USER) {
+      // 一般使用者需要的額外資料
+      roleSpecificProfile = {
+        preferredWorkHours: 20,
+        languages: ['中文', '英文'],
+        dietaryRestrictions: [],
+        skills: ['溝通能力', '團隊合作'],
+        interests: ['永續發展', '文化交流'],
+        experience: {
+          workExperience: '無相關經驗',
+          volunteerExperience: '無相關經驗',
+          relevantCertifications: []
+        },
+        preferences: {
+          preferredLocations: ['台北市', '新北市'],
+          preferredDuration: {
+            min: 7,
+            max: 30
+          },
+          preferredWorkTypes: ['文化', '環境'],
+          accommodationPreferences: ['單人房', '共享房'],
+          dietaryPreferences: ['無特殊要求']
+        }
+      };
+    } else if (user.role === UserRole.HOST) {
+      // 主辦方管理員需要的額外資料
+      roleSpecificProfile = {
+        position: '主辦方管理員',
+        department: '營運管理',
+        responsibilities: ['機會管理', '志工協調'],
+        preferredWorkHours: 40,
+        languages: ['中文', '英文'],
+        contactPreferences: {
+          preferredContactMethod: 'email',
+          availableTime: '09:00-18:00',
+          responseTime: '24小時內'
+        }
+      };
+    } else if (user.role === UserRole.ORGANIZATION) {
+      // 組織管理員需要的額外資料
+      roleSpecificProfile = {
+        position: '組織管理員',
+        department: '營運管理',
+        responsibilities: ['主辦方管理', '組織發展'],
+        preferredWorkHours: 40,
+        languages: ['中文', '英文'],
+        contactPreferences: {
+          preferredContactMethod: 'email',
+          availableTime: '09:00-18:00',
+          responseTime: '24小時內'
+        }
+      };
+    } else if (user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN) {
+      // 系統管理員需要的額外資料
+      roleSpecificProfile = {
+        adminLevel: user.role === UserRole.SUPER_ADMIN ? 'super' : 'admin',
+        permissions: ['all'],
+        preferredWorkHours: 40,
+        languages: ['中文', '英文'],
+        lastLogin: new Date(),
+        securityClearance: 'high'
+      };
+    }
+
+    finalProfile = { ...baseProfile, ...roleSpecificProfile };
+
+    // 創建用戶
+    try {
+      await User.create({
+        name: user.name,
+        email: user.email,
+        password: user.password,
+        role: user.role,
+        image: user.image,
+        profile: finalProfile
+      });
+    } catch (error) {
+      console.error(`創建用戶失敗 ${user.email}:`, error);
+      throw error;
+    }
   }
 
   console.log(`已導入 ${users.length} 筆用戶資料`);

@@ -55,6 +55,29 @@ export interface IUser extends Document {
       specialNeeds?: string;
       notes?: string;
     };
+    // 基本個人資訊
+    birthDate: Date;
+    emergencyContact: {
+      name: string;
+      relationship: string;
+      phone: string;
+      email?: string;
+    };
+    // 工作能力相關
+    workExperience: Array<{
+      title: string;
+      description: string;
+      duration: string;
+    }>;
+    physicalCondition: string;
+    accommodationNeeds: string;
+    culturalInterests: string[];
+    learningGoals: string[];
+    // 基本安全驗證
+    phoneNumber?: string;
+    isPhoneVerified: boolean;
+    // 其他基本資訊
+    preferredWorkHours: number;
   };
   hostId?: mongoose.Types.ObjectId;
   organizationId?: mongoose.Types.ObjectId;
@@ -121,8 +144,8 @@ const UserSchema: Schema = new Schema({
   password: { type: String },
   role: {
     type: String,
-    enum: ['user', 'host', 'admin'],
-    default: 'user',
+    enum: Object.values(UserRole),
+    default: UserRole.USER,
   },
   profile: {
     avatar: String,
@@ -172,7 +195,31 @@ const UserSchema: Schema = new Schema({
       dietaryRestrictions: [String],
       specialNeeds: String,
       notes: String
-    }
+    },
+    // 基本個人資訊
+    birthDate: { type: Date, required: true },
+    emergencyContact: {
+      name: { type: String, required: true },
+      relationship: { type: String, required: true },
+      phone: { type: String, required: true },
+      email: String
+    },
+    // 工作能力相關
+    workExperience: [{
+      title: { type: String, required: true },
+      description: String,
+      duration: String
+    }],
+    physicalCondition: { type: String, required: true },
+    dietaryRestrictions: [String],
+    // 交流期望
+    preferredWorkHours: { type: Number, required: true },
+    accommodationNeeds: String,
+    culturalInterests: [String],
+    learningGoals: [String],
+    // 基本安全驗證
+    phoneNumber: String,
+    isPhoneVerified: { type: Boolean, default: false },
   },
   hostId: { type: Schema.Types.ObjectId, ref: 'Host' },
   organizationId: { type: Schema.Types.ObjectId, ref: 'Organization' },
