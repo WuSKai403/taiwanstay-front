@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useState } from 'react';
 
@@ -51,16 +52,20 @@ export default function Header() {
                     className="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                   >
                     <span className="sr-only">打開用戶選單</span>
-                    {session.user?.image ? (
-                      <img
-                        className="h-8 w-8 rounded-full"
-                        src={session.user.image}
-                        alt={session.user.name || '用戶頭像'}
-                      />
+                    {session?.user?.image ? (
+                      <div className="relative h-8 w-8">
+                        <Image
+                          className="rounded-full"
+                          src={session.user.image}
+                          alt={session.user.name || '用戶頭像'}
+                          fill
+                          sizes="32px"
+                        />
+                      </div>
                     ) : (
                       <div className="h-8 w-8 rounded-full bg-primary-200 flex items-center justify-center">
                         <span className="text-primary-800 font-medium">
-                          {session.user?.name?.charAt(0) || 'U'}
+                          {session?.user?.name?.charAt(0) || 'U'}
                         </span>
                       </div>
                     )}
@@ -174,16 +179,20 @@ export default function Header() {
             <div className="pt-4 pb-3 border-t border-gray-200">
               <div className="flex items-center px-4">
                 <div className="flex-shrink-0">
-                  {session.user?.image ? (
-                    <img
-                      className="h-10 w-10 rounded-full"
-                      src={session.user.image}
-                      alt={session.user.name || '用戶頭像'}
-                    />
+                  {session?.user?.image ? (
+                    <div className="relative h-10 w-10">
+                      <Image
+                        className="rounded-full"
+                        src={session.user.image}
+                        alt={session.user.name || '用戶頭像'}
+                        fill
+                        sizes="40px"
+                      />
+                    </div>
                   ) : (
                     <div className="h-10 w-10 rounded-full bg-primary-200 flex items-center justify-center">
                       <span className="text-primary-800 font-medium">
-                        {session.user?.name?.charAt(0) || 'U'}
+                        {session?.user?.name?.charAt(0) || 'U'}
                       </span>
                     </div>
                   )}

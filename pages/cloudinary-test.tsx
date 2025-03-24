@@ -1,5 +1,6 @@
 import { NextPage } from 'next';
 import Head from 'next/head';
+import Image from 'next/image';
 import { useState } from 'react';
 import { CldUploadWidget } from 'next-cloudinary';
 import type { CloudinaryUploadWidgetResults } from 'next-cloudinary';
@@ -210,10 +211,12 @@ const CloudinaryTest: NextPage = () => {
                 <div className="space-y-4">
                   <h3 className="font-medium">原始圖片</h3>
                   <div className="relative aspect-video">
-                    <img
+                    <Image
                       src={resource.secure_url}
                       alt={resource.original_filename || '上傳的圖片'}
-                      className="rounded-lg object-cover w-full h-full"
+                      className="rounded-lg object-cover"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
                     />
                   </div>
                 </div>
@@ -245,21 +248,14 @@ const CloudinaryTest: NextPage = () => {
                 <div className="space-y-4">
                   <h3 className="font-medium">縮圖預覽</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <img
+                    <div className="relative aspect-square">
+                      <Image
                         src={resource.thumbnailUrl}
-                        alt={`${resource.original_filename || '上傳的圖片'} 的縮圖`}
-                        className="rounded-lg w-[200px] h-[200px] object-cover"
+                        alt="縮圖預覽"
+                        className="rounded-lg object-cover"
+                        fill
+                        sizes="(max-width: 768px) 50vw, 25vw"
                       />
-                      <p className="mt-2 text-sm text-gray-600">200x200 縮圖</p>
-                    </div>
-                    <div>
-                      <img
-                        src={`${resource.secure_url.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200,r_max/')}`}
-                        alt={`${resource.original_filename || '上傳的圖片'} 的圓形縮圖`}
-                        className="rounded-lg w-[200px] h-[200px] object-cover"
-                      />
-                      <p className="mt-2 text-sm text-gray-600">圓形縮圖</p>
                     </div>
                   </div>
                 </div>

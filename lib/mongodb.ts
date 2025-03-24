@@ -29,7 +29,7 @@ const options = {
   minPoolSize: 1,
   retryWrites: true,
   w: 1,
-  dbName: DB_NAME, // 確保 Mongoose 使用正確的資料庫
+  dbName: DB_NAME,
   ...process.env.NODE_ENV === 'production'
     ? {
         ssl: true,
@@ -82,7 +82,7 @@ mongoose.connection.on('disconnected', () => {
 
 // 創建一個MongoDB客戶端實例並返回Promise
 let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
+export let clientPromise: Promise<MongoClient>;
 
 // 測試環境標誌
 const isTestEnvironment = process.env.NODE_ENV === 'test';
