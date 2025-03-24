@@ -5,6 +5,16 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { isValidObjectId } from '@/utils/helpers';
 
+// 定義 JWT token 的類型
+interface CustomToken {
+  id?: string;
+  role?: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+  sub?: string;
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -84,24 +94,26 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (token) {
+      const customToken = token as CustomToken;
+
+      if (customToken) {
         // 驗證 token 中的 ID
-        if (!token.id || !isValidObjectId(token.id)) {
-          console.error('Session 回調 - 無效的 token ID:', token.id);
+        if (!customToken.id || !isValidObjectId(customToken.id)) {
+          console.error('Session 回調 - 無效的 token ID:', customToken.id);
           throw new Error('無效的 token ID');
         }
 
         console.log('Session 回調 - Token 信息:', {
-          id: token.id,
-          role: token.role
+          id: customToken.id,
+          role: customToken.role
         });
 
         return {
           ...session,
           user: {
             ...session.user,
-            id: token.id,
-            role: token.role as string
+            id: customToken.id,
+            role: customToken.role as string
           }
         };
       }

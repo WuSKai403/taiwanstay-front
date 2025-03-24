@@ -45,11 +45,14 @@ export default function Home() {
             </main>
           </div>
         </div>
-        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2">
-          <img
-            className="h-56 w-full object-cover sm:h-72 md:h-96 lg:w-full lg:h-full"
+        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2 relative">
+          <Image
+            className="object-cover"
             src="https://images.unsplash.com/photo-1596422846543-75c6fc197f07?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1045&q=80"
             alt="台灣風景"
+            fill
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            priority
           />
         </div>
       </div>

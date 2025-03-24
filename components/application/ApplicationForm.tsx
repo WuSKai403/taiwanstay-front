@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CldUploadWidget } from 'next-cloudinary';
+import Image from 'next/image';
 import type { CloudinaryUploadWidgetResults } from 'next-cloudinary';
 import {
   CloudinaryImageResource
@@ -479,6 +480,29 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
 
   const currentStepData = formSteps[currentStep];
   const isCurrentStepValid = currentStepData.isValid(formData);
+
+  const renderPhotoPreview = (photo: CloudinaryImageResource, index: number) => (
+    <div key={photo.public_id} className="relative">
+      <div className="relative w-32 h-32">
+        <Image
+          src={photo.secure_url as string}
+          alt={`上傳的照片 ${index + 1}`}
+          fill
+          className="rounded-lg object-cover"
+          sizes="128px"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => handleRemovePhoto(index)}
+        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -1062,24 +1086,7 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
                 {/* 照片預覽 */}
                 {formData.photos.length > 0 && (
                   <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {formData.photos.map((photo, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={photo.thumbnailUrl}
-                          alt={`上傳的照片 ${index + 1}`}
-                          className="w-full h-40 object-cover rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePhoto(index)}
-                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
+                    {formData.photos.map((photo, index) => renderPhotoPreview(photo, index))}
                   </div>
                 )}
               </div>
@@ -1213,15 +1220,7 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">上傳的照片</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {formData.photos.map((photo, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={photo.thumbnailUrl}
-                          alt={`上傳的照片 ${index + 1}`}
-                          className="w-full h-40 object-cover rounded-lg"
-                        />
-                      </div>
-                    ))}
+                    {formData.photos.map((photo, index) => renderPhotoPreview(photo, index))}
                   </div>
                 </div>
               )}
