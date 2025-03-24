@@ -1,4 +1,8 @@
 name,email,password,role,image
+測試用戶,test@example.com,test123,USER,https://picsum.photos/200
+管理員,admin@example.com,admin123,ADMIN,https://picsum.photos/200
+主辦方,host@example.com,host123,HOST,https://picsum.photos/200
+組織管理員,org@example.com,org123,ORGANIZATION,https://picsum.photos/200
 測試用戶1,user1@example.com,password123,USER,https://picsum.photos/seed/user1/200/200
 測試用戶2,user2@example.com,password123,USER,https://picsum.photos/seed/user2/200/200
 測試用戶3,user3@example.com,password123,USER,https://picsum.photos/seed/user3/200/200
@@ -9,7 +13,7 @@ name,email,password,role,image
 主辦方管理員3,host3@example.com,password123,HOST,https://picsum.photos/seed/host3/200/200
 組織管理員1,org1@example.com,password123,ORGANIZATION,https://picsum.photos/seed/org1/200/200
 組織管理員2,org2@example.com,password123,ORGANIZATION,https://picsum.photos/seed/org2/200/200
-系統管理員,admin@example.com,password123,ADMIN,https://picsum.photos/seed/admin/200/200
+系統管理員,admin0@example.com,password123,ADMIN,https://picsum.photos/seed/admin/200/200
 蘭嶼藍海潛店管理員,lanyu.dive@example.com,password123,HOST,https://picsum.photos/seed/lanyu1/200/200
 綠島海龜潛水管理員,green.dive@example.com,password123,HOST,https://picsum.photos/seed/green1/200/200
 恆春陽光民宿管理員,hengchun.bnb@example.com,password123,HOST,https://picsum.photos/seed/hengchun1/200/200

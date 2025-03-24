@@ -30,8 +30,6 @@ const options = {
   retryWrites: true,
   w: 1,
   dbName: DB_NAME, // 確保 Mongoose 使用正確的資料庫
-  bufferCommands: false, // 禁用命令緩衝
-  autoIndex: true, // 在開發環境中自動建立索引
   ...process.env.NODE_ENV === 'production'
     ? {
         ssl: true,
@@ -151,12 +149,12 @@ export async function getDb() {
     const db = client.db(DB_NAME);
     console.log(`成功獲取數據庫: ${DB_NAME}`);
     return db;
-  } catch (error) {
+  } catch (error: any) {
     console.error('獲取數據庫實例失敗:', {
-      name: error.name,
-      message: error.message,
-      code: error.code,
-      stack: error.stack
+      name: error?.name,
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack
     });
     throw error;
   }
@@ -190,12 +188,12 @@ export async function connectToDatabase(): Promise<DatabaseConnection> {
 
     console.timeEnd('MongoDB連線時間');
     return { client, db };
-  } catch (error) {
+  } catch (error: any) {
     console.error('MongoDB連接失敗:', {
-      name: error.name,
-      message: error.message,
-      code: error.code,
-      stack: error.stack,
+      name: error?.name,
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
       connectionState: client ? (client as any).topology?.state : 'unknown'
     });
     throw error;

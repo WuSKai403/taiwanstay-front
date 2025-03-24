@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { NextPage, GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import Head from 'next/head';
 import Link from 'next/link';
 import { OpportunityType } from '@/models/enums/OpportunityType';
@@ -164,6 +166,18 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { slug } = context.params as { slug: string };
 
   try {
+    // 檢查用戶是否已登入
+    const session = await getServerSession(context.req, context.res, authOptions);
+
+    if (!session || !session.user) {
+      return {
+        redirect: {
+          destination: `/auth/signin?callbackUrl=${encodeURIComponent(`/opportunities/${slug}/apply`)}`,
+          permanent: false,
+        },
+      };
+    }
+
     await dbConnect();
 
     const protocol = context.req.headers.host?.includes('localhost') ? 'http' : 'https';

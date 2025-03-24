@@ -3,9 +3,6 @@ import mongoose from 'mongoose';
 import { UserRole } from '../../../models/enums/UserRole';
 import { User } from '../../../models/index';
 
-// 檢查環境變數是否開啟認證
-const isAuthEnabled = process.env.ENABLE_AUTH !== 'false';
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 如果不是POST請求，返回405方法不允許
   if (req.method !== 'POST') {
@@ -13,19 +10,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 如果認證被禁用，則返回模擬成功響應
-    if (!isAuthEnabled) {
-      return res.status(201).json({
-        message: '用戶註冊成功',
-        user: {
-          id: 'test-user-id',
-          name: 'Test User',
-          email: 'test@example.com',
-          role: UserRole.USER
-        }
-      });
-    }
-
     // 從請求體中獲取用戶數據
     const { name, email, password, location } = req.body;
 

@@ -205,19 +205,34 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
     const checkBookmarkStatus = async () => {
       if (status === 'authenticated' && opportunity?.id) {
         try {
+          console.log('檢查書籤狀態:', {
+            opportunityId: opportunity.id,
+            sessionStatus: status,
+            userId: session?.user?.id
+          });
+
           const response = await fetch(`/api/bookmarks?opportunityId=${opportunity.id}`);
-          if (response.ok) {
-            const data = await response.json();
-            setIsBookmarked(data.isBookmarked);
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('書籤檢查失敗:', {
+              status: response.status,
+              error: errorData
+            });
+            setError(errorData.error || '檢查收藏狀態失敗');
+            return;
           }
+
+          const data = await response.json();
+          setIsBookmarked(data.isBookmarked);
         } catch (err) {
           console.error('檢查收藏狀態失敗:', err);
+          setError('檢查收藏狀態時發生錯誤');
         }
       }
     };
 
     checkBookmarkStatus();
-  }, [status, opportunity?.id]);
+  }, [status, opportunity?.id, session]);
 
   // 更新瀏覽次數
   useEffect(() => {

@@ -1,43 +1,59 @@
 import NextAuth from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
+import CredentialsProvider from 'next-auth/providers/credentials';
 import GithubProvider from 'next-auth/providers/github';
+import { compare } from 'bcryptjs';
 import { getDb } from '@/lib/mongodb';
 import { UserRole } from '../../../models/enums';
 
-// 改用後端環境變數
-const isAuthEnabled = process.env.ENABLE_AUTH !== 'false';
 console.log('認證狀態:', {
-  isAuthEnabled,
-  ENABLE_AUTH: process.env.ENABLE_AUTH,
   NODE_ENV: process.env.NODE_ENV
 });
 
 const providers = [];
 
-// 添加開發環境的測試帳號
-if (process.env.NODE_ENV === 'development') {
-  providers.push(
-    Credentials({
-      name: 'Development',
-      credentials: {
-        email: { label: "Email", type: "text" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize() {
-        // 只在認證停用時返回測試用戶
-        if (!isAuthEnabled) {
-          return {
-            id: 'test-user',
-            name: 'Test User',
-            email: 'test@example.com',
-            role: UserRole.USER
-          };
-        }
-        return null;
+// 添加電子郵件密碼登入
+providers.push(
+  CredentialsProvider({
+    name: 'Credentials',
+    credentials: {
+      email: { label: "電子郵件", type: "email" },
+      password: { label: "密碼", type: "password" }
+    },
+    async authorize(credentials) {
+      if (!credentials?.email || !credentials?.password) {
+        throw new Error('請輸入電子郵件和密碼');
       }
-    })
-  );
-}
+
+      try {
+        const db = await getDb();
+        const user = await db.collection('users').findOne({
+          email: credentials.email
+        });
+
+        if (!user) {
+          throw new Error('找不到此用戶');
+        }
+
+        const isPasswordValid = await compare(credentials.password, user.password);
+
+        if (!isPasswordValid) {
+          throw new Error('密碼錯誤');
+        }
+
+        return {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          role: user.role
+        };
+      } catch (error) {
+        console.error('認證錯誤:', error);
+        throw error;
+      }
+    }
+  })
+);
 
 // 添加 GitHub 認證
 providers.push(
@@ -60,10 +76,6 @@ export default NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        if (process.env.NODE_ENV === 'development' && !isAuthEnabled) {
-          return true;
-        }
-
         const db = await getDb();
         const existingUser = await db.collection('users').findOne({ email: user.email });
 
@@ -74,7 +86,6 @@ export default NextAuth({
             image: user.image,
             role: UserRole.USER,
             createdAt: new Date(),
-            updatedAt: new Date(),
           });
         }
         return true;
@@ -85,12 +96,6 @@ export default NextAuth({
     },
     async session({ session, token }) {
       try {
-        if (process.env.NODE_ENV === 'development' && !isAuthEnabled) {
-          session.user.id = 'test-user';
-          session.user.role = UserRole.USER;
-          return session;
-        }
-
         const db = await getDb();
         const user = await db.collection('users').findOne({ email: session.user.email });
 
@@ -104,5 +109,12 @@ export default NextAuth({
         return session;
       }
     },
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+      }
+      return token;
+    }
   }
 });

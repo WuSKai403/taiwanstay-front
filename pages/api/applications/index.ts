@@ -1,13 +1,12 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/dbConnect';
 import Application from '@/models/Application';
 import Opportunity from '@/models/Opportunity';
 import Host from '@/models/Host';
 import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
 import { isAdmin } from '@/utils/roleUtils';
-import { getSession } from 'next-auth/react';
 
 /**
  * @swagger
@@ -121,18 +120,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     await dbConnect();
 
-    // 獲取用戶會話
-    const session = await getSession({ req });
+    // 使用 getServerSession 獲取用戶會話
+    const session = await getServerSession(req, res, authOptions);
 
     // 檢查用戶是否已登入
     if (!session || !session.user) {
-      return res.status(401).json({ message: '未授權，請先登入' });
+      return res.status(401).json({ success: false, message: '未授權，請先登入' });
     }
 
     // 確保用戶ID存在
     const userId = session.user.id;
     if (!userId) {
-      return res.status(401).json({ message: '無效的用戶ID' });
+      return res.status(401).json({ success: false, message: '無效的用戶ID' });
     }
 
     switch (req.method) {
@@ -141,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       case 'POST':
         return createApplication(req, res, userId);
       default:
-        return res.status(405).json({ message: '方法不允許' });
+        return res.status(405).json({ success: false, message: '方法不允許' });
     }
   } catch (error: any) {
     console.error('申請API錯誤:', error);

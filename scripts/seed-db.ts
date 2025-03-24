@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
 import mongoose from 'mongoose';
+import { hash } from 'bcryptjs';
 import { User, Host, Organization, Opportunity, Application } from '../models';
 import DateCapacity from '../models/DateCapacity';
 import { UserRole } from '../models/enums/UserRole';
@@ -70,6 +71,9 @@ async function importUsers() {
   const users = readCsvFile(path.join(process.cwd(), 'data/seed/users.csv'));
 
   for (const user of users) {
+    // 加密密碼
+    const hashedPassword = await hash(user.password, 10);
+
     // 基本資料（所有角色都需要）
     const baseProfile = {
       avatar: user.image,
@@ -163,7 +167,7 @@ async function importUsers() {
       await User.create({
         name: user.name,
         email: user.email,
-        password: user.password,
+        password: hashedPassword, // 使用加密後的密碼
         role: user.role,
         image: user.image,
         profile: finalProfile

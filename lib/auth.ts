@@ -2,6 +2,8 @@ import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
+import { isValidObjectId } from '@/utils/helpers';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,7 +21,7 @@ export const authOptions: NextAuthOptions = {
         try {
           const { db } = await connectToDatabase();
           const user = await db.collection('users').findOne({
-            email: credentials.email
+            email: credentials.email.toLowerCase()
           });
 
           if (!user) {
@@ -32,15 +34,28 @@ export const authOptions: NextAuthOptions = {
             throw new Error('密碼錯誤');
           }
 
+          // 確保 _id 是有效的 ObjectId
+          if (!user._id || !isValidObjectId(user._id.toString())) {
+            console.error('無效的用戶 ID:', user._id);
+            throw new Error('用戶 ID 格式無效');
+          }
+
+          const userId = user._id.toString();
+          console.log('用戶認證成功:', {
+            userId,
+            email: user.email,
+            role: user.role
+          });
+
           return {
-            id: user._id.toString(),
+            id: userId,
             email: user.email,
             name: user.name,
             role: user.role
           };
         } catch (error) {
           console.error('認證錯誤:', error);
-          throw new Error('認證過程發生錯誤');
+          throw error;
         }
       }
     })
@@ -48,6 +63,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // 驗證用戶 ID
+        if (!user.id || !isValidObjectId(user.id)) {
+          console.error('JWT 回調 - 無效的用戶 ID:', user.id);
+          throw new Error('無效的用戶 ID');
+        }
+
+        console.log('JWT 回調 - 用戶信息:', {
+          id: user.id,
+          email: user.email,
+          role: user.role
+        });
+
         return {
           ...token,
           id: user.id,
@@ -57,21 +84,38 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: token.id as string,
-          role: token.role as string
+      if (token) {
+        // 驗證 token 中的 ID
+        if (!token.id || !isValidObjectId(token.id)) {
+          console.error('Session 回調 - 無效的 token ID:', token.id);
+          throw new Error('無效的 token ID');
         }
-      };
+
+        console.log('Session 回調 - Token 信息:', {
+          id: token.id,
+          role: token.role
+        });
+
+        return {
+          ...session,
+          user: {
+            ...session.user,
+            id: token.id,
+            role: token.role as string
+          }
+        };
+      }
+      return session;
     }
   },
   pages: {
     signIn: '/auth/signin',
-    error: '/auth/error'
+    error: '/auth/error',
+    newUser: '/auth/register'
   },
   session: {
-    strategy: 'jwt'
-  }
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60
+  },
+  debug: process.env.NODE_ENV === 'development'
 };
