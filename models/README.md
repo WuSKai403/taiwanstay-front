@@ -72,7 +72,7 @@ import { User, Host, Opportunity, ApplicationStatus } from '../models';
 連接數據庫：
 
 ```typescript
-import { connectToDatabase } from '../lib/mongoose';
+import { connectToDatabase } from '../lib/mongodb';
 
 async function someFunction() {
   await connectToDatabase();

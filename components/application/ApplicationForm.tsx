@@ -378,6 +378,12 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
   };
 
   const handleNext = () => {
+    const errors = validateStep(currentStep);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    setValidationErrors([]);
     if (currentStep < formSteps.length - 1) {
       setCurrentStep(prev => prev + 1);
     }
@@ -385,56 +391,80 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
 
   const handlePrevious = () => {
     if (currentStep > 0) {
+      setValidationErrors([]);
       setCurrentStep(prev => prev - 1);
     }
   };
 
+  // 驗證當前步驟
+  const validateStep = (step: number): string[] => {
+    const errors: string[] = [];
+    const currentStepData = formSteps[step];
+
+    switch (step) {
+      case 0: // 基本資訊
+        if (!formData.startDate || !formData.endDate || formData.duration < 1) {
+          errors.push("請選擇有效的日期範圍");
+        }
+        break;
+
+      case 1: // 個人資訊
+        if (formData.languages.length === 0) {
+          errors.push("請至少選擇一種語言能力");
+        }
+        break;
+
+      case 2: // 工作能力
+        if (!formData.physicalCondition) {
+          errors.push("請填寫體能狀況");
+        }
+        break;
+
+      case 3: // 期望與動機
+        if (!formData.motivation) {
+          errors.push("請填寫申請動機");
+        }
+        break;
+
+      case 4: // 照片上傳
+        if (formData.photos.length === 0) {
+          errors.push("請至少上傳一張照片");
+        } else if (formData.photos.length > 5) {
+          errors.push("照片數量不能超過5張");
+        }
+        break;
+
+      case 5: // 最終確認
+        if (!formData.message || formData.message.length < 50) {
+          errors.push(`請填寫給主辦方的話，目前字數: ${formData.message.length}/50`);
+        }
+        break;
+    }
+
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setError(undefined);
     setValidationErrors([]);
+    setError(undefined);
 
-    // 檢查所有必填欄位
-    const errors: string[] = [];
-
-    // 檢查基本資訊
-    if (!formData.startDate || !formData.endDate || formData.duration < 1) {
-      errors.push("請選擇有效的日期範圍");
+    // 檢查所有步驟
+    let allErrors: string[] = [];
+    for (let i = 0; i < formSteps.length; i++) {
+      const stepErrors = validateStep(i);
+      if (stepErrors.length > 0) {
+        allErrors = [...allErrors, `第${i + 1}步 (${formSteps[i].title}):`];
+        allErrors = [...allErrors, ...stepErrors.map(err => `  - ${err}`)];
+      }
     }
 
-    // 檢查個人資訊
-    if (formData.languages.length === 0) {
-      errors.push("請至少選擇一種語言能力");
-    }
-
-    // 檢查工作能力
-    if (!formData.physicalCondition) {
-      errors.push("請填寫體能狀況");
-    }
-
-    // 檢查期望與動機
-    if (!formData.motivation) {
-      errors.push("請填寫申請動機");
-    }
-
-    // 檢查照片上傳
-    if (formData.photos.length === 0) {
-      errors.push("請至少上傳一張照片");
-    } else if (formData.photos.length > 5) {
-      errors.push("照片數量不能超過5張");
-    }
-
-    // 檢查給主辦方的話
-    if (!formData.message || formData.message.length < 50) {
-      errors.push(`請填寫給主辦方的話，目前字數: ${formData.message.length}/50`);
-    }
-
-    if (errors.length > 0) {
-      setValidationErrors(errors);
-      setIsSubmitting(false);
+    if (allErrors.length > 0) {
+      setValidationErrors(allErrors);
       return;
     }
+
+    setIsSubmitting(true);
 
     try {
       await onSubmit(formData);
@@ -1233,7 +1263,7 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
             {currentStep === formSteps.length - 1 ? (
               <button
                 type="submit"
-                disabled={!isCurrentStepValid || isSubmitting}
+                disabled={isSubmitting}
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? '提交中...' : '提交申請'}
@@ -1242,75 +1272,30 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={!isCurrentStepValid}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
               >
                 下一步
               </button>
             )}
-                  </div>
-                  {currentStep === formSteps.length - 1 && (
-            <div className="mt-4">
-                <button
-                type="button"
-                onClick={() => {
-                    // 檢查所有必填欄位
-                    const errors: string[] = [];
+          </div>
 
-                    // 檢查基本資訊
-                    if (!formData.startDate || !formData.endDate || formData.duration < 1) {
-                    errors.push("請選擇有效的日期範圍");
-                    }
-
-                    // 檢查個人資訊
-                    if (formData.languages.length === 0) {
-                    errors.push("請至少選擇一種語言能力");
-                    }
-
-                    // 檢查工作能力
-                    if (!formData.physicalCondition) {
-                    errors.push("請填寫體能狀況");
-                    }
-
-                    // 檢查期望與動機
-                    if (!formData.motivation) {
-                    errors.push("請填寫申請動機");
-                    }
-
-                    // 檢查照片上傳
-                    if (formData.photos.length === 0) {
-                    errors.push("請至少上傳一張照片");
-                    } else if (formData.photos.length > 5) {
-                    errors.push("照片數量不能超過5張");
-                    }
-
-                    // 檢查給主辦方的話
-                    if (!formData.message || formData.message.length < 50) {
-                    errors.push(`請填寫給主辦方的話，目前字數: ${formData.message.length}/50`);
-                    }
-
-                    setValidationErrors(errors);
-                }}
-                className="w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md flex items-center justify-center"
-                >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                檢查未完成項目
-                </button>
-
-                {validationErrors.length > 0 && (
-                <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-md">
-                    <h4 className="font-medium mb-2">請完成以下必填欄位：</h4>
-                    <ul className="list-disc pl-5">
-                    {validationErrors.map((err, index) => (
-                        <li key={index} className="text-sm">{err}</li>
-                    ))}
-                    </ul>
-                </div>
-                )}
+          {/* 錯誤提示移至底部 */}
+          {validationErrors.length > 0 && (
+            <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md">
+              <h4 className="font-medium mb-2">請完成以下必填項目：</h4>
+              <ul className="list-none space-y-1">
+                {validationErrors.map((err, index) => (
+                  <li key={index} className="text-sm">
+                    {err.startsWith('  -') ? (
+                      <span className="ml-4">{err.substring(4)}</span>
+                    ) : (
+                      <strong>{err}</strong>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
-            )}
+          )}
         </form>
       </div>
     </div>

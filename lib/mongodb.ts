@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { MongoClient } from 'mongodb';
+import { MongoClient, Db } from 'mongodb';
 
 // 獲取環境變數
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -13,48 +13,153 @@ const DB_NAME = NODE_ENV === 'production'
     ? `${MONGODB_DB}_dev`
     : `${MONGODB_DB}_${NODE_ENV}`;
 
+console.log('MongoDB 初始化設定:', {
+  NODE_ENV,
+  DB_NAME,
+  MONGODB_URI: MONGODB_URI.replace(/:[^:@]*@/, ':****@'), // 隱藏密碼
+});
+
 // 連接選項
 const options = {
-  // 使用新的URL解析器和統一的拓撲
-  // 這些選項在新版本的mongoose中已經默認啟用
+  connectTimeoutMS: 30000,
+  socketTimeoutMS: 45000,
+  serverSelectionTimeoutMS: 60000,
+  heartbeatFrequencyMS: 10000,
+  maxPoolSize: 50,
+  minPoolSize: 1,
+  retryWrites: true,
+  w: 1,
+  dbName: DB_NAME, // 確保 Mongoose 使用正確的資料庫
+  bufferCommands: false, // 禁用命令緩衝
+  autoIndex: true, // 在開發環境中自動建立索引
+  ...process.env.NODE_ENV === 'production'
+    ? {
+        ssl: true,
+        tls: true,
+        authSource: 'admin'
+      }
+    : {}
 };
+
+console.log('MongoDB 連線選項:', {
+  ...options,
+  connectTimeoutMS: options.connectTimeoutMS,
+  socketTimeoutMS: options.socketTimeoutMS,
+  serverSelectionTimeoutMS: options.serverSelectionTimeoutMS
+});
 
 // 連接狀態
 let isConnected = false;
 
+// 初始化 Mongoose 連線
+mongoose.set('strictQuery', true);
+mongoose.connect(MONGODB_URI, options).then(() => {
+  console.log('Mongoose 連線成功');
+  isConnected = true;
+}).catch((error: Error) => {
+  console.error('Mongoose 連線失敗:', {
+    name: error.name,
+    message: error.message,
+    stack: error.stack
+  });
+});
+
+// 監聽 Mongoose 連線事件
+mongoose.connection.on('connected', () => {
+  console.log('Mongoose 已連線');
+});
+
+mongoose.connection.on('error', (error: Error) => {
+  console.error('Mongoose 連線錯誤:', {
+    name: error.name,
+    message: error.message,
+    stack: error.stack
+  });
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('Mongoose 連線已斷開');
+  isConnected = false;
+});
+
 // 創建一個MongoDB客戶端實例並返回Promise
 let client: MongoClient;
-let clientPromiseInternal: Promise<MongoClient>;
+let clientPromise: Promise<MongoClient>;
 
 // 測試環境標誌
 const isTestEnvironment = process.env.NODE_ENV === 'test';
 
 if (process.env.NODE_ENV === 'development') {
-  // 在開發環境中，使用全局變量來保持連接
+  console.log('開發環境：使用全域變數連線');
   let globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>;
+    _mongoClientPromise?: Promise<MongoClient>
   };
 
   if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(MONGODB_URI);
-    globalWithMongo._mongoClientPromise = client.connect();
+    console.log('建立新的 MongoDB 連線...');
+    client = new MongoClient(MONGODB_URI, options);
+    globalWithMongo._mongoClientPromise = client.connect()
+      .then(client => {
+        console.log('MongoDB 開發環境連線成功');
+        return client;
+      })
+      .catch(error => {
+        console.error('MongoDB 開發環境連線失敗:', {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+          stack: error.stack
+        });
+        throw error;
+      });
+  } else {
+    console.log('使用現有的 MongoDB 連線');
   }
-  clientPromiseInternal = globalWithMongo._mongoClientPromise;
+  clientPromise = globalWithMongo._mongoClientPromise;
 } else {
-  // 在生產環境中，為每個請求創建新的連接
-  client = new MongoClient(MONGODB_URI);
-  clientPromiseInternal = client.connect();
+  console.log('生產環境：建立新連線');
+  client = new MongoClient(MONGODB_URI, options);
+  clientPromise = client.connect()
+    .then(client => {
+      console.log('MongoDB 生產環境連線成功');
+      return client;
+    })
+    .catch(error => {
+      console.error('MongoDB 生產環境連線失敗:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      throw error;
+    });
 }
 
-// 導出 clientPromise
-export const clientPromise = clientPromiseInternal;
+export interface DatabaseConnection {
+  client: MongoClient;
+  db: Db;
+}
 
 /**
  * 獲取數據庫實例
  */
 export async function getDb() {
-  const client = await clientPromise;
-  return client.db(DB_NAME);
+  console.log('嘗試獲取數據庫實例...');
+  try {
+    const client = await clientPromise;
+    console.log('成功獲取數據庫客戶端');
+    const db = client.db(DB_NAME);
+    console.log(`成功獲取數據庫: ${DB_NAME}`);
+    return db;
+  } catch (error) {
+    console.error('獲取數據庫實例失敗:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    throw error;
+  }
 }
 
 /**
@@ -68,24 +173,31 @@ export async function getCollection(collectionName: string) {
 /**
  * 連接到MongoDB數據庫
  */
-export async function connectToDatabase() {
-  // 如果已經連接，則直接返回
-  if (isConnected) {
-    return;
-  }
-
+export async function connectToDatabase(): Promise<DatabaseConnection> {
   try {
-    // 連接到MongoDB
-    const db = await mongoose.connect(MONGODB_URI, {
-      dbName: DB_NAME
-    });
+    console.log('正在連接到 MongoDB...');
+    console.time('MongoDB連線時間');
 
-    // 更新連接狀態
-    isConnected = db.connection.readyState === 1;
+    const client = await clientPromise;
+    console.log('客戶端連線成功');
 
-    console.log(`MongoDB連接成功，使用資料庫: ${DB_NAME}`);
+    const db = client.db(DB_NAME);
+    console.log(`數據庫 ${DB_NAME} 連線成功`);
+
+    // 測試數據庫連線
+    await db.command({ ping: 1 });
+    console.log('數據庫 ping 測試成功');
+
+    console.timeEnd('MongoDB連線時間');
+    return { client, db };
   } catch (error) {
-    console.error('MongoDB連接失敗:', error);
+    console.error('MongoDB連接失敗:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+      connectionState: client ? (client as any).topology?.state : 'unknown'
+    });
     throw error;
   }
 }

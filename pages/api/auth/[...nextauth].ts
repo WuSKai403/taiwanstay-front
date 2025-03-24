@@ -4,18 +4,18 @@ import GithubProvider from 'next-auth/providers/github';
 import { getDb } from '@/lib/mongodb';
 import { UserRole } from '../../../models/enums';
 
-// 檢查是否啟用認證
-const isAuthEnabled = process.env.NEXT_PUBLIC_ENABLE_AUTH !== 'false';
+// 改用後端環境變數
+const isAuthEnabled = process.env.ENABLE_AUTH !== 'false';
 console.log('認證狀態:', {
   isAuthEnabled,
-  NEXT_PUBLIC_ENABLE_AUTH: process.env.NEXT_PUBLIC_ENABLE_AUTH,
+  ENABLE_AUTH: process.env.ENABLE_AUTH,
   NODE_ENV: process.env.NODE_ENV
 });
 
 const providers = [];
 
 // 添加開發環境的測試帳號
-if (process.env.NODE_ENV === 'development' && !isAuthEnabled) {
+if (process.env.NODE_ENV === 'development') {
   providers.push(
     Credentials({
       name: 'Development',
@@ -24,11 +24,16 @@ if (process.env.NODE_ENV === 'development' && !isAuthEnabled) {
         password: { label: "Password", type: "password" }
       },
       async authorize() {
-        return {
-          id: 'test-user',
-          name: 'Test User',
-          email: 'test@example.com'
-        };
+        // 只在認證停用時返回測試用戶
+        if (!isAuthEnabled) {
+          return {
+            id: 'test-user',
+            name: 'Test User',
+            email: 'test@example.com',
+            role: UserRole.USER
+          };
+        }
+        return null;
       }
     })
   );
