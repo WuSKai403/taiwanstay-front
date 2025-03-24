@@ -19,6 +19,7 @@ const TimeSlotDisplay: React.FC<TimeSlotDisplayProps> = ({
 }) => {
   const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
   const end = typeof endDate === 'string' ? parseISO(endDate) : endDate;
+  const [currentYear, setCurrentYear] = useState(start.getFullYear());
 
   if (!isValid(start) || !isValid(end)) {
     return null;
@@ -28,8 +29,6 @@ const TimeSlotDisplay: React.FC<TimeSlotDisplayProps> = ({
   const endYear = end.getFullYear();
   const startMonth = start.getMonth();
   const endMonth = end.getMonth();
-
-  const [currentYear, setCurrentYear] = useState(startYear);
 
   // 檢查年份是否可選
   const canGoPrev = currentYear > startYear;
