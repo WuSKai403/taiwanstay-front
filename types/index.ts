@@ -1,5 +1,5 @@
 // 從 models/enums 導入 UserRole
-import { UserRole } from '../models/enums/UserRole';
+import { UserRole } from '@/models/enums/UserRole';
 export { UserRole };
 
 // 用戶類型
@@ -128,3 +128,30 @@ export interface Notification {
 
 // 時段相關類型
 export * from './opportunity';
+
+export enum UserRole {
+  USER = 'USER',
+  HOST = 'HOST',
+  ADMIN = 'ADMIN'
+}
+
+export interface Profile {
+  userId: string;
+  bio?: string;
+  location?: {
+    type: string;
+    coordinates: [number, number];
+    address?: string;
+  };
+  skills?: string[];
+  languages?: string[];
+  socialMedia?: {
+    instagram?: string;
+    facebook?: string;
+    twitter?: string;
+    linkedin?: string;
+    website?: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}

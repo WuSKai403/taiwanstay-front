@@ -447,12 +447,6 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
                     <p className="text-gray-600">目前沒有可用的機會</p>
                   </div>
                 )}
-
-                <div className="mt-6">
-                  <Link href={`/organizations/${organization.slug}`} className="block w-full text-center bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-200">
-                    查看詳情
-                  </Link>
-                </div>
               </>
             )}
           </div>

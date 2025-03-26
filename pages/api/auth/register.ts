@@ -1,105 +1,56 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import mongoose from 'mongoose';
-import { UserRole } from '../../../models/enums/UserRole';
-import { User } from '../../../models/index';
+import { hash } from 'bcryptjs';
+import { connectToDatabase } from '@/lib/mongodb';
+import { UserRole } from '@/models/enums/UserRole';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // 如果不是POST請求，返回405方法不允許
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: '方法不允許' });
   }
 
   try {
-    // 從請求體中獲取用戶數據
-    const { name, email, password, location } = req.body;
+    const { name, email, password } = req.body;
 
     // 基本驗證
     if (!name || !email || !password) {
-      return res.status(400).json({ message: '缺少必要欄位' });
+      return res.status(400).json({ message: '請填寫所有必填欄位' });
     }
 
-    // 驗證電子郵件格式
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ message: '無效的電子郵件格式' });
+    // 密碼強度驗證
+    if (password.length < 8) {
+      return res.status(400).json({ message: '密碼長度至少需要 8 個字元' });
     }
 
-    // 驗證密碼強度（至少8個字符，包含字母和數字）
-    if (password.length < 8 || !/\d/.test(password) || !/[a-zA-Z]/.test(password)) {
-      return res.status(400).json({
-        message: '密碼必須至少8個字符，且包含字母和數字'
-      });
-    }
+    const { db } = await connectToDatabase();
 
-    // 檢查用戶是否已存在
-    const existingUser = await User.findOne({ email });
+    // 檢查電子郵件是否已存在
+    const existingUser = await db.collection('users').findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ message: '該電子郵件已被註冊' });
+      return res.status(400).json({ message: '此電子郵件已被註冊' });
     }
+
+    // 加密密碼
+    const hashedPassword = await hash(password, 12);
 
     // 創建新用戶
-    // 注意：在實際應用中，應該對密碼進行加密
-    const userData = {
+    const result = await db.collection('users').insertOne({
       name,
-      email,
-      password, // 實際應用中應該使用bcrypt等工具加密
+      email: email.toLowerCase(),
+      password: hashedPassword,
       role: UserRole.USER,
-      profile: {
-        // 初始化空的profile物件
-      },
-      privacySettings: {
-        email: 'PRIVATE',
-        phone: 'PRIVATE',
-        personalInfo: {
-          birthdate: 'PRIVATE',
-          gender: 'PRIVATE',
-          nationality: 'PRIVATE',
-          currentLocation: 'PRIVATE',
-          occupation: 'PRIVATE',
-          education: 'PRIVATE'
-        },
-        socialMedia: {
-          instagram: 'PRIVATE',
-          facebook: 'PRIVATE',
-          threads: 'PRIVATE',
-          linkedin: 'PRIVATE',
-          twitter: 'PRIVATE',
-          youtube: 'PRIVATE',
-          tiktok: 'PRIVATE',
-          website: 'PRIVATE',
-          other: 'PRIVATE'
-        },
-        workExchangePreferences: 'PRIVATE',
-        skills: 'PRIVATE',
-        languages: 'PRIVATE',
-        bio: 'PRIVATE'
-      }
-    };
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
 
-    // 如果提供了有效的位置資訊，則添加到用戶資料中
-    if (location && location.coordinates && Array.isArray(location.coordinates) && location.coordinates.length === 2) {
-      (userData.profile as any).location = {
-        type: 'Point',
-        coordinates: location.coordinates
-      };
-    }
-
-    const newUser = new User(userData);
-
-    await newUser.save();
-
-    // 返回成功響應（不包含密碼）
     return res.status(201).json({
-      message: '用戶註冊成功',
-      user: {
-        id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role
-      }
+      message: '註冊成功',
+      userId: result.insertedId
     });
   } catch (error) {
-    console.error('用戶註冊失敗:', error);
+    console.error('註冊錯誤:', error);
     return res.status(500).json({ message: '註冊過程中發生錯誤' });
   }
 }
