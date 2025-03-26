@@ -19,7 +19,7 @@ export default function SignIn() {
   // 如果已登入，重定向到回調 URL 或首頁
   useEffect(() => {
     if (status === 'authenticated') {
-      router.push((callbackUrl as string) || '/profile');
+      router.push(decodeURIComponent(callbackUrl as string || '/'));
     }
   }, [status, router, callbackUrl]);
 
@@ -39,10 +39,10 @@ export default function SignIn() {
       if (result?.error) {
         setError(result.error);
       } else {
-        router.push((callbackUrl as string) || '/profile');
+        router.push(decodeURIComponent(callbackUrl as string || '/'));
       }
     } catch (error) {
-      setError('登入過程中發生錯誤');
+      setError('登入時發生錯誤');
     } finally {
       setIsLoading(false);
     }
@@ -53,7 +53,7 @@ export default function SignIn() {
     setIsLoading(true);
     try {
       await signIn('github', {
-        callbackUrl: (callbackUrl as string) || '/profile',
+        callbackUrl: decodeURIComponent(callbackUrl as string || '/'),
         redirect: true
       });
     } catch (error) {
@@ -68,7 +68,7 @@ export default function SignIn() {
       email: 'test@example.com',
       password: 'password',
       redirect: true,
-      callbackUrl: callbackUrl as string || '/'
+      callbackUrl: decodeURIComponent(callbackUrl as string || '/')
     });
   };
 

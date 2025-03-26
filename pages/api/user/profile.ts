@@ -2,30 +2,41 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from 'next-auth/react';
 import { connectToDatabase } from '@/lib/mongodb';
 import User from '@/models/User';
+import { ProfileUpdateData } from '@/lib/types';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const session = await getSession({ req });
+  if (req.method !== 'PUT') {
+    return res.status(405).json({ message: '方法不允許' });
+  }
 
-  // 檢查用戶是否已登入
-  if (!session || !session.user) {
-    return res.status(401).json({ message: '未授權' });
+  const session = await getSession({ req });
+  if (!session) {
+    return res.status(401).json({ message: '請先登入' });
   }
 
   try {
-    await connectToDatabase();
+    const { db } = await connectToDatabase();
+    const data = req.body as ProfileUpdateData;
 
-    // 根據請求方法處理不同操作
-    switch (req.method) {
-      case 'GET':
-        return await getUserProfile(req, res, session);
-      case 'PUT':
-        return await updateUserProfile(req, res, session);
-      default:
-        return res.status(405).json({ message: '方法不允許' });
+    // 更新用戶資料
+    const result = await db.collection('users').updateOne(
+      { email: session.user?.email },
+      {
+        $set: {
+          ...data,
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ message: '找不到用戶' });
     }
+
+    return res.status(200).json({ message: '更新成功' });
   } catch (error) {
-    console.error('用戶資料 API 錯誤:', error);
-    return res.status(500).json({ message: '伺服器錯誤' });
+    console.error('更新用戶資料錯誤:', error);
+    return res.status(500).json({ message: '更新用戶資料時發生錯誤' });
   }
 }
 
