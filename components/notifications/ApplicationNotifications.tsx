@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
@@ -23,7 +23,7 @@ const ApplicationNotifications = () => {
   const [loading, setLoading] = useState(false);
 
   // 獲取未讀訊息通知
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (status !== 'authenticated') return;
 
     setLoading(true);
@@ -41,7 +41,7 @@ const ApplicationNotifications = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [status]);
 
   // 當用戶登入狀態變化時獲取通知
   useEffect(() => {
@@ -52,7 +52,7 @@ const ApplicationNotifications = () => {
       const interval = setInterval(fetchNotifications, 60000);
       return () => clearInterval(interval);
     }
-  }, [status]);
+  }, [status, fetchNotifications]);
 
   if (status !== 'authenticated' || loading || notifications.length === 0) {
     return null;

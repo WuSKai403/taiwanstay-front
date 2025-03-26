@@ -4,6 +4,10 @@ import { Opportunity, Host } from '../../../models/index';
 import { OpportunityStatus } from '../../../models/enums';
 import { generateSlug, buildMongoQuery, calculatePagination, isValidObjectId, generatePublicId } from '../../../utils/helpers';
 import mongoose from 'mongoose';
+import { ApiError } from '@/lib/errors';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]';
+import dbConnect from '@/lib/dbConnect';
 
 // 創建Express應用程序（用於測試）
 export const app = null;
@@ -140,14 +144,15 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
         hasPrevPage: pagination.hasPrevPage
       }
     });
-  } catch (error) {
-    console.error('獲取工作機會列表失敗:', error);
-
-    // 檢查錯誤類型，提供更詳細的錯誤訊息
-    let errorMessage = '獲取工作機會列表時發生錯誤';
+  } catch (error: any) {
+    console.error('工作機會列表錯誤:', error);
+    let errorMessage = '伺服器錯誤';
     let statusCode = 500;
 
-    if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
+    if (error instanceof ApiError) {
+      errorMessage = error.message;
+      statusCode = error.statusCode;
+    } else if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
       errorMessage = 'MongoDB連接超時，請稍後再試';
       console.error('MongoDB連接超時詳情:', {
         connectionState: mongoose.connection.readyState,
@@ -159,9 +164,9 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
     }
 
     return res.status(statusCode).json({
+      success: false,
       message: errorMessage,
-      error: (error as Error).message,
-      code: error.name
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 }

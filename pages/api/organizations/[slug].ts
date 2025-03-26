@@ -4,7 +4,7 @@ import { authOptions } from '../auth/[...nextauth]';
 import { connectToDatabase } from '@/lib/mongodb';
 import Organization from '@/models/Organization';
 import { OrganizationStatus } from '@/models/enums/OrganizationStatus';
-import { UserRole } from '@/types';
+import { UserRole } from '@/models/enums/UserRole';
 import mongoose from 'mongoose';
 import { isAdmin, canAccessOrganization } from '@/utils/roleUtils';
 

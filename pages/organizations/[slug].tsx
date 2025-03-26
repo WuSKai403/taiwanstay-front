@@ -374,7 +374,6 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
                           organization.location.coordinates.coordinates[1],
                           organization.location.coordinates.coordinates[0]
                         ]}
-                        title={organization.name}
                       />
                     </div>
                   )}

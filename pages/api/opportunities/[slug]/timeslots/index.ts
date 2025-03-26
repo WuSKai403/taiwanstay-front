@@ -1,13 +1,14 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { authOptions } from '../../../auth/[...nextauth]';
 import dbConnect from '@/lib/dbConnect';
 import Opportunity from '@/models/Opportunity';
 import Host from '@/models/Host';
 import { UserRole } from '@/models/enums';
 import { TimeSlotStatus } from '@/models/enums/TimeSlotStatus';
 import { ApiError } from '@/lib/errors';
-import mongoose from 'mongoose';
+import mongoose, { Types } from 'mongoose';
+import { TimeSlot } from '@/types/opportunity';
 
 export default async function handler(
   req: NextApiRequest,
@@ -138,9 +139,9 @@ export default async function handler(
         }
 
         // 創建新時段
-        const newTimeSlot = {
-          startDate: start,
-          endDate: end,
+        const newTimeSlot: Omit<TimeSlot, '_id'> = {
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
           defaultCapacity,
           minimumStay: minStay,
           appliedCount: 0,
@@ -159,7 +160,7 @@ export default async function handler(
         const timeSlotId = opportunity.timeSlots[opportunity.timeSlots.length - 1]._id;
 
         // 初始化日期容量
-        await initializeDateCapacities(opportunity._id, timeSlotId, newTimeSlot);
+        await initializeDateCapacities(opportunity._id, timeSlotId, opportunity.timeSlots[opportunity.timeSlots.length - 1]);
 
         return res.status(201).json({
           success: true,
@@ -180,7 +181,11 @@ export default async function handler(
 }
 
 // 初始化日期容量的輔助函數
-async function initializeDateCapacities(opportunityId, timeSlotId, timeSlot) {
+async function initializeDateCapacities(
+  opportunityId: Types.ObjectId,
+  timeSlotId: Types.ObjectId,
+  timeSlot: TimeSlot
+) {
   const DateCapacity = mongoose.model('DateCapacity');
 
   // 獲取所有日期
@@ -224,10 +229,10 @@ async function initializeDateCapacities(opportunityId, timeSlotId, timeSlot) {
 }
 
 // 日期格式化輔助函數
-function formatDate(date) {
+function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-function parseDate(dateString) {
+function parseDate(dateString: string): Date {
   return new Date(dateString);
 }

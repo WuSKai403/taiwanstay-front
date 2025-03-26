@@ -5,7 +5,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 import Organization from '@/models/Organization';
 import Host from '@/models/Host';
 import User from '@/models/User';
-import { UserRole } from '@/types';
+import { UserRole } from '@/models/enums/UserRole';
 import mongoose from 'mongoose';
 import { canAccessOrganization } from '@/utils/roleUtils';
 

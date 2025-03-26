@@ -1,12 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { authOptions } from '../../../auth/[...nextauth]';
 import dbConnect from '@/lib/dbConnect';
 import Opportunity from '@/models/Opportunity';
 import { UserRole } from '@/models/enums';
 import { TimeSlotStatus } from '@/models/enums/TimeSlotStatus';
 import { ApiError } from '@/lib/errors';
-import mongoose from 'mongoose';
+import mongoose, { Types } from 'mongoose';
+import { TimeSlot } from '@/types/opportunity';
 
 export default async function handler(
   req: NextApiRequest,
@@ -14,6 +15,13 @@ export default async function handler(
 ) {
   const { method } = req;
   const { slug, timeSlotId } = req.query;
+
+  // 確保 timeSlotId 是有效的 ObjectId
+  if (!timeSlotId || typeof timeSlotId !== 'string' || !Types.ObjectId.isValid(timeSlotId)) {
+    return res.status(400).json({ success: false, message: '無效的時段 ID' });
+  }
+
+  const timeSlotObjectId = new Types.ObjectId(timeSlotId);
 
   await dbConnect();
 
@@ -39,7 +47,7 @@ export default async function handler(
     }
 
     // 檢查時段是否存在
-    const timeSlot = opportunity.timeSlots.id(timeSlotId);
+    const timeSlot = opportunity.timeSlots.id(timeSlotObjectId);
     if (!timeSlot) {
       return res.status(404).json({ success: false, message: '找不到該時段' });
     }
@@ -169,10 +177,10 @@ export default async function handler(
         const DateCapacity = mongoose.model('DateCapacity');
 
         // 刪除現有的容量記錄
-        await DateCapacity.deleteMany({ opportunityId: opportunity._id, timeSlotId });
+        await DateCapacity.deleteMany({ opportunityId: opportunity._id, timeSlotId: timeSlotObjectId });
 
         // 重新初始化日期容量
-        await initializeDateCapacities(opportunity._id, timeSlotId, timeSlot);
+        await initializeDateCapacities(opportunity._id, timeSlotObjectId, timeSlot);
 
         return res.status(200).json({
           success: true,
@@ -184,7 +192,7 @@ export default async function handler(
       case 'DELETE':
         // 檢查是否有相關申請
         const Application = mongoose.model('Application');
-        const hasApplications = await Application.exists({ timeSlotId });
+        const hasApplications = await Application.exists({ timeSlotId: timeSlotObjectId });
 
         if (hasApplications) {
           return res.status(400).json({
@@ -194,7 +202,7 @@ export default async function handler(
         }
 
         // 刪除時段
-        opportunity.timeSlots.id(timeSlotId).remove();
+        opportunity.timeSlots.id(timeSlotObjectId).remove();
 
         // 如果沒有時段了，更新 hasTimeSlots 欄位
         if (opportunity.timeSlots.length === 0) {
@@ -205,7 +213,7 @@ export default async function handler(
 
         // 刪除相關的日期容量記錄
         const DateCapacityModel = mongoose.model('DateCapacity');
-        await DateCapacityModel.deleteMany({ opportunityId: opportunity._id, timeSlotId });
+        await DateCapacityModel.deleteMany({ opportunityId: opportunity._id, timeSlotId: timeSlotObjectId });
 
         return res.status(200).json({
           success: true,
@@ -225,7 +233,11 @@ export default async function handler(
 }
 
 // 初始化日期容量的輔助函數
-async function initializeDateCapacities(opportunityId, timeSlotId, timeSlot) {
+async function initializeDateCapacities(
+  opportunityId: Types.ObjectId,
+  timeSlotId: Types.ObjectId,
+  timeSlot: TimeSlot
+) {
   const DateCapacity = mongoose.model('DateCapacity');
 
   // 獲取所有日期
@@ -269,10 +281,10 @@ async function initializeDateCapacities(opportunityId, timeSlotId, timeSlot) {
 }
 
 // 日期格式化輔助函數
-function formatDate(date) {
+function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
-function parseDate(dateString) {
+function parseDate(dateString: string): Date {
   return new Date(dateString);
 }
