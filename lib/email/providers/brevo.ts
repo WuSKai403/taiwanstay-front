@@ -6,9 +6,13 @@ export class BrevoService {
   private readonly API_KEY: string;
   private readonly API_URL = 'https://api.brevo.com/v3/smtp/email';
   private readonly DAILY_LIMIT = 300; // Brevo 免費版每天 300 封
+  private readonly SENDER_EMAIL: string;
+  private readonly SENDER_NAME: string;
 
   constructor() {
     this.API_KEY = process.env.BREVO_API_KEY || '';
+    this.SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'noreply@taiwanstay.com';
+    this.SENDER_NAME = process.env.BREVO_SENDER_NAME || 'TaiwanStay';
   }
 
   private async getDailyUsage(): Promise<number> {
@@ -55,6 +59,13 @@ export class BrevoService {
 
   async sendEmail(options: EmailOptions): Promise<EmailResponse> {
     try {
+      console.log('開始發送郵件，配置:', {
+        senderEmail: this.SENDER_EMAIL,
+        senderName: this.SENDER_NAME,
+        to: options.to,
+        subject: options.subject
+      });
+
       const currentUsage = await this.getDailyUsage();
 
       if (currentUsage >= this.DAILY_LIMIT) {
@@ -73,31 +84,32 @@ export class BrevoService {
         },
         body: JSON.stringify({
           sender: {
-            name: 'TaiwanStay',
-            email: 'noreply@taiwanstay.com'
+            name: this.SENDER_NAME,
+            email: this.SENDER_EMAIL
           },
           to: [{
-            email: options.to
+            email: options.to,
+            name: options.toName
           }],
           subject: options.subject,
           htmlContent: options.html,
-          textContent: options.text
+          textContent: options.text || options.html?.replace(/<[^>]*>/g, '') || ''
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
+      const responseData = await response.json();
+      console.log('Brevo API 回應:', responseData);
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
+      }
 
       // 只有在發送成功後才增加使用量
       await this.incrementUsage();
 
       return {
         success: true,
-        messageId: data.messageId
+        messageId: responseData.messageId
       };
     } catch (error) {
       console.error('Brevo 發送郵件錯誤:', error);

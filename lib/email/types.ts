@@ -1,7 +1,8 @@
 export interface EmailOptions {
   to: string;
+  toName?: string;
   subject: string;
-  html: string;
+  html?: string;
   text?: string;
 }
 
