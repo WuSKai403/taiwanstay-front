@@ -13,7 +13,14 @@ export const ApplyButton: React.FC<ApplyButtonProps> = ({ opportunityId }) => {
   const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const checkProfileCompleteness = (user: Partial<User>) => {
+  const checkProfileCompleteness = (user: Partial<User> | undefined) => {
+    if (!user) {
+      return {
+        isComplete: false,
+        incompleteFields: REQUIRED_FIELDS
+      };
+    }
+
     const incompleteFields = REQUIRED_FIELDS.filter(field => !user[field.key]);
     return {
       isComplete: incompleteFields.length === 0,

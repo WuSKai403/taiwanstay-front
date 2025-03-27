@@ -1,3 +1,5 @@
+import { UserRole } from '@/models/enums/UserRole';
+
 export interface User {
   id?: string;
   email?: string | null;
@@ -6,7 +8,7 @@ export interface User {
   phone?: string | null;
   emergencyContact?: string | null;
   aboutMe?: string | null;
-  role?: 'user' | 'host' | 'admin' | null;
+  role?: UserRole | null;
   organizationId?: string | null;
   hostId?: string | null;
 }
@@ -19,7 +21,7 @@ export interface DBUser {
   phone?: string;
   emergencyContact?: string;
   aboutMe?: string;
-  role: 'user' | 'host' | 'admin';
+  role: UserRole;
   organizationId?: string;
   hostId?: string;
   createdAt: Date;

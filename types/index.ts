@@ -129,12 +129,6 @@ export interface Notification {
 // 時段相關類型
 export * from './opportunity';
 
-export enum UserRole {
-  USER = 'USER',
-  HOST = 'HOST',
-  ADMIN = 'ADMIN'
-}
-
 export interface Profile {
   userId: string;
   bio?: string;
