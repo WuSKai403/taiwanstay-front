@@ -3,6 +3,9 @@ import { TimeSlot, ICapacityOverride } from '@/types/opportunity';
 import { TimeSlotStatus } from '@/models/enums/TimeSlotStatus';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { timeSlotSchema, TimeSlotFormData } from '@/lib/schemas/timeSlot';
 
 interface TimeSlotManagerProps {
   opportunityId: string;
@@ -17,78 +20,64 @@ interface EditingSlot extends Omit<TimeSlot, '_id'> {
 export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUpdate }: TimeSlotManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingSlot, setEditingSlot] = useState<EditingSlot | null>(null);
-  const [formData, setFormData] = useState<Omit<TimeSlot, '_id' | 'appliedCount' | 'confirmedCount' | 'status'>>({
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<TimeSlotFormData>({
+    resolver: zodResolver(timeSlotSchema),
+    defaultValues: {
     startDate: '',
     endDate: '',
     defaultCapacity: 1,
     minimumStay: 14,
     description: '',
-    capacityOverrides: []
+      capacityOverrides: [],
+    },
   });
 
-  const handleAdd = async () => {
+  const onSubmit = async (data: TimeSlotFormData) => {
+    setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/opportunities/${opportunityId}/timeslots`, {
-        method: 'POST',
+      const url = editingSlot
+        ? `/api/opportunities/${opportunityId}/timeslots/${editingSlot._id}`
+        : `/api/opportunities/${opportunityId}/timeslots`;
+
+      const method = editingSlot ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
-        throw new Error('新增時段失敗');
+        throw new Error(editingSlot ? '更新時段失敗' : '新增時段失敗');
       }
 
       const newTimeSlot = await response.json();
+
+      if (editingSlot) {
+        onTimeSlotUpdate(timeSlots.map(slot =>
+          slot._id === newTimeSlot._id ? newTimeSlot : slot
+        ));
+      } else {
       onTimeSlotUpdate([...timeSlots, newTimeSlot]);
-      setIsAdding(false);
-      setFormData({
-        startDate: '',
-        endDate: '',
-        defaultCapacity: 1,
-        minimumStay: 14,
-        description: '',
-        capacityOverrides: []
-      });
-    } catch (error) {
-      console.error('新增時段錯誤:', error);
-      alert('新增時段失敗，請稍後再試');
-    }
-  };
-
-  const handleEdit = async () => {
-    if (!editingSlot) return;
-
-    try {
-      const response = await fetch(`/api/opportunities/${opportunityId}/timeslots/${editingSlot._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!response.ok) {
-        throw new Error('更新時段失敗');
       }
 
-      const updatedSlot = await response.json();
-      onTimeSlotUpdate(timeSlots.map(slot =>
-        slot._id === updatedSlot._id ? updatedSlot : slot
-      ));
+      reset();
       setEditingSlot(null);
-      setFormData({
-        startDate: '',
-        endDate: '',
-        defaultCapacity: 1,
-        minimumStay: 14,
-        description: '',
-        capacityOverrides: []
-      });
+      setIsAdding(false);
     } catch (error) {
-      console.error('更新時段錯誤:', error);
-      alert('更新時段失敗，請稍後再試');
+      console.error('時段操作錯誤:', error);
+      alert(editingSlot ? '更新時段失敗，請稍後再試' : '新增時段失敗，請稍後再試');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -113,22 +102,24 @@ export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUp
 
   const handleEditClick = (slot: TimeSlot) => {
     setEditingSlot(slot);
-    setFormData({
+    reset({
       startDate: format(new Date(slot.startDate), 'yyyy-MM-dd'),
       endDate: format(new Date(slot.endDate), 'yyyy-MM-dd'),
       defaultCapacity: slot.defaultCapacity,
       minimumStay: slot.minimumStay,
       description: slot.description || '',
-      capacityOverrides: slot.capacityOverrides || []
+      capacityOverrides: slot.capacityOverrides || [],
     });
   };
 
   return (
     <div className="space-y-6">
-      {/* 新增時段表單 */}
+      {/* 新增/編輯時段表單 */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold mb-4">新增時段</h3>
-        <form onSubmit={handleAdd} className="space-y-4">
+        <h3 className="text-lg font-semibold mb-4">
+          {editingSlot ? '編輯時段' : '新增時段'}
+        </h3>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -136,11 +127,13 @@ export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUp
               </label>
               <input
                 type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                {...register('startDate')}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                 min={new Date().toISOString().split('T')[0]}
               />
+              {errors.startDate && (
+                <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -148,11 +141,13 @@ export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUp
               </label>
               <input
                 type="date"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                {...register('endDate')}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                min={formData.startDate}
+                min={new Date().toISOString().split('T')[0]}
               />
+              {errors.endDate && (
+                <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -160,11 +155,13 @@ export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUp
               </label>
               <input
                 type="number"
-                value={formData.defaultCapacity}
-                onChange={(e) => setFormData({ ...formData, defaultCapacity: parseInt(e.target.value) })}
+                {...register('defaultCapacity', { valueAsNumber: true })}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                 min="1"
               />
+              {errors.defaultCapacity && (
+                <p className="mt-1 text-sm text-red-600">{errors.defaultCapacity.message}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -172,11 +169,13 @@ export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUp
               </label>
               <input
                 type="number"
-                value={formData.minimumStay}
-                onChange={(e) => setFormData({ ...formData, minimumStay: parseInt(e.target.value) })}
+                {...register('minimumStay', { valueAsNumber: true })}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
                 min="1"
               />
+              {errors.minimumStay && (
+                <p className="mt-1 text-sm text-red-600">{errors.minimumStay.message}</p>
+              )}
             </div>
           </div>
           <div>
@@ -184,18 +183,30 @@ export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUp
               描述
             </label>
             <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              {...register('description')}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
               rows={3}
             />
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end space-x-2">
+            {editingSlot && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingSlot(null);
+                  reset();
+                }}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                取消
+              </button>
+            )}
             <button
               type="submit"
-              className="time-slot-button inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              disabled={isSubmitting}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              新增時段
+              {isSubmitting ? '處理中...' : (editingSlot ? '更新時段' : '新增時段')}
             </button>
           </div>
         </form>
