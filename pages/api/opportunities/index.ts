@@ -65,8 +65,33 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
           .setOptions({ maxTimeMS: 10000 }); // 設置計數查詢超時為10秒
         console.log(`找到 ${total} 個符合條件的機會`);
 
-        // 如果成功，跳出循環
-        break;
+        // 格式化機會資料
+        const formattedOpportunities = opportunities.map(opp => {
+          const coordinates = opp.location?.coordinates?.coordinates;
+          return {
+            ...opp.toObject(),
+            location: {
+              city: opp.location?.city,
+              country: opp.location?.country,
+              coordinates: coordinates ? {
+                lat: coordinates[1],
+                lng: coordinates[0]
+              } : undefined
+            }
+          };
+        });
+
+        // 返回結果
+        return res.status(200).json({
+          opportunities: formattedOpportunities,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(total / limit),
+            totalItems: total,
+            hasNextPage: skip + limit < total,
+            hasPrevPage: page > 1
+          }
+        });
       } catch (err) {
         retries++;
         console.error(`查詢失敗 (${retries}/${maxRetries}):`, err);
@@ -81,69 +106,6 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
         await new Promise(resolve => setTimeout(resolve, retries * 1000));
       }
     }
-
-    // 記錄每個機會的基本信息
-    if (opportunities.length > 0) {
-      console.log('機會列表:');
-      opportunities.forEach((opp: any, index: number) => {
-        console.log(`${index + 1}. ${opp.title} (${opp.location?.city}, ${opp.location?.region || '無地區'}) - 停留時間: ${opp.workTimeSettings?.minimumStay}-${opp.workTimeSettings?.maximumStay || '無上限'} 天`);
-      });
-    } else {
-      console.log('沒有找到符合條件的機會');
-      // 檢查資料庫中是否有任何機會
-      const totalOpportunities = await Opportunity.countDocuments({});
-      console.log(`資料庫中共有 ${totalOpportunities} 個機會`);
-
-      // 檢查幾個城市的機會
-      const cityChecks = ['宜蘭縣', '南投縣', '台南市', '蘭嶼', '綠島', '小琉球'];
-      for (const city of cityChecks) {
-        const count = await Opportunity.countDocuments({ 'location.city': city });
-        console.log(`城市 "${city}" 有 ${count} 個機會`);
-      }
-    }
-
-    // 計算分頁信息
-    const pagination = calculatePagination(page, limit, total);
-
-    // 返回結果
-    return res.status(200).json({
-      opportunities: opportunities.map((opportunity: any) => ({
-        id: opportunity._id,
-        title: opportunity.title,
-        slug: opportunity.slug,
-        shortDescription: opportunity.shortDescription,
-        status: opportunity.status,
-        type: opportunity.type,
-        location: {
-          city: opportunity.location?.city,
-          region: opportunity.location?.region,
-          coordinates: opportunity.location?.coordinates?.coordinates ?
-            [opportunity.location.coordinates.coordinates[0], opportunity.location.coordinates.coordinates[1]] :
-            undefined
-        },
-        host: opportunity.hostId ? {
-          id: (opportunity.hostId as any)._id,
-          name: (opportunity.hostId as any).name,
-          description: (opportunity.hostId as any).description
-        } : null,
-        media: opportunity.media,
-        workTimeSettings: {
-          minimumStay: opportunity.workTimeSettings?.minimumStay,
-          maximumStay: opportunity.workTimeSettings?.maximumStay,
-          workHoursPerDay: opportunity.workTimeSettings?.workHoursPerDay,
-          workDaysPerWeek: opportunity.workTimeSettings?.workDaysPerWeek
-        },
-        createdAt: opportunity.createdAt,
-        updatedAt: opportunity.updatedAt
-      })),
-      pagination: {
-        currentPage: pagination.currentPage,
-        totalPages: pagination.totalPages,
-        totalItems: pagination.totalItems,
-        hasNextPage: pagination.hasNextPage,
-        hasPrevPage: pagination.hasPrevPage
-      }
-    });
   } catch (error: any) {
     console.error('工作機會列表錯誤:', error);
     let errorMessage = '伺服器錯誤';

@@ -1,26 +1,26 @@
 import { useState } from 'react';
-import { TimeSlot, ICapacityOverride } from '@/types/opportunity';
-import { TimeSlotStatus } from '@/models/enums/TimeSlotStatus';
+import { TimeSlot } from '@/lib/schemas/timeSlot';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { timeSlotSchema, TimeSlotFormData } from '@/lib/schemas/timeSlot';
+import { useTimeSlots, useCreateTimeSlot, useUpdateTimeSlot, useDeleteTimeSlot } from '@/lib/hooks/useTimeSlots';
 
 interface TimeSlotManagerProps {
   opportunityId: string;
-  timeSlots: TimeSlot[];
-  onTimeSlotUpdate: (timeSlots: TimeSlot[]) => void;
 }
 
-interface EditingSlot extends Omit<TimeSlot, '_id'> {
-  _id?: string;
-}
+type EditingSlot = TimeSlot;
 
-export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUpdate }: TimeSlotManagerProps) {
+export default function TimeSlotManager({ opportunityId }: TimeSlotManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingSlot, setEditingSlot] = useState<EditingSlot | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const { data: timeSlots, isLoading, error } = useTimeSlots(opportunityId);
+  const createTimeSlot = useCreateTimeSlot(opportunityId);
+  const updateTimeSlot = useUpdateTimeSlot(opportunityId, editingSlot?._id || '');
+  const deleteTimeSlot = useDeleteTimeSlot(opportunityId, editingSlot?._id || '');
 
   const {
     register,
@@ -30,239 +30,199 @@ export default function TimeSlotManager({ opportunityId, timeSlots, onTimeSlotUp
   } = useForm<TimeSlotFormData>({
     resolver: zodResolver(timeSlotSchema),
     defaultValues: {
-    startDate: '',
-    endDate: '',
-    defaultCapacity: 1,
-    minimumStay: 14,
-    description: '',
-      capacityOverrides: [],
+      startDate: '',
+      endDate: '',
+      defaultCapacity: 1,
+      minimumStay: 14,
+      description: '',
     },
   });
 
   const onSubmit = async (data: TimeSlotFormData) => {
-    setIsSubmitting(true);
     try {
-      const url = editingSlot
-        ? `/api/opportunities/${opportunityId}/timeslots/${editingSlot._id}`
-        : `/api/opportunities/${opportunityId}/timeslots`;
-
-      const method = editingSlot ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error(editingSlot ? '更新時段失敗' : '新增時段失敗');
-      }
-
-      const newTimeSlot = await response.json();
-
       if (editingSlot) {
-        onTimeSlotUpdate(timeSlots.map(slot =>
-          slot._id === newTimeSlot._id ? newTimeSlot : slot
-        ));
+        await updateTimeSlot.mutateAsync(data);
       } else {
-      onTimeSlotUpdate([...timeSlots, newTimeSlot]);
+        await createTimeSlot.mutateAsync(data);
       }
-
       reset();
       setEditingSlot(null);
       setIsAdding(false);
     } catch (error) {
       console.error('時段操作錯誤:', error);
       alert(editingSlot ? '更新時段失敗，請稍後再試' : '新增時段失敗，請稍後再試');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (timeSlotId: string) => {
-    if (!confirm('確定要刪除這個時段嗎？')) return;
-
+  const handleDelete = async () => {
+    if (!editingSlot) return;
     try {
-      const response = await fetch(`/api/opportunities/${opportunityId}/timeslots/${timeSlotId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('刪除時段失敗');
-      }
-
-      onTimeSlotUpdate(timeSlots.filter(slot => slot._id !== timeSlotId));
+      await deleteTimeSlot.mutateAsync();
+      setEditingSlot(null);
     } catch (error) {
       console.error('刪除時段錯誤:', error);
       alert('刪除時段失敗，請稍後再試');
     }
   };
 
-  const handleEditClick = (slot: TimeSlot) => {
-    setEditingSlot(slot);
-    reset({
-      startDate: format(new Date(slot.startDate), 'yyyy-MM-dd'),
-      endDate: format(new Date(slot.endDate), 'yyyy-MM-dd'),
-      defaultCapacity: slot.defaultCapacity,
-      minimumStay: slot.minimumStay,
-      description: slot.description || '',
-      capacityOverrides: slot.capacityOverrides || [],
-    });
-  };
+  if (isLoading) return <div>載入中...</div>;
+  if (error) return <div>載入失敗</div>;
 
   return (
     <div className="space-y-6">
-      {/* 新增/編輯時段表單 */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold mb-4">
-          {editingSlot ? '編輯時段' : '新增時段'}
-        </h3>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                開始日期
-              </label>
-              <input
-                type="date"
-                {...register('startDate')}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                min={new Date().toISOString().split('T')[0]}
-              />
-              {errors.startDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                結束日期
-              </label>
-              <input
-                type="date"
-                {...register('endDate')}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                min={new Date().toISOString().split('T')[0]}
-              />
-              {errors.endDate && (
-                <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                預設容量
-              </label>
-              <input
-                type="number"
-                {...register('defaultCapacity', { valueAsNumber: true })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                min="1"
-              />
-              {errors.defaultCapacity && (
-                <p className="mt-1 text-sm text-red-600">{errors.defaultCapacity.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                最短停留天數
-              </label>
-              <input
-                type="number"
-                {...register('minimumStay', { valueAsNumber: true })}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                min="1"
-              />
-              {errors.minimumStay && (
-                <p className="mt-1 text-sm text-red-600">{errors.minimumStay.message}</p>
-              )}
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              描述
-            </label>
-            <textarea
-              {...register('description')}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-              rows={3}
-            />
-          </div>
-          <div className="flex justify-end space-x-2">
-            {editingSlot && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingSlot(null);
-                  reset();
-                }}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              >
-                取消
-              </button>
-            )}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? '處理中...' : (editingSlot ? '更新時段' : '新增時段')}
-            </button>
-          </div>
-        </form>
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-medium">時段管理</h2>
+        <button
+          onClick={() => setIsAdding(true)}
+          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        >
+          新增時段
+        </button>
       </div>
 
       {/* 時段列表 */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold mb-4">現有時段</h3>
-        <div className="space-y-4">
-          {timeSlots.map((slot) => (
-            <div
-              key={slot._id}
-              className="time-slot-card bg-white border border-gray-200 rounded-lg p-4"
-            >
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      slot.status === TimeSlotStatus.OPEN ? 'bg-green-100 text-green-800' :
-                      slot.status === TimeSlotStatus.CLOSED ? 'bg-red-100 text-red-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {slot.status === TimeSlotStatus.OPEN ? '開放申請' :
-                       slot.status === TimeSlotStatus.CLOSED ? '已關閉' : '即將滿額'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {format(new Date(slot.startDate), 'yyyy/MM/dd', { locale: zhTW })} 至{' '}
-                    {format(new Date(slot.endDate), 'yyyy/MM/dd', { locale: zhTW })}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    容量: {slot.defaultCapacity} | 最短停留: {slot.minimumStay} 天
-                  </p>
-                  {slot.description && (
-                    <p className="text-sm text-gray-600 mt-2">{slot.description}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
+      <div className="space-y-4">
+        {timeSlots?.map((slot: TimeSlot) => (
+          <div
+            key={slot._id}
+            className="p-4 border rounded-lg hover:bg-gray-50"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-medium">
+                  {format(new Date(slot.startDate), 'yyyy/MM/dd', { locale: zhTW })} -
+                  {format(new Date(slot.endDate), 'yyyy/MM/dd', { locale: zhTW })}
+                </p>
+                <p className="text-sm text-gray-600">
+                  預設容量: {slot.defaultCapacity} | 最短停留: {slot.minimumStay} 天
+                </p>
+                {slot.description && (
+                  <p className="text-sm text-gray-600 mt-1">{slot.description}</p>
+                )}
+              </div>
+              <div className="space-x-2">
+                <button
+                  onClick={() => setEditingSlot(slot)}
+                  className="text-blue-500 hover:text-blue-600"
+                >
+                  編輯
+                </button>
+                <button
+                  onClick={() => setEditingSlot(slot)}
+                  className="text-red-500 hover:text-red-600"
+                >
+                  刪除
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 新增/編輯表單 */}
+      {(isAdding || editingSlot) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg w-full max-w-md">
+            <h3 className="text-lg font-medium mb-4">
+              {editingSlot ? '編輯時段' : '新增時段'}
+            </h3>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  開始日期
+                </label>
+                <input
+                  type="date"
+                  {...register('startDate')}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                />
+                {errors.startDate && (
+                  <p className="mt-1 text-sm text-red-600">{errors.startDate.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  結束日期
+                </label>
+                <input
+                  type="date"
+                  {...register('endDate')}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                />
+                {errors.endDate && (
+                  <p className="mt-1 text-sm text-red-600">{errors.endDate.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  預設容量
+                </label>
+                <input
+                  type="number"
+                  {...register('defaultCapacity', { valueAsNumber: true })}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  min="1"
+                />
+                {errors.defaultCapacity && (
+                  <p className="mt-1 text-sm text-red-600">{errors.defaultCapacity.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  最短停留天數
+                </label>
+                <input
+                  type="number"
+                  {...register('minimumStay', { valueAsNumber: true })}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  min="1"
+                />
+                {errors.minimumStay && (
+                  <p className="mt-1 text-sm text-red-600">{errors.minimumStay.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  描述
+                </label>
+                <textarea
+                  {...register('description')}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAdding(false);
+                    setEditingSlot(null);
+                    reset();
+                  }}
+                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                >
+                  取消
+                </button>
+                {editingSlot && (
                   <button
-                    onClick={() => handleEditClick(slot)}
-                    className="time-slot-button inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    onClick={() => handleDelete(slot._id)}
-                    className="time-slot-button inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    type="button"
+                    onClick={handleDelete}
+                    className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
                   >
                     刪除
                   </button>
-                </div>
+                )}
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  {editingSlot ? '更新' : '新增'}
+                </button>
               </div>
-            </div>
-          ))}
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

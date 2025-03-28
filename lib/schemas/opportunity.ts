@@ -95,6 +95,7 @@ export const opportunitySearchSchema = z.object({
 });
 
 // 導出類型
+export type Opportunity = z.infer<typeof opportunitySchema>;
 export type OpportunityFormData = z.infer<typeof opportunitySchema>;
 export type OpportunityCreateFormData = z.infer<typeof opportunityCreateSchema>;
 export type OpportunityUpdateFormData = z.infer<typeof opportunityUpdateSchema>;

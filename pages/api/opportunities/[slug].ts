@@ -61,6 +61,7 @@ async function getOpportunityBySlug(req: NextApiRequest, res: NextApiResponse, s
     ).exec();
 
     // 格式化響應數據
+    const coordinates = opportunity.location?.coordinates?.coordinates;
     const formattedOpportunity = {
       id: opportunity._id.toString(),
       publicId: opportunity.publicId,
@@ -70,7 +71,14 @@ async function getOpportunityBySlug(req: NextApiRequest, res: NextApiResponse, s
       description: opportunity.description,
       type: opportunity.type,
       status: opportunity.status,
-      location: opportunity.location,
+      location: {
+        city: opportunity.location?.city,
+        country: opportunity.location?.country,
+        coordinates: coordinates ? {
+          lat: coordinates[1],
+          lng: coordinates[0]
+        } : undefined
+      },
       workDetails: opportunity.workDetails,
       workTimeSettings: opportunity.workTimeSettings,
       benefits: opportunity.benefits,

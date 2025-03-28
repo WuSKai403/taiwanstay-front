@@ -7,6 +7,7 @@ export const capacityOverrideSchema = z.object({
 });
 
 export const timeSlotSchema = z.object({
+  _id: z.string(),
   startDate: z.string().min(1, '請選擇開始日期'),
   endDate: z.string().min(1, '請選擇結束日期'),
   defaultCapacity: z.number().min(1, '容量必須大於 0'),
@@ -16,3 +17,4 @@ export const timeSlotSchema = z.object({
 });
 
 export type TimeSlotFormData = z.infer<typeof timeSlotSchema>;
+export type TimeSlot = z.infer<typeof timeSlotSchema>;

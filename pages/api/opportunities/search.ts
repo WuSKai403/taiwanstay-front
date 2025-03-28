@@ -192,45 +192,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 返回結果
     return res.status(200).json({
-      opportunities: opportunities.map(opp => ({
-        id: opp._id,
-        title: opp.title,
-        slug: opp.slug,
-        shortDescription: opp.shortDescription,
-        type: opp.type,
-        status: opp.status,
-        location: {
-          city: opp.location.city,
-          country: opp.location.country,
-          coordinates: opp.location.coordinates
-        },
-        workDetails: {
-          workHoursPerWeek: opp.workDetails.workHoursPerWeek,
-          workDaysPerWeek: opp.workDetails.workDaysPerWeek,
-          minimumStay: opp.workDetails.minimumStay,
-          maximumStay: opp.workDetails.maximumStay,
-          startDate: opp.workDetails.startDate,
-          endDate: opp.workDetails.endDate,
-          isOngoing: opp.workDetails.isOngoing
-        },
-        benefits: {
-          accommodation: opp.benefits.accommodation,
-          meals: opp.benefits.meals,
-          stipend: opp.benefits.stipend
-        },
-        host: opp.hostId ? {
-          id: (opp.hostId as any)._id,
-          name: (opp.hostId as any).name,
-          description: (opp.hostId as any).description
-        } : null,
-        ratings: opp.ratings,
-        stats: {
-          applications: opp.stats.applications,
-          bookmarks: opp.stats.bookmarks
-        },
-        createdAt: opp.createdAt,
-        updatedAt: opp.updatedAt
-      })),
+      opportunities: opportunities.map(opp => {
+        const coordinates = opp.location?.coordinates?.coordinates;
+        return {
+          id: opp._id,
+          title: opp.title,
+          slug: opp.slug,
+          shortDescription: opp.shortDescription,
+          type: opp.type,
+          status: opp.status,
+          location: {
+            city: opp.location?.city,
+            country: opp.location?.country,
+            coordinates: coordinates ? {
+              lat: coordinates[1],
+              lng: coordinates[0]
+            } : undefined
+          },
+          workDetails: {
+            workHoursPerWeek: opp.workDetails?.workHoursPerWeek,
+            workDaysPerWeek: opp.workDetails?.workDaysPerWeek,
+            minimumStay: opp.workDetails?.minimumStay,
+            maximumStay: opp.workDetails?.maximumStay,
+            startDate: opp.workDetails?.startDate,
+            endDate: opp.workDetails?.endDate,
+            isOngoing: opp.workDetails?.isOngoing
+          },
+          benefits: {
+            accommodation: opp.benefits?.accommodation,
+            meals: opp.benefits?.meals,
+            stipend: opp.benefits?.stipend
+          },
+          host: opp.hostId ? {
+            id: (opp.hostId as any)._id,
+            name: (opp.hostId as any).name,
+            description: (opp.hostId as any).description
+          } : null,
+          ratings: opp.ratings,
+          stats: {
+            applications: opp.stats?.applications,
+            bookmarks: opp.stats?.bookmarks
+          },
+          createdAt: opp.createdAt,
+          updatedAt: opp.updatedAt
+        };
+      }),
       filters: {
         types: availableTypes,
         regions: availableRegions,
