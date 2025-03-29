@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { NextPage, GetServerSideProps } from 'next';
+import { useState, useEffect, useMemo } from 'react';
+import { NextPage, GetServerSideProps, GetStaticPaths, GetStaticProps } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
@@ -69,6 +69,19 @@ const typeNameMap = {
   [OpportunityType.EVENT]: '活動工作',
   [OpportunityType.OTHER]: '其他機會'
 };
+
+// 添加 TimeSlot 介面
+interface TimeSlot {
+  id: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  defaultCapacity: number;
+  minimumStay: number;
+  appliedCount: number;
+  confirmedCount: number;
+  status: string;
+  description?: string;
+}
 
 // 定義機會詳情接口
 interface OpportunityDetail {
@@ -172,17 +185,7 @@ interface OpportunityDetail {
     views: number;
   };
   hasTimeSlots?: boolean;
-  timeSlots?: Array<{
-    id: string;
-    startDate: string | Date;
-    endDate: string | Date;
-    defaultCapacity: number;
-    minimumStay: number;
-    appliedCount: number;
-    confirmedCount: number;
-    status: string;
-    description?: string;
-  }>;
+  timeSlots?: TimeSlot[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -300,12 +303,39 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
     router.push(`/opportunities/${slug}/apply`);
   };
 
-  // 如果頁面正在加載中
+  // 修改地圖相關部分
+  const mapPosition = useMemo(() => {
+    if (opportunity.location?.coordinates?.coordinates) {
+      const [lng, lat] = opportunity.location.coordinates.coordinates;
+      return [lat, lng] as [number, number];
+    }
+    return undefined;
+  }, [opportunity.location]);
+
+  // 如果頁面正在生成中
   if (router.isFallback) {
     return (
-      <div className="min-h-screen flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
-      </div>
+      <Layout>
+        <div className="min-h-screen flex justify-center items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // 如果沒有機會資料
+  if (!opportunity) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex justify-center items-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">找不到此機會</h1>
+            <Link href="/opportunities" className="text-primary-600 hover:text-primary-700">
+              返回機會列表
+            </Link>
+          </div>
+        </div>
+      </Layout>
     );
   }
 
@@ -446,37 +476,21 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                   </div>
 
                   {/* 5. 位置資訊 */}
-                  {opportunity.location?.coordinates && (
-                    <div className="mb-8">
-                      <h3 className="text-xl font-bold mb-4">位置</h3>
-                      <div className="h-[300px] rounded-lg overflow-hidden">
+                  {opportunity.location?.coordinates?.coordinates && (
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold mb-4">位置</h3>
+                      <div className="h-96 relative rounded-lg overflow-hidden">
                         <MapComponent
-                          position={[
-                            opportunity.location.coordinates.coordinates[1],
-                            opportunity.location.coordinates.coordinates[0]
-                          ]}
-                          markers={[
-                            {
-                              id: opportunity.id,
-                              position: [
-                                opportunity.location.coordinates.coordinates[1],
-                                opportunity.location.coordinates.coordinates[0]
-                              ],
-                              title: opportunity.title,
-                              type: opportunity.type,
-                              popupContent: `
-                                <div class="p-4">
-                                  <h3 class="font-semibold text-base mb-2 text-gray-800">${opportunity.title}</h3>
-                                  <p class="text-sm text-gray-600 mb-2">${opportunity.location.address || ''}</p>
-                                </div>
-                              `
-                            }
-                          ]}
-                          zoom={14}
-                          height="300px"
-                          showZoomControl={true}
-                          showLocationControl={true}
-                          enableClustering={true}
+                          position={mapPosition}
+                          zoom={15}
+                          showZoomControl
+                          showFullscreenControl
+                          showLocationControl
+                          filters={{
+                            type: opportunity.type,
+                            region: opportunity.location?.region,
+                            city: opportunity.location?.city
+                          }}
                         />
                       </div>
                     </div>
@@ -661,38 +675,89 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
   );
 };
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  // 從 URL 參數中提取 slug
-  const { slug } = context.params as { slug: string };
+export const getStaticPaths: GetStaticPaths = async () => {
+  let db;
+  try {
+    const conn = await connectToDatabase();
+    db = conn.db;
+
+    const opportunities = await db.collection('opportunities')
+      .find(
+        { status: 'ACTIVE' },
+        {
+          projection: { slug: 1 }
+        }
+      )
+      .toArray();
+
+    return {
+      paths: opportunities.map((opp) => ({
+        params: { slug: opp.slug }
+      })),
+      fallback: true // 改為 true 以支援增量靜態生成
+    };
+  } catch (error) {
+    console.error('生成靜態路徑失敗:', error);
+    return {
+      paths: [],
+      fallback: true
+    };
+  }
+};
+
+export const getStaticProps: GetStaticProps = async ({ params }) => {
+  const { slug } = params as { slug: string };
+  let db;
 
   try {
-    // 連接到數據庫
-    await connectToDatabase();
+    const conn = await connectToDatabase();
+    db = conn.db;
 
-    // 發送 API 請求獲取機會詳情
-    const protocol = context.req.headers.host?.includes('localhost') ? 'http' : 'https';
-    const host = context.req.headers.host;
-    const response = await fetch(`${protocol}://${host}/api/opportunities/${slug}`);
+    const opportunity = await db.collection('opportunities').findOne(
+      { slug },
+      {
+        projection: {
+          _id: 1,
+          title: 1,
+          slug: 1,
+          shortDescription: 1,
+          description: 1,
+          type: 1,
+          status: 1,
+          location: 1,
+          workDetails: 1,
+          workTimeSettings: 1,
+          benefits: 1,
+          requirements: 1,
+          media: 1,
+          host: 1,
+          stats: 1,
+          hasTimeSlots: 1,
+          timeSlots: 1,
+          createdAt: 1,
+          updatedAt: 1
+        }
+      }
+    );
 
-    if (!response.ok) {
-      // 如果 API 返回錯誤，返回 404 頁面
-      return {
-        notFound: true
-      };
+    if (!opportunity) {
+      return { notFound: true };
     }
 
-    const data = await response.json();
+    const { _id, ...rest } = opportunity;
 
     return {
       props: {
-        opportunity: data.opportunity
-      }
+        opportunity: {
+          ...JSON.parse(JSON.stringify(rest)),
+          id: _id.toString()
+        }
+      },
+      revalidate: 60
     };
   } catch (error) {
     console.error('獲取機會詳情失敗:', error);
-    return {
-      notFound: true
-    };
+    return { notFound: true };
   }
 };
 

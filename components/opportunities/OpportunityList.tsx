@@ -1,43 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { MapMarker } from '@/components/hooks/useMapMarkers';
+import { useOpportunitySearch, useInfiniteOpportunitySearch } from '@/lib/hooks/useOpportunitySearch';
 import { SearchIcon, ListIcon, MapIcon } from '@/components/icons/Icons';
-
-// 定義 API 返回的機會類型
-interface ApiOpportunity {
-  id: string;
-  title: string;
-  slug: string;
-  shortDescription?: string;
-  description?: string;
-  type: string;
-  status: string;
-  location?: {
-    city?: string;
-    region?: string;
-    coordinates?: {
-      lat: number;
-      lng: number;
-    };
-  };
-  media?: {
-    images?: Array<{
-      url: string;
-      alt?: string;
-    }>;
-  };
-  workTimeSettings?: {
-    minimumStay?: number;
-    maximumStay?: number;
-    workHoursPerDay?: number;
-    workDaysPerWeek?: number;
-  };
-  createdAt?: string;
-  updatedAt?: string;
-}
+import { TransformedOpportunity } from '@/lib/transforms/opportunity';
 
 // 動態導入地圖組件
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
@@ -97,8 +65,65 @@ const typeNameMap = {
   'OTHER': '其他機會'
 };
 
+// 定義搜索參數類型
+interface SearchParams {
+  search?: string;
+  type?: string;
+  region?: string;
+  city?: string;
+  duration?: string;
+  sort?: 'newest' | 'oldest';
+  page?: number;
+  limit?: number;
+}
+
+// 機會卡片組件
+const OpportunityCard: React.FC<{ opportunity: TransformedOpportunity }> = ({ opportunity }) => {
+  const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7nhKHlm77niYc8L3RleHQ+PC9zdmc+';
+
+  return (
+    <Link
+      href={`/opportunities/${opportunity.slug}`}
+      className="block bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+    >
+      <div className="relative h-48">
+        <Image
+          src={opportunity.media?.images?.[0]?.url || defaultImage}
+          alt={opportunity.title}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover rounded-t-lg"
+          priority={false}
+          loading="lazy"
+        />
+        <div className="absolute top-2 right-2">
+          <span
+            className={`px-2 py-1 rounded-full text-sm ${
+              typeColorMap[opportunity.type] || 'bg-gray-100 text-gray-800'
+            }`}
+          >
+            {typeNameMap[opportunity.type as keyof typeof typeNameMap] || '其他機會'}
+          </span>
+        </div>
+      </div>
+      <div className="p-4">
+        <h3 className="text-lg font-semibold mb-2">{opportunity.title}</h3>
+        <div className="flex items-center text-sm text-gray-500">
+          <span>{opportunity.location?.city || '地點未指定'}</span>
+          <span className="mx-2">•</span>
+          <span>
+            {opportunity.workTimeSettings?.minimumStay
+              ? `最少 ${opportunity.workTimeSettings.minimumStay} 天`
+              : '彈性時間'}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+};
+
 interface OpportunityListProps {
-  initialOpportunities: ApiOpportunity[];
+  initialOpportunities: TransformedOpportunity[];
   initialPagination: {
     currentPage: number;
     totalPages: number;
@@ -113,72 +138,62 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
   initialPagination
 }) => {
   const router = useRouter();
-  const [opportunities, setOpportunities] = useState<ApiOpportunity[]>(initialOpportunities);
-  const [allMapOpportunities, setAllMapOpportunities] = useState<ApiOpportunity[]>([]);
-  const [pagination, setPagination] = useState(initialPagination);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     type: '',
-    location: '',
+    region: '',
+    city: '',
     duration: '',
-    accommodation: ''
   });
-  const [sortBy, setSortBy] = useState('newest');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isMapDataLoaded, setIsMapDataLoaded] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
 
-  // 當切換到地圖視圖時，獲取所有機會
-  useEffect(() => {
-    const fetchAllOpportunities = async () => {
-      if (viewMode === 'map' && !isMapDataLoaded) {
-        setIsLoading(true);
-        try {
-          const response = await fetch('/api/opportunities?limit=1000');
-          const data = await response.json();
-          console.log('API 回傳的完整資料:', data);
+  // 修改 searchParams 的類型
+  const searchParams: SearchParams = useMemo(() => ({
+    search: searchTerm,
+    type: filters.type,
+    region: filters.region,
+    city: filters.city,
+    duration: filters.duration,
+    sort: sortBy,
+    page: Number(router.query.page) || 1,
+    limit: 10
+  }), [searchTerm, filters, sortBy, router.query.page]);
 
-          // 確保資料是陣列格式
-          const opportunitiesArray = Array.isArray(data.opportunities) ? data.opportunities :
-                                   Array.isArray(data) ? data : [];
+  // 使用搜索 hook
+  const {
+    data: searchData,
+    isLoading,
+    error
+  } = useOpportunitySearch(searchParams);
 
-          console.log('處理後的機會資料:', opportunitiesArray);
-
-          // 檢查坐標格式
-          opportunitiesArray.forEach((opp: ApiOpportunity, index: number) => {
-            console.log(`機會 ${index + 1} 的位置資料:`, {
-              title: opp.title,
-              location: opp.location,
-              coordinates: opp.location?.coordinates,
-              lat: opp.location?.coordinates?.lat,
-              lng: opp.location?.coordinates?.lng
-            });
-          });
-
-          setAllMapOpportunities(opportunitiesArray);
-          setIsMapDataLoaded(true);
-        } catch (error) {
-          console.error('獲取所有機會失敗:', error);
-          setError('無法載入地圖資料');
-          setIsMapDataLoaded(true);
-          setAllMapOpportunities([]);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchAllOpportunities();
-  }, [viewMode, isMapDataLoaded]);
+  // 使用無限加載 hook（用於列表視圖）
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isLoadingInfinite
+  } = useInfiniteOpportunitySearch({
+    search: searchTerm,
+    type: filters.type,
+    region: filters.region,
+    city: filters.city,
+    duration: filters.duration,
+    sort: sortBy,
+    limit: 10
+  });
 
   // 更新 URL 查詢參數
   useEffect(() => {
     const query = {
       ...router.query,
-      page: pagination.currentPage.toString(),
+      page: searchData?.currentPage.toString(),
       search: searchTerm,
-      ...filters,
+      type: filters.type,
+      region: filters.region,
+      city: filters.city,
+      duration: filters.duration,
       sort: sortBy
     };
 
@@ -190,151 +205,64 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
     });
 
     router.push({ pathname: router.pathname, query }, undefined, { shallow: true });
-  }, [router, pagination.currentPage, searchTerm, filters, sortBy]);
+  }, [router, searchData?.currentPage, searchTerm, filters, sortBy]);
 
   // 處理搜索
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    router.push({
+      pathname: router.pathname,
+      query: { ...router.query, page: '1', search: searchTerm }
+    }, undefined, { shallow: true });
   };
 
-  // 處理篩選器變化
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  // 處理篩選
+  const handleFilterChange = (name: string, value: string) => {
+    setFilters(prev => ({ ...prev, [name]: value }));
+    router.push({
+      pathname: router.pathname,
+      query: { ...router.query, page: '1', [name]: value }
+    }, undefined, { shallow: true });
   };
 
-  // 處理視圖模式切換
-  const handleViewModeChange = (mode: ViewMode) => {
-    setViewMode(mode);
-  };
-
-  // 處理排序變化
+  // 處理排序
   const handleSortChange = (value: string) => {
-    setSortBy(value);
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    setSortBy(value as 'newest' | 'oldest');
+    router.push({
+      pathname: router.pathname,
+      query: { ...router.query, page: '1', sort: value }
+    }, undefined, { shallow: true });
   };
 
-  // 處理分頁
-  const handlePageChange = (page: number) => {
-    setPagination(prev => ({ ...prev, currentPage: page }));
-  };
-
-  // 使用 useMemo 優化地圖標記的計算
-  const mapMarkers = useMemo(() => {
-    const opportunitiesToShow = viewMode === 'map' ? allMapOpportunities : opportunities;
-
-    // 確保資料是陣列
-    if (!Array.isArray(opportunitiesToShow)) {
-      console.error('機會資料不是陣列:', opportunitiesToShow);
-      return [];
+  // 獲取當前顯示的機會列表
+  const opportunities = useMemo(() => {
+    if (viewMode === 'list') {
+      return infiniteData?.pages.flatMap(page => page.opportunities) || initialOpportunities;
     }
-
-    console.log('開始計算地圖標記，機會數量:', opportunitiesToShow.length);
-
-    const validMarkers = opportunitiesToShow
-      .filter(opportunity => {
-        const coordinates = opportunity?.location?.coordinates;
-        console.log('處理機會的坐標:', {
-          title: opportunity?.title,
-          coordinates,
-          lat: coordinates?.lat,
-          lng: coordinates?.lng
-        });
-
-        const hasValidCoordinates = coordinates &&
-                                  typeof coordinates.lat === 'number' && !isNaN(coordinates.lat) &&
-                                  typeof coordinates.lng === 'number' && !isNaN(coordinates.lng);
-
-        if (!hasValidCoordinates) {
-          console.log('過濾掉無效座標的機會:', {
-            title: opportunity?.title,
-            reason: !coordinates ? '無坐標' : '坐標格式無效'
-          });
-        }
-
-        return hasValidCoordinates;
-      })
-      .map(opportunity => {
-        const lat = opportunity.location!.coordinates!.lat;
-        const lng = opportunity.location!.coordinates!.lng;
-        console.log('建立標記:', {
-          title: opportunity.title,
-          position: [lat, lng],
-          id: opportunity.id
-        });
-
-        return {
-          id: opportunity.id,
-          position: [lat, lng] as [number, number],
-          title: opportunity.title,
-          type: opportunity.type,
-          count: 1,
-          slug: opportunity.slug,
-          popupContent: `
-            <div class="p-4">
-              <h3 class="font-semibold text-base mb-2">${opportunity.title}</h3>
-              ${opportunity.location?.city ? `<p class="text-sm text-gray-600 mb-2">${opportunity.location.city}</p>` : ''}
-              ${opportunity.shortDescription ?
-                `<p class="text-sm text-gray-600 mb-3">${opportunity.shortDescription.substring(0, 100)}${opportunity.shortDescription.length > 100 ? '...' : ''}</p>`
-                : ''}
-              <div class="flex justify-center">
-                <a href="/opportunities/${opportunity.slug}" class="inline-block border border-primary-600 text-primary-600 text-xs px-4 py-1.5 rounded hover:bg-gray-50 hover:text-primary-700 hover:border-primary-700 transition-colors">
-                  查看詳情
-                </a>
-              </div>
-            </div>`
-        };
-      });
-
-    console.log('有效標記數量:', validMarkers.length);
-    return validMarkers;
-  }, [viewMode === 'map' ? allMapOpportunities : opportunities]);
-
-  // 使用 useMemo 優化地圖中心點的計算
-  const mapCenter = useMemo(() => {
-    const defaultCenter: [number, number] = [23.5, 121];
-    if (mapMarkers.length === 0) {
-      console.log('使用預設中心點:', defaultCenter);
-      return defaultCenter;
-    }
-
-    const validMarkers = mapMarkers.filter(marker =>
-      !isNaN(marker.position[0]) && !isNaN(marker.position[1])
-    );
-
-    if (validMarkers.length === 0) {
-      console.log('沒有有效標記，使用預設中心點');
-      return defaultCenter;
-    }
-
-    const sumLat = validMarkers.reduce((sum, marker) => sum + marker.position[0], 0);
-    const sumLng = validMarkers.reduce((sum, marker) => sum + marker.position[1], 0);
-    const avgLat = sumLat / validMarkers.length;
-    const avgLng = sumLng / validMarkers.length;
-
-    console.log('計算的地圖中心點:', [avgLat, avgLng]);
-    return [avgLat, avgLng] as [number, number];
-  }, [mapMarkers]);
+    return searchData?.opportunities || initialOpportunities;
+  }, [viewMode, infiniteData, searchData, initialOpportunities]);
 
   return (
-    <div className="space-y-6">
-      {/* 搜索和篩選器 */}
-      <div className="bg-white p-4 rounded-lg shadow">
+    <div className="container mx-auto px-4 py-8">
+      {/* 搜索和篩選區域 */}
+      <div className="mb-8">
         <form onSubmit={handleSearch} className="space-y-4">
           <div className="flex gap-4">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="搜索工作機會..."
-              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="搜尋工作機會..."
+                className="w-full px-4 py-2 pl-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            </div>
             <button
               type="submit"
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              搜索
+              搜尋
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -344,14 +272,15 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
               className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">所有類型</option>
-              <option value="FARMING">農場體驗</option>
-              <option value="GARDENING">園藝工作</option>
-              <option value="ANIMAL_CARE">動物照顧</option>
-              {/* 添加其他類型選項 */}
+              {Object.entries(typeNameMap).map(([key, value]) => (
+                <option key={key} value={key}>
+                  {value}
+                </option>
+              ))}
             </select>
             <select
-              value={filters.location}
-              onChange={(e) => handleFilterChange('location', e.target.value)}
+              value={filters.region}
+              onChange={(e) => handleFilterChange('region', e.target.value)}
               className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">所有地區</option>
@@ -377,133 +306,75 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
             >
               <option value="newest">最新發布</option>
               <option value="oldest">最早發布</option>
-              <option value="popular">最受歡迎</option>
             </select>
           </div>
         </form>
       </div>
 
-      {/* 視圖模式切換 */}
-      <div className="flex justify-end space-x-2">
-        <button
-          onClick={() => handleViewModeChange('list')}
-          className={`px-4 py-2 rounded-lg ${
-            viewMode === 'list'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          列表視圖
-        </button>
-        <button
-          onClick={() => handleViewModeChange('map')}
-          className={`px-4 py-2 rounded-lg ${
-            viewMode === 'map'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          地圖視圖
-        </button>
+      {/* 視圖切換 */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex space-x-4">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`flex items-center px-4 py-2 rounded-lg ${
+              viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+            }`}
+          >
+            <ListIcon className="w-5 h-5 mr-2" />
+            列表視圖
+          </button>
+          <button
+            onClick={() => setViewMode('map')}
+            className={`flex items-center px-4 py-2 rounded-lg ${
+              viewMode === 'map' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+            }`}
+          >
+            <MapIcon className="w-5 h-5 mr-2" />
+            地圖視圖
+          </button>
+        </div>
       </div>
 
-      {/* 機會列表或地圖 */}
+      {/* 內容區域 */}
       {viewMode === 'list' ? (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {opportunities.map((opportunity) => (
-              <Link
-                key={opportunity.id}
-                href={`/opportunities/${opportunity.slug}`}
-                className="block bg-white rounded-lg shadow hover:shadow-md transition-shadow"
-              >
-                <div className="relative h-48">
-                  <Image
-                    src={opportunity.media?.images?.[0]?.url || '/images/placeholder.jpg'}
-                    alt={opportunity.title}
-                    fill
-                    className="object-cover rounded-t-lg"
-                  />
-                  <div className="absolute top-2 right-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-sm ${
-                        typeColorMap[opportunity.type] || 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {typeNameMap[opportunity.type as keyof typeof typeNameMap] || '其他機會'}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold mb-2">{opportunity.title}</h3>
-                  <p className="text-gray-600 text-sm mb-4">
-                    {opportunity.shortDescription || opportunity.description || ''}
-                  </p>
-                  <div className="flex items-center text-sm text-gray-500">
-                    <span>{opportunity.location?.city || '地點未指定'}</span>
-                    <span className="mx-2">•</span>
-                    <span>
-                      {opportunity.workTimeSettings?.minimumStay
-                        ? `最少 ${opportunity.workTimeSettings.minimumStay} 天`
-                        : '彈性時間'}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {/* 分頁控制 - 只在列表視圖且有多頁時顯示 */}
-          {pagination.totalPages > 1 && (
-            <div className="flex justify-center mt-8">
-              <nav className="flex items-center space-x-2">
-                <button
-                  onClick={() => handlePageChange(pagination.currentPage - 1)}
-                  disabled={!pagination.hasPrevPage}
-                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  上一頁
-                </button>
-                <span className="px-4 py-2">
-                  第 {pagination.currentPage} 頁，共 {pagination.totalPages} 頁
-                </span>
-                <button
-                  onClick={() => handlePageChange(pagination.currentPage + 1)}
-                  disabled={!pagination.hasNextPage}
-                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  下一頁
-                </button>
-              </nav>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {opportunities?.map((opportunity, index) => (
+            <OpportunityCard
+              key={`${opportunity.id}-${index}`}
+              opportunity={opportunity}
+            />
+          ))}
+          {isLoadingInfinite && (
+            <div className="col-span-full flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
             </div>
           )}
-        </>
+          {hasNextPage && !isLoadingInfinite && (
+            <button
+              onClick={() => fetchNextPage()}
+              className="col-span-full py-4 text-blue-600 hover:text-blue-700"
+            >
+              載入更多
+            </button>
+          )}
+        </div>
       ) : (
         <div className="h-[600px] relative">
           <MapComponent
-            key="map-view"
-            position={mapCenter}
-            markers={mapMarkers}
-            zoom={7}
-            height="100%"
-            enableClustering={true}
-            showZoomControl={true}
-            showFullscreenControl={true}
-            showLocationControl={true}
-            dataFullyLoaded={true}
-            onMarkerClick={(id) => {
-              console.log('標記點擊:', id);
-              const opportunity = allMapOpportunities.find(o => o.id === id);
-              if (opportunity) {
-                router.push(`/opportunities/${opportunity.slug}`);
-              }
-            }}
+            filters={filters}
+            onMarkerClick={(id) => router.push(`/opportunities/${id}`)}
+            enableClustering
+            showZoomControl
+            showFullscreenControl
+            showLocationControl
           />
-          {isLoading && (
-            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* 錯誤提示 */}
+      {error && (
+        <div className="text-center py-8">
+          <p className="text-red-600">載入資料時發生錯誤</p>
         </div>
       )}
     </div>

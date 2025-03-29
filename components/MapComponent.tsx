@@ -1,7 +1,9 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useLeafletMap } from './hooks/useLeafletMap';
-import { useMapMarkers, MapMarker } from './hooks/useMapMarkers';
+import { useMapMarkers } from './hooks/useMapMarkers';
 import { TAIWAN_CENTER, DEFAULT_ZOOM } from './hooks/useLeaflet';
+import { useMapOpportunities } from '@/lib/hooks/useMapOpportunities';
+import { TransformedMapMarker } from '@/lib/transforms/opportunity';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
@@ -38,7 +40,6 @@ const getTypeDisplayName = (type: string): string => {
 };
 
 interface MapComponentProps {
-  markers?: MapMarker[];
   position?: [number, number];
   zoom?: number;
   height?: string | number;
@@ -48,11 +49,14 @@ interface MapComponentProps {
   showFullscreenControl?: boolean;
   showLocationControl?: boolean;
   highlightedMarkerId?: string;
-  dataFullyLoaded?: boolean;
+  filters?: {
+    type?: string;
+    region?: string;
+    city?: string;
+  };
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
-  markers = [],
   position = TAIWAN_CENTER,
   zoom = DEFAULT_ZOOM,
   height = '100%',
@@ -62,11 +66,13 @@ const MapComponent: React.FC<MapComponentProps> = ({
   showFullscreenControl = false,
   showLocationControl = false,
   highlightedMarkerId,
-  dataFullyLoaded = true
+  filters = {}
 }) => {
   // 組件 ID
   const componentIdRef = useRef(`map-${Math.random().toString(36).substr(2, 9)}`);
-  const [isLoading, setIsLoading] = useState(!dataFullyLoaded);
+
+  // 獲取地圖數據
+  const { data: mapData, isLoading: isLoadingData, error } = useMapOpportunities(filters);
 
   // 記憶化地圖選項
   const mapOptions = useMemo(() => ({
@@ -90,19 +96,12 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // 使用標記管理 hook
   const { updateMarkers } = useMapMarkers(
     mapInstance,
-    markers,
+    mapData?.markers || [],
     markerOptions
   );
 
-  // 當資料載入狀態變化時更新 loading 狀態
-  React.useEffect(() => {
-    if (isLoading === !dataFullyLoaded) return;
-    console.log('MapComponent: 資料載入狀態變化', dataFullyLoaded ? '已完成' : '載入中');
-    setIsLoading(!dataFullyLoaded);
-  }, [dataFullyLoaded]);
-
   // 計算載入狀態
-  const isLoadingMap = !isMapReady || !dataFullyLoaded;
+  const isLoadingMap = !isMapReady || isLoadingData;
 
   return (
     <div className="relative w-full h-full" id={componentIdRef.current}>
@@ -199,15 +198,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
           </div>
         </div>
       )}
-      {/* 無標記提示 */}
-      {isMapReady && !isLoadingMap && markers.length === 0 && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[400] pointer-events-none">
-          <div className="bg-white bg-opacity-90 p-4 rounded-lg shadow-lg text-center max-w-xs">
-            <svg className="h-12 w-12 text-gray-400 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
-            <p className="text-gray-700 font-medium">地圖上沒有顯示任何機會</p>
-            <p className="text-gray-500 text-sm mt-1">請嘗試調整篩選條件</p>
+      {/* 錯誤提示 */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-50 bg-opacity-90 z-10">
+          <div className="bg-white p-6 rounded-lg shadow-md">
+            <p className="text-red-600 font-medium">載入地圖數據時發生錯誤</p>
           </div>
         </div>
       )}
