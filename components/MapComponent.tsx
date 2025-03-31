@@ -3,7 +3,7 @@ import { useLeafletMap } from './hooks/useLeafletMap';
 import { useMapMarkers } from './hooks/useMapMarkers';
 import { TAIWAN_CENTER, DEFAULT_ZOOM } from './hooks/useLeaflet';
 import { useMapOpportunities } from '@/lib/hooks/useMapOpportunities';
-import { TransformedMapMarker } from '@/lib/transforms/opportunity';
+import { OpportunityMarker } from '@/lib/transforms/opportunity';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
@@ -37,6 +37,14 @@ const getTypeDisplayName = (type: string): string => {
   };
 
   return typeNameMap[type] || '未知類型';
+};
+
+// 將 OpportunityMarker 轉換為 MapMarker
+const convertToMapMarkers = (opportunityMarkers: OpportunityMarker[]) => {
+  return opportunityMarkers.map(marker => ({
+    ...marker,
+    position: [marker.position.lat, marker.position.lng] as [number, number]
+  }));
 };
 
 interface MapComponentProps {
@@ -96,7 +104,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // 使用標記管理 hook
   const { updateMarkers } = useMapMarkers(
     mapInstance,
-    mapData?.markers || [],
+    mapData?.markers ? convertToMapMarkers(mapData.markers) : [],
     markerOptions
   );
 

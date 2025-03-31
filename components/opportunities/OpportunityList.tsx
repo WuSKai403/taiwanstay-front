@@ -4,6 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useOpportunitySearch, useInfiniteOpportunitySearch } from '@/lib/hooks/useOpportunitySearch';
+import { useMapOpportunities } from '@/lib/hooks/useMapOpportunities';
+import { useOpportunityStore } from '@/store/opportunities';
 import { SearchIcon, ListIcon, MapIcon } from '@/components/icons/Icons';
 import { TransformedOpportunity } from '@/lib/transforms/opportunity';
 
@@ -122,261 +124,367 @@ const OpportunityCard: React.FC<{ opportunity: TransformedOpportunity }> = ({ op
   );
 };
 
-interface OpportunityListProps {
-  initialOpportunities: TransformedOpportunity[];
-  initialPagination: {
-    currentPage: number;
-    totalPages: number;
-    totalItems: number;
-    hasNextPage: boolean;
-    hasPrevPage: boolean;
-  };
-}
-
-const OpportunityList: React.FC<OpportunityListProps> = ({
-  initialOpportunities,
-  initialPagination
-}) => {
+const OpportunityList: React.FC = () => {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
-  const [searchTerm, setSearchTerm] = useState('');
+
+  // 從 store 獲取狀態
+  const searchFilters = useOpportunityStore((state) => state.searchFilters);
+  const setSearchFilters = useOpportunityStore((state) => state.setSearchFilters);
+  const viewMode = useOpportunityStore((state) => state.viewMode);
+  const setViewMode = useOpportunityStore((state) => state.setViewMode);
+  const isSearching = useOpportunityStore((state) => state.isSearching);
+  const setIsSearching = useOpportunityStore((state) => state.setIsSearching);
+
+  const [searchTerm, setSearchTerm] = useState(searchFilters.search || '');
   const [filters, setFilters] = useState({
-    type: '',
-    region: '',
-    city: '',
-    duration: '',
+    type: searchFilters.type || '',
+    region: searchFilters.region || '',
+    city: searchFilters.city || '',
   });
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
 
-  // 修改 searchParams 的類型
-  const searchParams: SearchParams = useMemo(() => ({
-    search: searchTerm,
-    type: filters.type,
-    region: filters.region,
-    city: filters.city,
-    duration: filters.duration,
-    sort: sortBy,
-    page: Number(router.query.page) || 1,
-    limit: 10
-  }), [searchTerm, filters, sortBy, router.query.page]);
+  // 使用 hook 獲取數據
+  const { data: searchData, isLoading, error } = useOpportunitySearch({
+    ...searchFilters,
+    sort: searchFilters.sort as 'newest' | 'oldest' | undefined
+  });
 
-  // 使用搜索 hook
-  const {
-    data: searchData,
-    isLoading,
-    error
-  } = useOpportunitySearch(searchParams);
-
-  // 使用無限加載 hook（用於列表視圖）
   const {
     data: infiniteData,
     fetchNextPage,
     hasNextPage,
-    isFetchingNextPage,
-    isLoading: isLoadingInfinite
+    isFetchingNextPage
   } = useInfiniteOpportunitySearch({
-    search: searchTerm,
-    type: filters.type,
-    region: filters.region,
-    city: filters.city,
-    duration: filters.duration,
-    sort: sortBy,
-    limit: 10
+    search: searchFilters.search,
+    type: searchFilters.type,
+    region: searchFilters.region,
+    city: searchFilters.city,
+    sort: searchFilters.sort as 'newest' | 'oldest',
+    limit: searchFilters.limit
   });
 
-  // 更新 URL 查詢參數
+  const { data: mapData, isLoading: isLoadingMap } = useMapOpportunities({
+    type: searchFilters.type,
+    region: searchFilters.region,
+    city: searchFilters.city
+  });
+
+  // 更新 URL 和 store
   useEffect(() => {
-    const query = {
-      ...router.query,
-      page: searchData?.currentPage.toString(),
-      search: searchTerm,
-      type: filters.type,
-      region: filters.region,
-      city: filters.city,
-      duration: filters.duration,
-      sort: sortBy
-    };
+    if (!router.isReady) return;
 
-    // 移除空值
-    Object.keys(query).forEach(key => {
-      if (!query[key as keyof typeof query]) {
-        delete query[key as keyof typeof query];
-      }
+    const { search, type, region, city, sort, page, view } = router.query;
+
+    const newFilters: Record<string, any> = {};
+
+    if (search) newFilters.search = search as string;
+    if (type) newFilters.type = type as string;
+    if (region) newFilters.region = region as string;
+    if (city) newFilters.city = city as string;
+    if (sort) newFilters.sort = sort as string;
+    if (page) newFilters.page = parseInt(page as string, 10);
+
+    setSearchFilters(newFilters);
+
+    if (view && (view === 'list' || view === 'map')) {
+      setViewMode(view as 'list' | 'map');
+    }
+
+    // 更新本地狀態
+    setSearchTerm(search as string || '');
+    setFilters({
+      type: type as string || '',
+      region: region as string || '',
+      city: city as string || '',
     });
+  }, [router.isReady, router.query, setSearchFilters, setViewMode]);
 
-    router.push({ pathname: router.pathname, query }, undefined, { shallow: true });
-  }, [router, searchData?.currentPage, searchTerm, filters, sortBy]);
+  // 處理視圖切換
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+
+    // 更新URL參數
+    router.push({
+      pathname: router.pathname,
+      query: { ...router.query, view: mode }
+    }, undefined, { shallow: true });
+  };
 
   // 處理搜索
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSearching(true);
+
+    setSearchFilters({ search: searchTerm, page: 1 });
+
+    // 更新 URL
+    const query = { ...router.query };
+    if (searchTerm) {
+      query.search = searchTerm;
+    } else if (query.search) {
+      delete query.search;
+    }
+    query.page = '1';
+
     router.push({
       pathname: router.pathname,
-      query: { ...router.query, page: '1', search: searchTerm }
+      query
     }, undefined, { shallow: true });
+
+    setTimeout(() => setIsSearching(false), 300);
   };
 
   // 處理篩選
   const handleFilterChange = (name: string, value: string) => {
     setFilters(prev => ({ ...prev, [name]: value }));
-    router.push({
-      pathname: router.pathname,
-      query: { ...router.query, page: '1', [name]: value }
-    }, undefined, { shallow: true });
-  };
 
-  // 處理排序
-  const handleSortChange = (value: string) => {
-    setSortBy(value as 'newest' | 'oldest');
+    setSearchFilters({ [name]: value, page: 1 });
+
+    // 更新 URL
+    const query = { ...router.query };
+    if (value) {
+      query[name] = value;
+    } else {
+      delete query[name];
+    }
+    query.page = '1';
+
     router.push({
       pathname: router.pathname,
-      query: { ...router.query, page: '1', sort: value }
+      query
     }, undefined, { shallow: true });
   };
 
   // 獲取當前顯示的機會列表
   const opportunities = useMemo(() => {
     if (viewMode === 'list') {
-      return infiniteData?.pages.flatMap(page => page.opportunities) || initialOpportunities;
+      return infiniteData?.pages.flatMap(page => page.opportunities) || [];
     }
-    return searchData?.opportunities || initialOpportunities;
-  }, [viewMode, infiniteData, searchData, initialOpportunities]);
+    return searchData?.opportunities || [];
+  }, [viewMode, infiniteData, searchData]);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* 搜索和篩選區域 */}
+      {/* 頂部標題和搜索欄 */}
       <div className="mb-8">
-        <form onSubmit={handleSearch} className="space-y-4">
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="搜尋工作機會..."
-                className="w-full px-4 py-2 pl-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            </div>
+        <h1 className="text-3xl font-bold mb-6">探索工作機會</h1>
+
+        <form onSubmit={handleSearch} className="mb-6">
+          <div className="flex">
+            <input
+              type="text"
+              placeholder="搜尋工作機會..."
+              className="px-4 py-2 flex-grow border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              搜尋
+              <SearchIcon className="w-5 h-5" />
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        </form>
+
+        {/* 過濾器區域 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+              工作類型
+            </label>
             <select
+              id="type"
               value={filters.type}
               onChange={(e) => handleFilterChange('type', e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">所有類型</option>
-              {Object.entries(typeNameMap).map(([key, value]) => (
-                <option key={key} value={key}>
-                  {value}
+              {Object.entries(typeNameMap).map(([value, name]) => (
+                <option key={value} value={value}>
+                  {name}
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-1">
+              區域
+            </label>
             <select
+              id="region"
               value={filters.region}
               onChange={(e) => handleFilterChange('region', e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">所有地區</option>
-              <option value="north">北部</option>
-              <option value="central">中部</option>
-              <option value="south">南部</option>
-              <option value="east">東部</option>
-            </select>
-            <select
-              value={filters.duration}
-              onChange={(e) => handleFilterChange('duration', e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">所有時長</option>
-              <option value="short">短期 (1-2週)</option>
-              <option value="medium">中期 (2-4週)</option>
-              <option value="long">長期 (4週以上)</option>
-            </select>
-            <select
-              value={sortBy}
-              onChange={(e) => handleSortChange(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="newest">最新發布</option>
-              <option value="oldest">最早發布</option>
+              <option value="">所有區域</option>
+              <option value="北部">北部</option>
+              <option value="中部">中部</option>
+              <option value="南部">南部</option>
+              <option value="東部">東部</option>
+              <option value="離島">離島</option>
             </select>
           </div>
-        </form>
+
+          <div>
+            <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+              城市
+            </label>
+            <select
+              id="city"
+              value={filters.city}
+              onChange={(e) => handleFilterChange('city', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">所有城市</option>
+              <option value="臺北市">臺北市</option>
+              <option value="新北市">新北市</option>
+              <option value="桃園市">桃園市</option>
+              <option value="臺中市">臺中市</option>
+              <option value="臺南市">臺南市</option>
+              <option value="高雄市">高雄市</option>
+              <option value="基隆市">基隆市</option>
+              <option value="新竹市">新竹市</option>
+              <option value="嘉義市">嘉義市</option>
+              <option value="新竹縣">新竹縣</option>
+              <option value="苗栗縣">苗栗縣</option>
+              <option value="彰化縣">彰化縣</option>
+              <option value="南投縣">南投縣</option>
+              <option value="雲林縣">雲林縣</option>
+              <option value="嘉義縣">嘉義縣</option>
+              <option value="屏東縣">屏東縣</option>
+              <option value="宜蘭縣">宜蘭縣</option>
+              <option value="花蓮縣">花蓮縣</option>
+              <option value="臺東縣">臺東縣</option>
+              <option value="澎湖縣">澎湖縣</option>
+              <option value="金門縣">金門縣</option>
+              <option value="連江縣">連江縣</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      {/* 視圖切換 */}
+      {/* 視圖切換和結果數量 */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex space-x-4">
           <button
-            onClick={() => setViewMode('list')}
-            className={`flex items-center px-4 py-2 rounded-lg ${
-              viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+            onClick={() => handleViewModeChange('list')}
+            className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+              viewMode === 'list' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             <ListIcon className="w-5 h-5 mr-2" />
             列表視圖
           </button>
           <button
-            onClick={() => setViewMode('map')}
-            className={`flex items-center px-4 py-2 rounded-lg ${
-              viewMode === 'map' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+            onClick={() => handleViewModeChange('map')}
+            className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+              viewMode === 'map' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
             <MapIcon className="w-5 h-5 mr-2" />
             地圖視圖
           </button>
         </div>
+
+        <div>
+          {searchData ? (
+            <p className="text-sm text-gray-600">共找到 {searchData.total} 個工作機會</p>
+          ) : (
+            <p className="text-sm text-gray-600">載入中...</p>
+          )}
+        </div>
       </div>
 
-      {/* 內容區域 */}
-      {viewMode === 'list' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {opportunities?.map((opportunity, index) => (
-            <OpportunityCard
-              key={`${opportunity.id}-${index}`}
-              opportunity={opportunity}
-            />
-          ))}
-          {isLoadingInfinite && (
-            <div className="col-span-full flex justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-          )}
-          {hasNextPage && !isLoadingInfinite && (
-            <button
-              onClick={() => fetchNextPage()}
-              className="col-span-full py-4 text-blue-600 hover:text-blue-700"
-            >
-              載入更多
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="h-[600px] relative">
-          <MapComponent
-            filters={filters}
-            onMarkerClick={(id) => router.push(`/opportunities/${id}`)}
-            enableClustering
-            showZoomControl
-            showFullscreenControl
-            showLocationControl
-          />
-        </div>
-      )}
+      {/* 主要內容區域 */}
+      <div>
+        {viewMode === 'list' ? (
+          <>
+            {/* 列表視圖 */}
+            {isLoading || isSearching ? (
+              // 載入狀態
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="bg-gray-100 h-72 rounded-lg animate-pulse"></div>
+                ))}
+              </div>
+            ) : error ? (
+              // 錯誤狀態
+              <div className="bg-red-50 p-4 rounded-lg">
+                <p className="text-red-700">載入資料時發生錯誤，請稍後再試</p>
+              </div>
+            ) : opportunities.length === 0 ? (
+              // 無結果狀態
+              <div className="text-center py-10">
+                <p className="text-gray-600 mb-4">沒有找到符合條件的工作機會</p>
+                <button
+                  onClick={() => {
+                    setSearchFilters({
+                      search: '',
+                      type: '',
+                      region: '',
+                      city: '',
+                      page: 1
+                    });
+                    setSearchTerm('');
+                    setFilters({
+                      type: '',
+                      region: '',
+                      city: ''
+                    });
+                    router.push({ pathname: router.pathname }, undefined, { shallow: true });
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  清除過濾條件
+                </button>
+              </div>
+            ) : (
+              // 結果列表
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {opportunities.map((opportunity) => (
+                    <OpportunityCard key={opportunity._id} opportunity={opportunity} />
+                  ))}
+                </div>
 
-      {/* 錯誤提示 */}
-      {error && (
-        <div className="text-center py-8">
-          <p className="text-red-600">載入資料時發生錯誤</p>
-        </div>
-      )}
+                {/* 載入更多按鈕 */}
+                {hasNextPage && (
+                  <div className="mt-8 text-center">
+                    <button
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
+                    >
+                      {isFetchingNextPage ? '載入中...' : '載入更多'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          // 地圖視圖
+          <div className="h-[600px] relative rounded-lg overflow-hidden">
+            <MapComponent
+              filters={{
+                type: searchFilters.type,
+                region: searchFilters.region,
+                city: searchFilters.city
+              }}
+            />
+
+            {isLoadingMap && (
+              <div className="absolute top-4 right-4 bg-white px-3 py-2 rounded-lg shadow-md z-[1000]">
+                <div className="flex items-center">
+                  <div className="mr-2 w-4 h-4 border-2 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm">載入地圖中...</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

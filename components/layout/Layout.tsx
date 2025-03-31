@@ -39,11 +39,6 @@ export default function Layout({
         <meta name="description" content={description} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
-        {/* 添加 Noto Sans TC 和 Noto Serif TC 字體 */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;600;700&display=swap"
-          rel="stylesheet"
-        />
       </Head>
 
       {showHeader && <Header />}

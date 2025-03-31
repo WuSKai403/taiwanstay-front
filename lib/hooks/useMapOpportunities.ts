@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { transformOpportunities, transformToMapMarkers, TransformedMapMarker } from '@/lib/transforms/opportunity';
+import { transformOpportunities, transformToMarkers, OpportunityMarker } from '@/lib/transforms/opportunity';
 
 export interface MapSearchParams {
   limit?: number;
@@ -34,7 +34,7 @@ export const useMapOpportunities = (params?: MapSearchParams) => {
 
       const data = await response.json();
       const opportunities = transformOpportunities(data.opportunities || []);
-      const markers = transformToMapMarkers(opportunities);
+      const markers = transformToMarkers(opportunities);
 
       return {
         markers,
@@ -78,7 +78,7 @@ export const prefetchMapOpportunities = async (queryClient: any, params?: MapSea
 
       const data = await response.json();
       const opportunities = transformOpportunities(data.opportunities || []);
-      const markers = transformToMapMarkers(opportunities);
+      const markers = transformToMarkers(opportunities);
 
       return {
         markers,

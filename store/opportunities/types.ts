@@ -14,13 +14,13 @@ export interface Location {
 
 export interface SearchFilters {
   search?: string;
-  type?: OpportunityType;
+  type?: string;
   region?: string;
   city?: string;
-  duration?: number;
+  availableMonths?: number[];
+  sort?: string;
   page: number;
   limit: number;
-  sort?: string;
 }
 
 export interface MapFilters {
@@ -51,12 +51,18 @@ export interface OpportunityState {
   // UI 狀態
   viewMode: 'list' | 'map';
   isSidebarOpen: boolean;
+
+  // 搜尋和過濾狀態
+  isSearching: boolean;
+  isFiltering: boolean;
 }
 
 export interface OpportunityActions {
   // 搜尋和過濾動作
   setSearchFilters: (filters: Partial<SearchFilters>) => void;
   resetSearchFilters: () => void;
+  setIsSearching: (isSearching: boolean) => void;
+  setIsFiltering: (isFiltering: boolean) => void;
 
   // 地圖相關動作
   setMapFilters: (filters: Partial<MapFilters>) => void;

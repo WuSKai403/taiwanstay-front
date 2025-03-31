@@ -2,10 +2,16 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { OpportunityStore, SearchFilters, MapFilters } from './types';
 
+// 初始搜尋過濾條件
 const initialSearchFilters: SearchFilters = {
+  search: '',
+  type: '',
+  region: '',
+  city: '',
+  availableMonths: [],
+  sort: 'newest',
   page: 1,
-  limit: 10,
-  sort: 'newest'
+  limit: 10
 };
 
 const initialMapFilters: MapFilters = {
@@ -26,6 +32,8 @@ export const useOpportunityStore = create<OpportunityStore>()(
       selectedOpportunityId: null,
       viewMode: 'list',
       isSidebarOpen: true,
+      isSearching: false,
+      isFiltering: false,
 
       // 搜尋和過濾動作
       setSearchFilters: (filters) =>
@@ -36,6 +44,16 @@ export const useOpportunityStore = create<OpportunityStore>()(
       resetSearchFilters: () =>
         set(() => ({
           searchFilters: initialSearchFilters
+        })),
+
+      setIsSearching: (isSearching) =>
+        set(() => ({
+          isSearching
+        })),
+
+      setIsFiltering: (isFiltering) =>
+        set(() => ({
+          isFiltering
         })),
 
       // 地圖相關動作

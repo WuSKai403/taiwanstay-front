@@ -54,9 +54,12 @@ export const MIN_ZOOM = 4;
 export type LeafletInstance = typeof L;
 export { L };
 
-export default {
+// 創建 Leaflet 工具物件
+const LeafletTools = {
   fixLeafletIcon,
   createCustomIcon,
   createClusterIcon,
   L
 };
+
+export default LeafletTools;
