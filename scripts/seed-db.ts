@@ -14,6 +14,58 @@ import { TimeSlotStatus } from '../models/enums/TimeSlotStatus';
 import { generatePublicId } from '../utils/helpers';
 import dotenv from 'dotenv';
 
+// 將 YYYY-MM 轉換為 Date 對象
+function parseYearMonthToDate(yearMonth: string, isEndOfMonth: boolean = false): Date {
+  const [year, month] = yearMonth.split('-').map(num => parseInt(num, 10));
+  const date = new Date(year, month - 1, isEndOfMonth ? getLastDayOfMonth(year, month) : 1);
+  return date;
+}
+
+// 獲取月份的最後一天
+function getLastDayOfMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+// 從 YYYY-MM 格式的起止月份生成可用月份數組
+function generateAvailableMonthsFromYearMonth(startMonth: string, endMonth: string): number[] {
+  if (!startMonth || !endMonth) {
+    // 如果沒有提供月份範圍，返回所有月份
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  }
+
+  const [startYear, startMonthNum] = startMonth.split('-').map(num => parseInt(num, 10));
+  const [endYear, endMonthNum] = endMonth.split('-').map(num => parseInt(num, 10));
+
+  const months = new Set<number>();
+
+  // 如果年份相同
+  if (startYear === endYear) {
+    for (let month = startMonthNum; month <= endMonthNum; month++) {
+      months.add(month);
+    }
+  } else {
+    // 如果跨年份
+    // 添加第一年的月份
+    for (let month = startMonthNum; month <= 12; month++) {
+      months.add(month);
+    }
+
+    // 添加中間年份的所有月份
+    for (let year = startYear + 1; year < endYear; year++) {
+      for (let month = 1; month <= 12; month++) {
+        months.add(month);
+      }
+    }
+
+    // 添加最後一年的月份
+    for (let month = 1; month <= endMonthNum; month++) {
+      months.add(month);
+    }
+  }
+
+  return Array.from(months).sort((a, b) => a - b);
+}
+
 // 載入環境變數
 dotenv.config({ path: '.env.local' });
 
@@ -351,8 +403,8 @@ async function importOpportunities() {
       // 創建時段
       const timeSlot = {
         _id: new mongoose.Types.ObjectId(),
-        startDate: new Date(opp.timeSlotStartDate),
-        endDate: new Date(opp.timeSlotEndDate),
+        startMonth: opp.timeSlotStartMonth, // 直接使用 YYYY-MM 格式
+        endMonth: opp.timeSlotEndMonth, // 直接使用 YYYY-MM 格式
         defaultCapacity: parseInt(opp.timeSlotDefaultCapacity) || 2,
         minimumStay: parseInt(opp.timeSlotMinimumStay) || 14,
         appliedCount: 0,
@@ -363,6 +415,11 @@ async function importOpportunities() {
       };
       timeSlots.push(timeSlot);
     }
+
+    // 從 timeSlotStartMonth 和 timeSlotEndMonth 生成 availableMonths
+    const availableMonths = hasTimeSlots
+      ? generateAvailableMonthsFromYearMonth(opp.timeSlotStartMonth, opp.timeSlotEndMonth)
+      : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // 如果沒有時段，預設全年可用
 
     // 創建機會
     const createdOpportunity = await Opportunity.create({
@@ -381,7 +438,9 @@ async function importOpportunities() {
         skills: ['溝通能力', '團隊合作', '學習能力'],
         learningOpportunities: ['專業技能', '文化交流', '永續生活'],
         physicalDemand: 'medium',
-        languages: ['中文', '英文']
+        languages: ['中文', '英文'],
+        // 添加可用月份 - 使用新的函數生成
+        availableMonths: availableMonths
       },
 
       // 工作時間設置 - 整體時間框架
@@ -390,8 +449,8 @@ async function importOpportunities() {
         workDaysPerWeek: parseInt(opp.workDaysPerWeek),
         minimumStay: parseInt(opp.minimumStay) || 7,
         maximumStay: parseInt(opp.maximumStay) || 90,
-        startDate: hasTimeSlots ? new Date(opp.timeSlotStartDate) : new Date(),
-        endDate: hasTimeSlots ? new Date(opp.timeSlotEndDate) : new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+        startDate: hasTimeSlots ? parseYearMonthToDate(opp.timeSlotStartMonth) : new Date(),
+        endDate: hasTimeSlots ? parseYearMonthToDate(opp.timeSlotEndMonth, true) : new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
         isOngoing: true,
         seasonality: {
           spring: true,
@@ -478,13 +537,13 @@ async function importOpportunities() {
       hasTimeSlots: hasTimeSlots
     });
 
-    // 如果有時段，初始化日期容量
+    // 如果有時段，初始化月份容量
     if (hasTimeSlots && timeSlots.length > 0) {
       await initializeDateCapacities(
         createdOpportunity._id,
         timeSlots[0]._id,
-        new Date(opp.timeSlotStartDate),
-        new Date(opp.timeSlotEndDate),
+        parseYearMonthToDate(opp.timeSlotStartMonth),
+        parseYearMonthToDate(opp.timeSlotEndMonth, true),
         parseInt(opp.timeSlotDefaultCapacity) || 2,
         opp.slug
       );
@@ -494,7 +553,7 @@ async function importOpportunities() {
   console.log(`已導入 ${opportunities.length} 筆機會資料`);
 }
 
-// 初始化日期容量
+// 初始化月份容量
 async function initializeDateCapacities(
   opportunityId: mongoose.Types.ObjectId,
   timeSlotId: mongoose.Types.ObjectId,
@@ -503,21 +562,40 @@ async function initializeDateCapacities(
   defaultCapacity: number,
   opportunitySlug: string
 ): Promise<void> {
-  // 獲取所有日期
-  const allDates: string[] = [];
-  const currentDate = new Date(startDate);
+  // 將日期轉換為年月格式
+  const startYearMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
+  const endYearMonth = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}`;
 
-  while (currentDate <= endDate) {
-    allDates.push(formatDate(currentDate));
-    currentDate.setDate(currentDate.getDate() + 1);
+  // 生成所有月份
+  const allMonths: string[] = [];
+
+  // 從起始年月遍歷到結束年月
+  const startParts = startYearMonth.split('-').map(num => parseInt(num, 10));
+  const endParts = endYearMonth.split('-').map(num => parseInt(num, 10));
+
+  let currentYear = startParts[0];
+  let currentMonth = startParts[1];
+  const targetEndYear = endParts[0];
+  const targetEndMonth = endParts[1];
+
+  while (currentYear < targetEndYear || (currentYear === targetEndYear && currentMonth <= targetEndMonth)) {
+    allMonths.push(`${currentYear}-${String(currentMonth).padStart(2, '0')}`);
+
+    // 移至下個月
+    if (currentMonth === 12) {
+      currentYear++;
+      currentMonth = 1;
+    } else {
+      currentMonth++;
+    }
   }
 
-  // 為每一天創建容量記錄
-  const dateCapacities = [];
+  // 為每個月份創建容量記錄
+  const monthCapacities = [];
 
-  for (const date of allDates) {
-    dateCapacities.push({
-      date,
+  for (const month of allMonths) {
+    monthCapacities.push({
+      date: month,
       opportunityId,
       timeSlotId,
       opportunitySlug,
@@ -527,8 +605,8 @@ async function initializeDateCapacities(
   }
 
   // 批量插入
-  if (dateCapacities.length > 0) {
-    await DateCapacity.insertMany(dateCapacities);
+  if (monthCapacities.length > 0) {
+    await DateCapacity.insertMany(monthCapacities);
   }
 }
 

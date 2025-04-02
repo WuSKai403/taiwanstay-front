@@ -1,29 +1,32 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export interface IDateCapacity extends Document {
-  date: string; // 格式為 'YYYY-MM-DD'
+// 更名為 MonthCapacity，但保持檔名為 DateCapacity.ts 以避免破壞現有引用
+export interface IMonthCapacity extends Document {
+  date: string; // 月份，格式為 YYYY-MM
   opportunityId: mongoose.Types.ObjectId;
   timeSlotId: mongoose.Types.ObjectId;
-  capacity: number; // 該日期的總容量
-  bookedCount: number; // 已預訂數量
-  createdAt: Date;
-  updatedAt: Date;
+  opportunitySlug: string;
+  capacity: number;
+  bookedCount: number;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const DateCapacitySchema: Schema = new Schema({
-  date: { type: String, required: true },
+const MonthCapacitySchema: Schema = new Schema({
+  date: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 月份，格式為 YYYY-MM
   opportunityId: { type: Schema.Types.ObjectId, ref: 'Opportunity', required: true },
   timeSlotId: { type: Schema.Types.ObjectId, required: true },
-  capacity: { type: Number, required: true, min: 0 },
-  bookedCount: { type: Number, default: 0, min: 0 }
+  opportunitySlug: { type: String, required: true },
+  capacity: { type: Number, required: true, min: 1 },
+  bookedCount: { type: Number, default: 0 }
 }, {
   timestamps: true
 });
 
-// 複合唯一索引，確保每個機會的每一天只有一個容量記錄
-DateCapacitySchema.index({ date: 1, opportunityId: 1 }, { unique: true });
-// 為了提高查詢效率的索引
-DateCapacitySchema.index({ opportunityId: 1, timeSlotId: 1 });
-DateCapacitySchema.index({ timeSlotId: 1 });
+// 設定複合索引 - 機會ID + 時段ID + 月份
+MonthCapacitySchema.index({ opportunityId: 1, timeSlotId: 1, date: 1 }, { unique: true });
+MonthCapacitySchema.index({ opportunitySlug: 1 });
+MonthCapacitySchema.index({ date: 1 });
 
-export default mongoose.models.DateCapacity || mongoose.model<IDateCapacity>('DateCapacity', DateCapacitySchema);
+// 保持舊的導出名稱 DateCapacity 以避免破壞現有引用，但實際上已更新為月份容量
+export default mongoose.models.DateCapacity || mongoose.model<IMonthCapacity>('DateCapacity', MonthCapacitySchema);

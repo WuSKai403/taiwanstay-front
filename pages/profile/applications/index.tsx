@@ -64,8 +64,8 @@ interface Application {
   };
   applicationDetails: {
     message: string;
-    startDate: string;
-    endDate?: string;
+    startMonth: string;
+    endMonth?: string;
     duration: number;
   };
   communications: {
@@ -277,14 +277,14 @@ const ApplicationsPage: NextPage = () => {
                       <div>
                         <p className="text-sm text-gray-500">預計開始日期</p>
                         <p className="font-medium">
-                          {format(new Date(application.applicationDetails.startDate), 'yyyy年MM月dd日', { locale: zhTW })}
+                          {format(new Date(application.applicationDetails.startMonth), 'yyyy年MM月', { locale: zhTW })}
                         </p>
                       </div>
-                      {application.applicationDetails.endDate && (
+                      {application.applicationDetails.endMonth && (
                         <div>
                           <p className="text-sm text-gray-500">預計結束日期</p>
                           <p className="font-medium">
-                            {format(new Date(application.applicationDetails.endDate), 'yyyy年MM月dd日', { locale: zhTW })}
+                            {format(new Date(application.applicationDetails.endMonth), 'yyyy年MM月', { locale: zhTW })}
                           </p>
                         </div>
                       )}

@@ -5,7 +5,8 @@ export const monthSelectionSchema = z.object({
   year: z.number(),
   month: z.number(),
   isSelected: z.boolean(),
-  isAvailable: z.boolean()
+  isAvailable: z.boolean(),
+  yearMonthStr: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM')
 });
 
 // 定義同行夥伴的 schema
@@ -19,9 +20,15 @@ export const travelingWithSchema = z.object({
 // 定義時段的 schema
 export const timeSlotSchema = z.object({
   id: z.string(),
-  startDate: z.string(),
-  endDate: z.string(),
-  isFull: z.boolean()
+  startMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
+  endMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
+  defaultCapacity: z.number().min(1, '容量必須大於 0'),
+  minimumStay: z.number().min(1, '最短停留天數必須大於 0'),
+  appliedCount: z.number().default(0),
+  confirmedCount: z.number().default(0),
+  status: z.string(),
+  description: z.string().optional(),
+  isFull: z.boolean().default(false)
 });
 
 // 定義工作經驗的 schema
@@ -45,6 +52,34 @@ export const languageSchema = z.object({
   level: z.string().min(1, '程度不能為空')
 });
 
+// 定義駕駛執照類型的 schema
+export const drivingLicenseSchema = z.object({
+  motorcycle: z.boolean().default(false),
+  car: z.boolean().default(false),
+  none: z.boolean().default(false),
+  other: z.object({
+    enabled: z.boolean().default(false),
+    details: z.string().default('')
+  })
+});
+
+// 定義適應能力評分的 schema
+export const adaptabilityRatingsSchema = z.object({
+  environmentAdaptation: z.number().min(1).max(5).default(3),
+  teamwork: z.number().min(1).max(5).default(3),
+  problemSolving: z.number().min(1).max(5).default(3),
+  independentWork: z.number().min(1).max(5).default(3),
+  stressManagement: z.number().min(1).max(5).default(3)
+});
+
+// 定義過往換宿經驗的 schema
+export const workawayExperienceSchema = z.object({
+  location: z.string(),
+  period: z.string(),
+  workContent: z.string(),
+  experience: z.string()
+});
+
 // 定義照片資源的 schema
 export const cloudinaryImageResourceSchema = z.object({
   public_id: z.string(),
@@ -63,10 +98,11 @@ export const cloudinaryImageResourceSchema = z.object({
 // 定義主要申請表單的 schema
 export const applicationFormSchema = z.object({
   message: z.string().min(50, '訊息至少需要 50 個字'),
-  startDate: z.string().min(1, '開始日期不能為空'),
-  endDate: z.string().optional(),
-  duration: z.number().min(1, '停留時間至少需要 1 天'),
+  startMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
+  endMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
+  duration: z.number().min(1, '停留時間必須大於 0'),
   timeSlotId: z.string().optional(),
+  availableMonths: z.array(z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM')),
   workExperience: z.array(workExperienceSchema),
   physicalCondition: z.string().min(1, '身體狀況不能為空'),
   skills: z.array(z.string()),
@@ -80,7 +116,40 @@ export const applicationFormSchema = z.object({
   languages: z.array(languageSchema).min(1, '至少需要一種語言能力'),
   relevantExperience: z.string().optional(),
   motivation: z.string().optional(),
-  photos: z.array(cloudinaryImageResourceSchema).min(1, '至少需要上傳一張照片').max(5, '最多只能上傳 5 張照片')
+  photos: z.array(cloudinaryImageResourceSchema).min(1, '至少需要上傳一張照片').max(5, '最多只能上傳 5 張照片'),
+
+  // 新增欄位
+  drivingLicense: drivingLicenseSchema.default({
+    motorcycle: false,
+    car: false,
+    none: false,
+    other: {
+      enabled: false,
+      details: ''
+    }
+  }),
+  allergies: z.string().default(''),
+  nationality: z.string().min(1, '國籍不能為空'),
+  visaType: z.string().optional(),
+  preferredWorkTypes: z.array(z.string()).default([]),
+  unwillingWorkTypes: z.array(z.string()).default([]),
+  physicalStrength: z.number().min(1).max(5).default(3),
+  certifications: z.string().default(''),
+  workawayExperiences: z.array(workawayExperienceSchema).default([]),
+  expectedSkills: z.array(z.string()).default([]),
+  contribution: z.string().min(1, '請說明您可以提供的貢獻'),
+  adaptabilityRatings: adaptabilityRatingsSchema.default({
+    environmentAdaptation: 3,
+    teamwork: 3,
+    problemSolving: 3,
+    independentWork: 3,
+    stressManagement: 3
+  }),
+  photoDescriptions: z.array(z.string()).default([]),
+  videoIntroduction: z.string().default(''),
+  additionalNotes: z.string().default(''),
+  sourceChannel: z.string().default(''),
+  termsAgreed: z.boolean().default(false)
 });
 
 // 導出類型
@@ -92,3 +161,6 @@ export type WorkExperience = z.infer<typeof workExperienceSchema>;
 export type DietaryRestrictions = z.infer<typeof dietaryRestrictionsSchema>;
 export type Language = z.infer<typeof languageSchema>;
 export type CloudinaryImageResource = z.infer<typeof cloudinaryImageResourceSchema>;
+export type DrivingLicense = z.infer<typeof drivingLicenseSchema>;
+export type AdaptabilityRatings = z.infer<typeof adaptabilityRatingsSchema>;
+export type WorkawayExperience = z.infer<typeof workawayExperienceSchema>;

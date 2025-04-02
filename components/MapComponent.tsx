@@ -2,8 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { useLeafletMap } from './hooks/useLeafletMap';
 import { useMapMarkers } from './hooks/useMapMarkers';
 import { TAIWAN_CENTER, DEFAULT_ZOOM } from './hooks/useLeaflet';
-import { useMapOpportunities } from '@/lib/hooks/useMapOpportunities';
-import { OpportunityMarker } from '@/lib/transforms/opportunity';
+import { TransformedOpportunity } from '@/lib/transforms/opportunity';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
@@ -39,15 +38,51 @@ const getTypeDisplayName = (type: string): string => {
   return typeNameMap[type] || '未知類型';
 };
 
-// 將 OpportunityMarker 轉換為 MapMarker
-const convertToMapMarkers = (opportunityMarkers: OpportunityMarker[]) => {
-  return opportunityMarkers.map(marker => ({
-    ...marker,
-    position: [marker.position.lat, marker.position.lng] as [number, number]
-  }));
+// 將機會數據轉換為地圖標記
+const convertOpportunitiesToMarkers = (opportunities: TransformedOpportunity[] = []) => {
+  console.log('開始轉換機會為標記，機會數量:', opportunities?.length || 0);
+
+  if (!opportunities || !Array.isArray(opportunities)) {
+    console.error('無效的機會數據:', opportunities);
+    return [];
+  }
+
+  const markers = opportunities
+    .filter(opp => {
+      if (!opp) {
+        console.warn('發現無效的機會對象');
+        return false;
+      }
+      if (!opp.location || !opp.location.coordinates) {
+        console.warn('機會缺少位置坐標:', opp.id || opp._id, opp.title);
+        return false;
+      }
+      if (!opp.location.coordinates.lat || !opp.location.coordinates.lng) {
+        console.warn('機會坐標不完整:', opp.id || opp._id, opp.title, opp.location.coordinates);
+        return false;
+      }
+      return true;
+    })
+    .map(opp => ({
+      id: opp.id || opp._id || `marker-${Math.random().toString(36).substr(2, 9)}`,
+      position: [
+        opp.location!.coordinates!.lat,
+        opp.location!.coordinates!.lng
+      ] as [number, number],
+      title: opp.title || '未命名機會',
+      type: opp.type || 'OTHER',
+      slug: opp.slug || '',
+      city: opp.location?.city || '未知地點',
+      typeName: getTypeDisplayName(opp.type || 'unknown')
+    }));
+
+  console.log('轉換完成，生成有效標記數量:', markers.length);
+  return markers;
 };
 
 interface MapComponentProps {
+  opportunities: TransformedOpportunity[];
+  isLoading: boolean;
   position?: [number, number];
   zoom?: number;
   height?: string | number;
@@ -57,14 +92,11 @@ interface MapComponentProps {
   showFullscreenControl?: boolean;
   showLocationControl?: boolean;
   highlightedMarkerId?: string;
-  filters?: {
-    type?: string;
-    region?: string;
-    city?: string;
-  };
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
+  opportunities,
+  isLoading,
   position = TAIWAN_CENTER,
   zoom = DEFAULT_ZOOM,
   height = '100%',
@@ -73,14 +105,10 @@ const MapComponent: React.FC<MapComponentProps> = ({
   showZoomControl = true,
   showFullscreenControl = false,
   showLocationControl = false,
-  highlightedMarkerId,
-  filters = {}
+  highlightedMarkerId
 }) => {
   // 組件 ID
   const componentIdRef = useRef(`map-${Math.random().toString(36).substr(2, 9)}`);
-
-  // 獲取地圖數據
-  const { data: mapData, isLoading: isLoadingData, error } = useMapOpportunities(filters);
 
   // 記憶化地圖選項
   const mapOptions = useMemo(() => ({
@@ -94,6 +122,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // 初始化地圖
   const { mapRef, mapInstance, isMapReady } = useLeafletMap(mapOptions);
 
+  // 轉換機會為地圖標記
+  const mapMarkers = useMemo(() => {
+    return convertOpportunitiesToMarkers(opportunities);
+  }, [opportunities]);
+
   // 記憶化標記選項
   const markerOptions = useMemo(() => ({
     enableClustering,
@@ -104,12 +137,12 @@ const MapComponent: React.FC<MapComponentProps> = ({
   // 使用標記管理 hook
   const { updateMarkers } = useMapMarkers(
     mapInstance,
-    mapData?.markers ? convertToMapMarkers(mapData.markers) : [],
+    mapMarkers,
     markerOptions
   );
 
   // 計算載入狀態
-  const isLoadingMap = !isMapReady || isLoadingData;
+  const isLoadingMap = !isMapReady || isLoading;
 
   return (
     <div className="relative w-full h-full" id={componentIdRef.current}>
@@ -206,11 +239,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
           </div>
         </div>
       )}
-      {/* 錯誤提示 */}
-      {error && (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-50 bg-opacity-90 z-10">
+      {/* 錯誤提示或無數據 */}
+      {isMapReady && !isLoading && mapMarkers.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-10">
           <div className="bg-white p-6 rounded-lg shadow-md">
-            <p className="text-red-600 font-medium">載入地圖數據時發生錯誤</p>
+            <p className="text-gray-600 font-medium">沒有找到可顯示的位置資訊</p>
           </div>
         </div>
       )}

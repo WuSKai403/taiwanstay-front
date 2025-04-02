@@ -97,6 +97,27 @@ export interface Application {
   hostId: string;
   message: string;
   status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  applicationDetails: {
+    message: string;
+    startMonth: string;
+    endMonth?: string;
+    duration: number;
+    travelingWith?: {
+      partner: boolean;
+      children: boolean;
+      pets: boolean;
+      details?: string;
+    };
+    answers?: {
+      question: string;
+      answer: string;
+    }[];
+    specialRequirements?: string;
+    dietaryRestrictions?: string[];
+    languages?: string[];
+    relevantExperience?: string;
+    motivation?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }

@@ -34,7 +34,15 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
 
     // 從查詢參數中獲取分頁和排序信息
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+
+    // 檢查是否為地圖請求
+    const isMapRequest = req.query.map === 'true';
+
+    // 如果是地圖請求，使用較大的限制值
+    const limit = isMapRequest
+      ? parseInt(req.query.limit as string) || 1000
+      : parseInt(req.query.limit as string) || 10;
+
     const skip = (page - 1) * limit;
     const sort = req.query.sort as string || 'createdAt';
     const order = req.query.order as string || 'desc';
@@ -42,6 +50,39 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
     // 構建查詢條件
     const query = buildMongoQuery(req.query);
     console.log('MongoDB 查詢條件:', JSON.stringify(query, null, 2));
+    console.log(`查詢類型: ${isMapRequest ? '地圖請求' : '列表請求'}, 限制: ${limit}`);
+
+    // 處理 availableMonths 參數，用於月份篩選
+    if (req.query.availableMonths) {
+      try {
+        // 處理 availableMonths 參數 - 格式為 "YYYY-MM,YYYY-MM,..."
+        const monthsArray = (req.query.availableMonths as string).split(',');
+        console.log(`處理 availableMonths 參數: ${monthsArray.join(', ')}`);
+
+        if (monthsArray.length > 0) {
+          // 從 YYYY-MM 格式中提取月份
+          const monthNumbers = monthsArray
+            .filter(yearMonth => yearMonth && yearMonth.includes('-'))
+            .map(yearMonth => {
+              const [year, month] = yearMonth.split('-');
+              console.log(`解析年月: ${year}年${month}月`);
+              return parseInt(month, 10);
+            })
+            .filter(month => !isNaN(month) && month >= 1 && month <= 12);
+
+          if (monthNumbers.length > 0) {
+            console.log(`有效月份篩選: ${monthNumbers.join(', ')}`);
+            query['workDetails.availableMonths'] = { $in: monthNumbers };
+          } else {
+            console.log('沒有有效的月份篩選條件');
+          }
+        }
+      } catch (error) {
+        console.error('處理月份篩選時出錯:', error);
+      }
+    } else {
+      console.log('請求中未包含 availableMonths 參數');
+    }
 
     // 最多重試3次
     let retries = 0;
@@ -53,17 +94,28 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
       try {
         // 執行查詢
         console.log(`執行 Opportunity.find 查詢... (嘗試 ${retries + 1}/${maxRetries})`);
-        opportunities = await Opportunity.find(query)
+
+        // 查詢設置
+        const queryOptions = Opportunity.find(query)
           .populate('hostId', 'name description contactEmail contactPhone location')
           .sort({ [sort]: order === 'asc' ? 1 : -1 })
-          .skip(skip)
-          .limit(limit)
           .setOptions({ maxTimeMS: 20000 }); // 設置查詢超時為20秒
+
+        // 地圖請求可以返回所有記錄，列表請求使用分頁
+        if (!isMapRequest) {
+          queryOptions.skip(skip).limit(limit);
+        } else {
+          // 地圖請求仍然需要限制以避免服務器過載
+          queryOptions.limit(limit);
+        }
+
+        // 執行查詢
+        opportunities = await queryOptions;
 
         // 獲取總數
         total = await Opportunity.countDocuments(query)
           .setOptions({ maxTimeMS: 10000 }); // 設置計數查詢超時為10秒
-        console.log(`找到 ${total} 個符合條件的機會`);
+        console.log(`找到 ${total} 個符合條件的機會，返回 ${opportunities.length} 個結果`);
 
         // 格式化機會資料
         const formattedOpportunities = opportunities.map(opp => {

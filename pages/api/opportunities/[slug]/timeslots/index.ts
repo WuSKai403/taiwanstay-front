@@ -1,14 +1,14 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
+import mongoose, { Types } from 'mongoose';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../auth/[...nextauth]';
-import dbConnect from '@/lib/dbConnect';
 import Opportunity from '@/models/Opportunity';
-import Host from '@/models/Host';
-import { UserRole } from '@/models/enums';
+import DateCapacity from '@/models/DateCapacity';
 import { TimeSlotStatus } from '@/models/enums/TimeSlotStatus';
 import { ApiError } from '@/lib/errors';
-import mongoose, { Types } from 'mongoose';
 import { TimeSlot } from '@/types/opportunity';
+import { UserRole } from '@/models/enums';
+import dbConnect from '@/lib/dbConnect';
 
 export default async function handler(
   req: NextApiRequest,
@@ -159,8 +159,8 @@ export default async function handler(
         // 獲取新添加的時段ID
         const timeSlotId = opportunity.timeSlots[opportunity.timeSlots.length - 1]._id;
 
-        // 初始化日期容量
-        await initializeDateCapacities(opportunity._id, timeSlotId, opportunity.timeSlots[opportunity.timeSlots.length - 1]);
+        // 初始化月份容量
+        await initializeMonthCapacities(opportunity._id, timeSlotId, opportunity.timeSlots[opportunity.timeSlots.length - 1]);
 
         return res.status(201).json({
           success: true,
@@ -180,59 +180,77 @@ export default async function handler(
   }
 }
 
-// 初始化日期容量的輔助函數
-async function initializeDateCapacities(
-  opportunityId: Types.ObjectId,
-  timeSlotId: Types.ObjectId,
-  timeSlot: TimeSlot
+/**
+ * 初始化月份容量記錄
+ * @param opportunityId 機會ID
+ * @param timeSlotId 時段ID
+ * @param timeSlot 時段物件
+ */
+async function initializeMonthCapacities(
+  opportunityId: mongoose.Types.ObjectId,
+  timeSlotId: mongoose.Types.ObjectId,
+  timeSlot: any
 ) {
-  const DateCapacity = mongoose.model('DateCapacity');
+  try {
+    // 檢查時段是否有開始和結束月份
+    if (!timeSlot.startMonth || !timeSlot.endMonth) {
+      return;
+    }
 
-  // 獲取所有日期
-  const allDates = [];
-  const currentDate = new Date(timeSlot.startDate);
-  const endDate = new Date(timeSlot.endDate);
+    // 解析開始和結束月份
+    const startParts = timeSlot.startMonth.split('-').map((part: string) => parseInt(part));
+    const endParts = timeSlot.endMonth.split('-').map((part: string) => parseInt(part));
 
-  while (currentDate <= endDate) {
-    allDates.push(formatDate(currentDate));
-    currentDate.setDate(currentDate.getDate() + 1);
+    if (startParts.length !== 2 || endParts.length !== 2) {
+      throw new Error('月份格式不正確，應為 YYYY-MM');
+    }
+
+    const startYear = startParts[0];
+    const startMonth = startParts[1];
+    const endYear = endParts[0];
+    const endMonth = endParts[1];
+
+    // 取得 timeSlot 所在的 opportunity
+    const opportunity = await Opportunity.findById(opportunityId);
+    if (!opportunity) {
+      throw new Error('找不到對應的機會');
+    }
+
+    // 生成所有需要的月份
+    const monthCapacities = [];
+    let currentYear = startYear;
+    let currentMonth = startMonth;
+
+    while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
+      const monthString = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+
+      monthCapacities.push({
+        date: monthString,
+        opportunityId,
+        timeSlotId,
+        opportunitySlug: opportunity.slug,
+        capacity: timeSlot.defaultCapacity || 1,
+        bookedCount: 0
+      });
+
+      // 移至下個月
+      if (currentMonth === 12) {
+        currentYear++;
+        currentMonth = 1;
+      } else {
+        currentMonth++;
+      }
+    }
+
+    // 批量插入月份容量記錄
+    if (monthCapacities.length > 0) {
+      await DateCapacity.deleteMany({ opportunityId, timeSlotId });
+      await DateCapacity.insertMany(monthCapacities);
+    }
+
+    console.log(`已為時段 ${timeSlotId} 創建 ${monthCapacities.length} 筆月份容量記錄`);
+  } catch (error) {
+    console.error('初始化月份容量時出錯:', error);
+    throw error;
   }
-
-  // 為每一天創建容量記錄
-  const dateCapacities = [];
-
-  for (const date of allDates) {
-    // 找到該日期適用的容量覆蓋
-    const applicableOverride = timeSlot.capacityOverrides?.find(override => {
-      const overrideStart = new Date(override.startDate);
-      const overrideEnd = new Date(override.endDate);
-      const currentDate = parseDate(date);
-      return currentDate >= overrideStart && currentDate <= overrideEnd;
-    });
-
-    // 使用覆蓋容量或默認容量
-    const capacity = applicableOverride ? applicableOverride.capacity : timeSlot.defaultCapacity;
-
-    dateCapacities.push({
-      date,
-      opportunityId,
-      timeSlotId,
-      capacity,
-      bookedCount: 0
-    });
-  }
-
-  // 批量插入
-  if (dateCapacities.length > 0) {
-    await DateCapacity.insertMany(dateCapacities);
-  }
-}
-
-// 日期格式化輔助函數
-function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0];
-}
-
-function parseDate(dateString: string): Date {
-  return new Date(dateString);
 }

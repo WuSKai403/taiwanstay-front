@@ -70,11 +70,11 @@ const typeNameMap = {
   [OpportunityType.OTHER]: '其他機會'
 };
 
-// 添加 TimeSlot 介面
+// 更新 TimeSlot 介面定義
 interface TimeSlot {
   id: string;
-  startDate: string | Date;
-  endDate: string | Date;
+  startMonth: string; // YYYY-MM 格式
+  endMonth: string; // YYYY-MM 格式
   defaultCapacity: number;
   minimumStay: number;
   appliedCount: number;
@@ -312,6 +312,42 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
     return undefined;
   }, [opportunity.location]);
 
+  // 將機會詳情轉換為地圖需要的 TransformedOpportunity 格式
+  const convertToTransformedOpportunity = (opp: OpportunityDetail) => {
+    return {
+      id: opp.id,
+      _id: opp.id,
+      title: opp.title,
+      slug: opp.slug,
+      type: opp.type,
+      host: {
+        id: opp.host?.id || '',
+        name: opp.host?.name || '',
+        avatar: null
+      },
+      location: {
+        region: opp.location?.region || '',
+        city: opp.location?.city || '',
+        address: opp.location?.address || null,
+        coordinates: opp.location?.coordinates?.coordinates ? {
+          lat: opp.location.coordinates.coordinates[1], // 緯度
+          lng: opp.location.coordinates.coordinates[0]  // 經度
+        } : null
+      },
+      media: {
+        images: opp.media?.images || []
+      },
+      workTimeSettings: {
+        hoursPerDay: opp.workTimeSettings?.workHoursPerDay || 0,
+        daysPerWeek: opp.workTimeSettings?.workDaysPerWeek || 0,
+        minimumStay: opp.workTimeSettings?.minimumStay || null,
+        availableMonths: null
+      },
+      createdAt: opp.createdAt || '',
+      updatedAt: opp.updatedAt || ''
+    };
+  };
+
   // 如果頁面正在生成中
   if (router.isFallback) {
     return (
@@ -405,8 +441,8 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                     <div className="mb-8">
                       <h3 className="text-xl font-bold mb-4">可申請時段</h3>
                       <TimeSlotDisplay
-                        startDate={opportunity.timeSlots[0].startDate}
-                        endDate={opportunity.timeSlots[opportunity.timeSlots.length - 1].endDate}
+                        startMonth={opportunity.timeSlots[0].startMonth}
+                        endMonth={opportunity.timeSlots[opportunity.timeSlots.length - 1].endMonth}
                         defaultCapacity={opportunity.timeSlots[0].defaultCapacity}
                         minimumStay={opportunity.timeSlots[0].minimumStay}
                         appliedCount={opportunity.timeSlots.reduce((total, slot) => total + slot.appliedCount, 0)}
@@ -486,11 +522,8 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                           showZoomControl
                           showFullscreenControl
                           showLocationControl
-                          filters={{
-                            type: opportunity.type,
-                            region: opportunity.location?.region,
-                            city: opportunity.location?.city
-                          }}
+                          opportunities={[convertToTransformedOpportunity(opportunity)]}
+                          isLoading={false}
                         />
                       </div>
                     </div>
@@ -568,7 +601,7 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                         .map(slot => (
                           <div key={slot.id} className="bg-gray-50 p-3 rounded-md border border-gray-200">
                             <p className="text-sm font-medium">
-                              {new Date(slot.startDate).toLocaleDateString('zh-TW')} 至 {new Date(slot.endDate).toLocaleDateString('zh-TW')}
+                              {slot.startMonth} 至 {slot.endMonth}
                             </p>
                             <div className="flex justify-between items-center mt-1 text-xs text-gray-600">
                               <span>最短 {slot.minimumStay} 天</span>

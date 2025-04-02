@@ -1,13 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useOpportunitySearch, useInfiniteOpportunitySearch } from '@/lib/hooks/useOpportunitySearch';
 import { useMapOpportunities } from '@/lib/hooks/useMapOpportunities';
-import { useOpportunityStore } from '@/store/opportunities';
 import { SearchIcon, ListIcon, MapIcon } from '@/components/icons/Icons';
-import { TransformedOpportunity } from '@/lib/transforms/opportunity';
+import { TransformedOpportunity, transformOpportunities } from '@/lib/transforms/opportunity';
 
 // 動態導入地圖組件
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
@@ -15,8 +14,34 @@ const MapComponent = dynamic(() => import('@/components/MapComponent'), {
   loading: () => <div className="h-[600px] bg-gray-100 animate-pulse" />
 });
 
+// 擴展機會類型，添加臨時ID支持
+interface EnhancedOpportunity extends TransformedOpportunity {
+  _tempId?: string; // 添加可選的臨時ID屬性
+}
+
 // 定義視圖模式類型
 type ViewMode = 'list' | 'map';
+
+// OpportunityList props 介面
+interface OpportunityListProps {
+  initialOpportunities: TransformedOpportunity[];
+  totalCount: number;
+  initialFilters: {
+    search?: string;
+    type?: string;
+    region?: string;
+    availableMonths?: string[]; // 修改為string[]，格式為"YYYY-MM"
+    sort?: string;
+    page?: number;
+    view?: ViewMode;
+  };
+  availableFilters: {
+    types: string[];
+    regions: string[];
+    cities: string[];
+  };
+  onFilterChange: (filters: Record<string, any>) => void;
+}
 
 // 機會類型標籤顏色映射
 const typeColorMap: Record<string, string> = {
@@ -67,21 +92,35 @@ const typeNameMap = {
   'OTHER': '其他機會'
 };
 
+// 月份名稱
+const monthNames = [
+  '1月', '2月', '3月', '4月', '5月', '6月',
+  '7月', '8月', '9月', '10月', '11月', '12月'
+];
+
 // 定義搜索參數類型
 interface SearchParams {
   search?: string;
   type?: string;
   region?: string;
-  city?: string;
+  availableMonths?: string[]; // 修改為string[]，格式為"YYYY-MM"
   duration?: string;
   sort?: 'newest' | 'oldest';
   page?: number;
   limit?: number;
 }
 
-// 機會卡片組件
-const OpportunityCard: React.FC<{ opportunity: TransformedOpportunity }> = ({ opportunity }) => {
+// 機會卡片組件 - 使用memo優化避免不必要重新渲染
+const OpportunityCard = memo(({ opportunity }: { opportunity: TransformedOpportunity }) => {
+  // 默認圖片，當機會沒有提供圖片時使用
   const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7nhKHlm77niYc8L3RleHQ+PC9zdmc+';
+
+  // 安全地獲取圖片 URL
+  const imageUrl = opportunity.media?.images &&
+                  opportunity.media.images.length > 0 &&
+                  opportunity.media.images[0]?.url
+                  ? opportunity.media.images[0].url
+                  : defaultImage;
 
   return (
     <Link
@@ -90,7 +129,7 @@ const OpportunityCard: React.FC<{ opportunity: TransformedOpportunity }> = ({ op
     >
       <div className="relative h-48">
         <Image
-          src={opportunity.media?.images?.[0]?.url || defaultImage}
+          src={imageUrl}
           alt={opportunity.title}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -122,369 +161,604 @@ const OpportunityCard: React.FC<{ opportunity: TransformedOpportunity }> = ({ op
       </div>
     </Link>
   );
-};
+});
 
-const OpportunityList: React.FC = () => {
+const OpportunityList: React.FC<OpportunityListProps> = ({
+  initialOpportunities,
+  totalCount,
+  initialFilters,
+  availableFilters,
+  onFilterChange
+}) => {
   const router = useRouter();
+  const currentYear = new Date().getFullYear();
+  const years = [currentYear, currentYear + 1, currentYear + 2]; // 當前年份和未來2年
 
-  // 從 store 獲取狀態
-  const searchFilters = useOpportunityStore((state) => state.searchFilters);
-  const setSearchFilters = useOpportunityStore((state) => state.setSearchFilters);
-  const viewMode = useOpportunityStore((state) => state.viewMode);
-  const setViewMode = useOpportunityStore((state) => state.setViewMode);
-  const isSearching = useOpportunityStore((state) => state.isSearching);
-  const setIsSearching = useOpportunityStore((state) => state.setIsSearching);
-
-  const [searchTerm, setSearchTerm] = useState(searchFilters.search || '');
+  // 本地狀態 - 移除 isMounted
+  const [opportunities, setOpportunities] = useState<EnhancedOpportunity[]>(initialOpportunities as EnhancedOpportunity[]);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialFilters.view || 'list');
+  const [searchTerm, setSearchTerm] = useState(initialFilters.search || '');
   const [filters, setFilters] = useState({
-    type: searchFilters.type || '',
-    region: searchFilters.region || '',
-    city: searchFilters.city || '',
+    type: initialFilters.type || '',
+    region: initialFilters.region || '',
+    availableMonths: initialFilters.availableMonths || [],
+    sort: initialFilters.sort || 'newest',
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [page, setPage] = useState(initialFilters.page || 1);
+  const limit = 10;
 
-  // 使用 hook 獲取數據
-  const { data: searchData, isLoading, error } = useOpportunitySearch({
-    ...searchFilters,
-    sort: searchFilters.sort as 'newest' | 'oldest' | undefined
-  });
-
-  const {
-    data: infiniteData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useInfiniteOpportunitySearch({
-    search: searchFilters.search,
-    type: searchFilters.type,
-    region: searchFilters.region,
-    city: searchFilters.city,
-    sort: searchFilters.sort as 'newest' | 'oldest',
-    limit: searchFilters.limit
-  });
-
-  const { data: mapData, isLoading: isLoadingMap } = useMapOpportunities({
-    type: searchFilters.type,
-    region: searchFilters.region,
-    city: searchFilters.city
-  });
-
-  // 更新 URL 和 store
+  // 當 URL 參數變化時更新本地狀態
   useEffect(() => {
-    if (!router.isReady) return;
+    setSearchTerm(router.query.search as string || '');
 
-    const { search, type, region, city, sort, page, view } = router.query;
-
-    const newFilters: Record<string, any> = {};
-
-    if (search) newFilters.search = search as string;
-    if (type) newFilters.type = type as string;
-    if (region) newFilters.region = region as string;
-    if (city) newFilters.city = city as string;
-    if (sort) newFilters.sort = sort as string;
-    if (page) newFilters.page = parseInt(page as string, 10);
-
-    setSearchFilters(newFilters);
-
-    if (view && (view === 'list' || view === 'map')) {
-      setViewMode(view as 'list' | 'map');
+    // 安全解析 availableMonths
+    let parsedAvailableMonths: string[] = [];
+    if (router.query.availableMonths) {
+      try {
+        const monthsStr = router.query.availableMonths as string;
+        parsedAvailableMonths = monthsStr.split(',').filter(m => m && m.includes('-'));
+      } catch (error) {
+        console.error('解析 availableMonths 錯誤:', error);
+      }
     }
 
-    // 更新本地狀態
-    setSearchTerm(search as string || '');
     setFilters({
-      type: type as string || '',
-      region: region as string || '',
-      city: city as string || '',
+      type: router.query.type as string || '',
+      region: router.query.region as string || '',
+      availableMonths: parsedAvailableMonths,
+      sort: router.query.sort as string || 'newest',
     });
-  }, [router.isReady, router.query, setSearchFilters, setViewMode]);
 
-  // 處理視圖切換
+    // 設置頁碼
+    if (router.query.page) {
+      setPage(parseInt(router.query.page as string, 10));
+    }
+
+    if (router.query.view === 'list' || router.query.view === 'map') {
+      setViewMode(router.query.view);
+    }
+  }, [router.query]);
+
+  // 處理篩選變更
+  const handleSearch = () => {
+    onFilterChange({
+      search: searchTerm,
+      ...filters,
+      page: 1
+    });
+  };
+
+  // 處理重置篩選 - 確保同時重置月份篩選
+  const handleResetFilters = () => {
+    // 重置本地狀態
+    setSearchTerm('');
+    setFilters({
+      type: '',
+      region: '',
+      availableMonths: [],
+      sort: 'newest'
+    });
+    setPage(1);
+
+    // 通知父組件重置篩選條件
+    onFilterChange({
+      search: '',
+      type: '',
+      region: '',
+      availableMonths: [],
+      sort: 'newest',
+      page: 1
+    });
+  };
+
+  // 處理視圖模式切換
   const handleViewModeChange = (mode: ViewMode) => {
     setViewMode(mode);
-
-    // 更新URL參數
-    router.push({
-      pathname: router.pathname,
-      query: { ...router.query, view: mode }
-    }, undefined, { shallow: true });
+    onFilterChange({ view: mode });
   };
 
-  // 處理搜索
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSearching(true);
+  // 使用我們的hooks加載數據 - 但是只用於初始載入和篩選條件變更
+  const {
+    data: searchResults,
+    isLoading: isLoadingSearch,
+    error: searchError
+  } = useOpportunitySearch({
+    search: searchTerm,
+    type: filters.type,
+    region: filters.region,
+    availableMonths: filters.availableMonths,
+    sort: filters.sort as 'newest' | 'oldest',
+    page: 1, // 固定為第1頁，後續頁面由我們自己處理
+    limit
+  });
 
-    setSearchFilters({ search: searchTerm, page: 1 });
+  // 使用地圖數據 hook - 專門為地圖視圖載入所有機會，不受分頁限制
+  const {
+    data: mapData,
+    isLoading: isLoadingMap,
+    error: mapError
+  } = useMapOpportunities({
+    search: searchTerm,
+    type: filters.type,
+    region: filters.region,
+    availableMonths: filters.availableMonths,
+    limit: 100 // 載入更多機會用於地圖顯示
+  });
 
-    // 更新 URL
-    const query = { ...router.query };
-    if (searchTerm) {
-      query.search = searchTerm;
-    } else if (query.search) {
-      delete query.search;
+  // 增加調試信息
+  console.log("搜索參數:", {
+    search: searchTerm,
+    type: filters.type,
+    region: filters.region,
+    availableMonths: filters.availableMonths,
+    sort: filters.sort,
+    page,
+    limit
+  });
+
+  // 每當篩選條件變更時，重置機會列表
+  useEffect(() => {
+    if (searchResults && !isLoadingSearch) {
+      // 為每個機會添加唯一標識符，防止 key 重複
+      const processedOpportunities = searchResults.opportunities.map((opp, index) => {
+        // 如果沒有 id 或 _id，添加一個唯一的臨時 ID
+        if (!opp.id && !opp._id) {
+          return {
+            ...opp,
+            _tempId: `temp-${index}-${Date.now()}`
+          };
+        }
+        return opp;
+      });
+
+      setOpportunities(processedOpportunities);
+      setPage(1); // 重置為第1頁
     }
-    query.page = '1';
+  }, [searchResults, isLoadingSearch]);
 
-    router.push({
-      pathname: router.pathname,
-      query
-    }, undefined, { shallow: true });
+  // 強制顯示載入更多按鈕條件 - 確保按鈕總是在有更多數據時顯示
+  const hasMoreItems = searchResults?.total && opportunities.length < searchResults.total;
 
-    setTimeout(() => setIsSearching(false), 300);
+  // 徹底重寫載入更多邏輯，使用獨立的 fetch 請求而不觸發 React Query
+  const handleLoadMore = async () => {
+    if (isLoading) return; // 防止重複點擊
+
+    setIsLoading(true);
+    const nextPage = page + 1;
+
+    try {
+      // 手動構建查詢參數
+      const searchParams = new URLSearchParams();
+      if (searchTerm) searchParams.append('search', searchTerm);
+      if (filters.type) searchParams.append('type', filters.type);
+      if (filters.region) searchParams.append('region', filters.region);
+
+      // 安全處理 availableMonths
+      if (filters.availableMonths &&
+          Array.isArray(filters.availableMonths) &&
+          filters.availableMonths.length > 0 &&
+          filters.availableMonths.filter(m => m && m.includes('-')).length > 0) {
+        const validMonths = filters.availableMonths.filter(m => m && m.includes('-'));
+        searchParams.append('availableMonths', validMonths.join(','));
+      }
+      searchParams.append('sort', filters.sort || 'newest');
+      searchParams.append('page', String(nextPage));
+      searchParams.append('limit', String(limit));
+
+      // 使用 fetch API 直接請求，完全繞過 React Query
+      console.log(`直接加載更多: 請求第 ${nextPage} 頁，參數:`, searchParams.toString());
+
+      const response = await fetch(`/api/opportunities/search?${searchParams.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(`加載更多數據失敗: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data || !Array.isArray(data.opportunities)) {
+        console.error('API 返回數據格式錯誤:', data);
+        return;
+      }
+
+      // 處理新的機會數據
+      const newOpportunities = transformOpportunities(data.opportunities || []);
+      console.log(`直接加載更多: 獲取到 ${newOpportunities.length} 個新機會`);
+
+      // 更新本地頁碼
+      setPage(nextPage);
+
+      // 使用函數式更新，確保基於最新狀態
+      setOpportunities(prevOpportunities => {
+        // 為每個機會創建映射，確保有 ID
+        const currentOpps = new Map();
+        prevOpportunities.forEach((opp, index) => {
+          const id = opp.id || opp._id || `index-${index}`;
+          currentOpps.set(id, opp);
+        });
+
+        // 添加新機會，避免重複
+        newOpportunities.forEach((opp, index) => {
+          const id = opp.id || opp._id || `new-${index}-${Date.now()}`;
+          if (!currentOpps.has(id)) {
+            currentOpps.set(id, opp);
+          }
+        });
+
+        // 轉換回數組
+        return Array.from(currentOpps.values());
+      });
+
+    } catch (error) {
+      console.error("加載更多機會時出錯:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // 處理篩選
-  const handleFilterChange = (name: string, value: string) => {
-    setFilters(prev => ({ ...prev, [name]: value }));
-
-    setSearchFilters({ [name]: value, page: 1 });
-
-    // 更新 URL
-    const query = { ...router.query };
-    if (value) {
-      query[name] = value;
-    } else {
-      delete query[name];
-    }
-    query.page = '1';
-
-    router.push({
-      pathname: router.pathname,
-      query
-    }, undefined, { shallow: true });
-  };
-
-  // 獲取當前顯示的機會列表
-  const opportunities = useMemo(() => {
-    if (viewMode === 'list') {
-      return infiniteData?.pages.flatMap(page => page.opportunities) || [];
-    }
-    return searchData?.opportunities || [];
-  }, [viewMode, infiniteData, searchData]);
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      {/* 頂部標題和搜索欄 */}
+  // 渲染篩選區塊
+  const renderFilters = () => (
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-6">探索工作機會</h1>
-
-        <form onSubmit={handleSearch} className="mb-6">
-          <div className="flex">
-            <input
-              type="text"
-              placeholder="搜尋工作機會..."
-              className="px-4 py-2 flex-grow border border-gray-300 rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <SearchIcon className="w-5 h-5" />
-            </button>
-          </div>
-        </form>
-
-        {/* 過濾器區域 */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* 類型篩選 */}
           <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
-              工作類型
-            </label>
+          <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1">工作類型</label>
             <select
-              id="type"
+            id="type-filter"
+            className="block w-full bg-white border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               value={filters.type}
-              onChange={(e) => handleFilterChange('type', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => {
+              const newFilters = { ...filters, type: e.target.value, page: 1 };
+              setFilters(newFilters);
+              onFilterChange({ ...newFilters, search: searchTerm });
+            }}
             >
               <option value="">所有類型</option>
-              {Object.entries(typeNameMap).map(([value, name]) => (
-                <option key={value} value={value}>
-                  {name}
+            {availableFilters.types.map((type) => (
+              <option key={type} value={type}>
+                {typeNameMap[type as keyof typeof typeNameMap] || type}
                 </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-1">
-              區域
-            </label>
-            <select
-              id="region"
-              value={filters.region}
-              onChange={(e) => handleFilterChange('region', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">所有區域</option>
-              <option value="北部">北部</option>
-              <option value="中部">中部</option>
-              <option value="南部">南部</option>
-              <option value="東部">東部</option>
-              <option value="離島">離島</option>
-            </select>
-          </div>
+        {/* 地區篩選 */}
+        <div>
+          <label htmlFor="region-filter" className="block text-sm font-medium text-gray-700 mb-1">所在地區</label>
+          <select
+            id="region-filter"
+            className="block w-full bg-white border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            value={filters.region}
+            onChange={(e) => {
+              const newFilters = { ...filters, region: e.target.value, page: 1 };
+              setFilters(newFilters);
+              onFilterChange({ ...newFilters, search: searchTerm });
+            }}
+          >
+            <option value="">所有地區</option>
+            {availableFilters.regions.map((region) => (
+              <option key={region} value={region}>{region}</option>
+            ))}
+          </select>
+        </div>
 
+        {/* 年月篩選 */}
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
-              城市
-            </label>
+          <label htmlFor="month-filter" className="block text-sm font-medium text-gray-700 mb-1">可工作年月</label>
+          <div className="grid grid-cols-2 gap-2">
             <select
-              id="city"
-              value={filters.city}
-              onChange={(e) => handleFilterChange('city', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              id="year-filter"
+              className="block w-full bg-white border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              value={filters.availableMonths &&
+                     filters.availableMonths.length > 0 &&
+                     filters.availableMonths[0] &&
+                     filters.availableMonths[0].includes('-')
+                ? filters.availableMonths[0].split('-')[0]
+                : currentYear}
+              onChange={(e) => {
+                const selectedYear = e.target.value;
+                // 如果原先有選擇的月份，則保留月份但更改年份
+                if (filters.availableMonths && filters.availableMonths.length > 0 && filters.availableMonths[0] && filters.availableMonths[0].includes('-')) {
+                  const oldMonthStr = filters.availableMonths[0].split('-')[1] || '1';
+                  const oldMonth = parseInt(oldMonthStr, 10);
+                  // 確保月份使用兩位數格式
+                  const paddedMonth = String(oldMonth).padStart(2, '0');
+                  const newYearMonth = `${selectedYear}-${paddedMonth}`;
+                  const newFilters = { ...filters, availableMonths: [newYearMonth], page: 1 };
+
+                  // 更新本地狀態
+                  setFilters(newFilters);
+                  // 重置機會列表和頁碼以獲取新結果
+                  setPage(1);
+                  setIsSearching(true);
+
+                  // 通知父組件更新URL，但不觸發頁面重載
+                  onFilterChange({ ...newFilters, search: searchTerm });
+                  setTimeout(() => setIsSearching(false), 300);
+                } else {
+                  // 如果沒有選擇的月份，則設置為所選年份的1月
+                  const newYearMonth = `${selectedYear}-01`;  // 使用兩位數格式 "01"
+                  const newFilters = { ...filters, availableMonths: [newYearMonth], page: 1 };
+
+                  // 更新本地狀態
+                  setFilters(newFilters);
+                  // 重置機會列表和頁碼以獲取新結果
+                  setPage(1);
+                  setIsSearching(true);
+
+                  // 通知父組件更新URL，但不觸發頁面重載
+                  onFilterChange({ ...newFilters, search: searchTerm });
+                  setTimeout(() => setIsSearching(false), 300);
+                }
+              }}
             >
-              <option value="">所有城市</option>
-              <option value="臺北市">臺北市</option>
-              <option value="新北市">新北市</option>
-              <option value="桃園市">桃園市</option>
-              <option value="臺中市">臺中市</option>
-              <option value="臺南市">臺南市</option>
-              <option value="高雄市">高雄市</option>
-              <option value="基隆市">基隆市</option>
-              <option value="新竹市">新竹市</option>
-              <option value="嘉義市">嘉義市</option>
-              <option value="新竹縣">新竹縣</option>
-              <option value="苗栗縣">苗栗縣</option>
-              <option value="彰化縣">彰化縣</option>
-              <option value="南投縣">南投縣</option>
-              <option value="雲林縣">雲林縣</option>
-              <option value="嘉義縣">嘉義縣</option>
-              <option value="屏東縣">屏東縣</option>
-              <option value="宜蘭縣">宜蘭縣</option>
-              <option value="花蓮縣">花蓮縣</option>
-              <option value="臺東縣">臺東縣</option>
-              <option value="澎湖縣">澎湖縣</option>
-              <option value="金門縣">金門縣</option>
-              <option value="連江縣">連江縣</option>
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}年
+                </option>
+              ))}
+            </select>
+
+            <select
+              id="month-filter"
+              className="block w-full bg-white border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              value={filters.availableMonths &&
+                     filters.availableMonths.length > 0 &&
+                     filters.availableMonths[0] &&
+                     filters.availableMonths[0].includes('-')
+                ? filters.availableMonths[0].split('-')[1] || '0'
+                : '0'}
+              onChange={(e) => {
+                const selectedMonth = e.target.value;
+                if (selectedMonth === '0') {
+                  // 選擇"所有月份"
+                  const newFilters = { ...filters, availableMonths: [], page: 1 };
+
+                  // 更新本地狀態
+                  setFilters(newFilters);
+                  // 重置機會列表和頁碼以獲取新結果
+                  setPage(1);
+                  setIsSearching(true);
+
+                  // 通知父組件更新URL，但不觸發頁面重載
+                  onFilterChange({ ...newFilters, search: searchTerm });
+                  setTimeout(() => setIsSearching(false), 300);
+                } else {
+                  // 獲取當前選中的年份，如果沒有，則使用當前年份
+                  const currentSelectedYear = filters.availableMonths &&
+                                             filters.availableMonths.length > 0 &&
+                                             filters.availableMonths[0] &&
+                                             filters.availableMonths[0].includes('-')
+                    ? filters.availableMonths[0].split('-')[0]
+                    : currentYear.toString();
+
+                  // 確保月份使用兩位數格式
+                  const paddedMonth = String(selectedMonth).padStart(2, '0');
+
+                  // 組合成年月格式
+                  const yearMonth = `${currentSelectedYear}-${paddedMonth}`;
+                  const newFilters = { ...filters, availableMonths: [yearMonth], page: 1 };
+
+                  // 更新本地狀態
+                  setFilters(newFilters);
+                  // 重置機會列表和頁碼以獲取新結果
+                  setPage(1);
+                  setIsSearching(true);
+
+                  // 通知父組件更新URL，但不觸發頁面重載
+                  onFilterChange({ ...newFilters, search: searchTerm });
+                  setTimeout(() => setIsSearching(false), 300);
+                }
+              }}
+            >
+              <option value="0">所有月份</option>
+              {monthNames.map((month, index) => (
+                <option key={index + 1} value={index + 1}>
+                  {month}
+                </option>
+              ))}
             </select>
           </div>
         </div>
+
+        {/* 排序方式 */}
+        <div>
+          <label htmlFor="sort-filter" className="block text-sm font-medium text-gray-700 mb-1">排序方式</label>
+          <select
+            id="sort-filter"
+            className="block w-full bg-white border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            value={filters.sort}
+            onChange={(e) => {
+              const newFilters = { ...filters, sort: e.target.value, page: 1 };
+              setFilters(newFilters);
+              onFilterChange({ ...newFilters, search: searchTerm });
+            }}
+          >
+            <option value="newest">最新發布</option>
+            <option value="oldest">最舊發布</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 渲染空狀態
+  const renderEmptyState = () => (
+    <div className="text-center py-12">
+      <p className="text-xl text-gray-500 mb-4">沒有找到符合條件的機會</p>
+      <button
+        onClick={handleResetFilters}
+        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        清除篩選條件
+      </button>
+    </div>
+  );
+
+  // 添加按鈕狀態信息
+  console.log("載入更多按鈕條件:", {
+    總機會數: searchResults?.total || 0,
+    已載入數量: opportunities.length,
+    還有更多: hasMoreItems
+  });
+
+  // 修改主視圖渲染，確保正確顯示載入更多按鈕和地圖
+  return (
+    <div className="space-y-8">
+      {/* 搜索欄 */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="搜索機會..."
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            />
+            <button
+              onClick={handleSearch}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label="搜索"
+            >
+              <SearchIcon className="w-5 h-5" />
+            </button>
+        </div>
       </div>
 
-      {/* 視圖切換和結果數量 */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex space-x-4">
+        {/* 視圖切換 */}
+        <div className="flex space-x-2">
           <button
-            onClick={() => handleViewModeChange('list')}
-            className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-              viewMode === 'list' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+            onClick={() => onFilterChange({ ...filters, search: searchTerm, view: 'list' })}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors duration-200 flex items-center ${
+              viewMode === 'list'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <ListIcon className="w-5 h-5 mr-2" />
+            <ListIcon className="w-4 h-4 mr-1" />
             列表視圖
           </button>
           <button
-            onClick={() => handleViewModeChange('map')}
-            className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-              viewMode === 'map' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+            onClick={() => onFilterChange({ ...filters, search: searchTerm, view: 'map' })}
+            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors duration-200 flex items-center ${
+              viewMode === 'map'
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <MapIcon className="w-5 h-5 mr-2" />
+            <MapIcon className="w-4 h-4 mr-1" />
             地圖視圖
           </button>
         </div>
-
-        <div>
-          {searchData ? (
-            <p className="text-sm text-gray-600">共找到 {searchData.total} 個工作機會</p>
-          ) : (
-            <p className="text-sm text-gray-600">載入中...</p>
-          )}
-        </div>
       </div>
 
-      {/* 主要內容區域 */}
-      <div>
-        {viewMode === 'list' ? (
-          <>
-            {/* 列表視圖 */}
-            {isLoading || isSearching ? (
-              // 載入狀態
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-gray-100 h-72 rounded-lg animate-pulse"></div>
-                ))}
-              </div>
-            ) : error ? (
-              // 錯誤狀態
-              <div className="bg-red-50 p-4 rounded-lg">
-                <p className="text-red-700">載入資料時發生錯誤，請稍後再試</p>
-              </div>
-            ) : opportunities.length === 0 ? (
-              // 無結果狀態
-              <div className="text-center py-10">
-                <p className="text-gray-600 mb-4">沒有找到符合條件的工作機會</p>
-                <button
-                  onClick={() => {
-                    setSearchFilters({
-                      search: '',
-                      type: '',
-                      region: '',
-                      city: '',
-                      page: 1
-                    });
-                    setSearchTerm('');
-                    setFilters({
-                      type: '',
-                      region: '',
-                      city: ''
-                    });
-                    router.push({ pathname: router.pathname }, undefined, { shallow: true });
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  清除過濾條件
-                </button>
-              </div>
-            ) : (
-              // 結果列表
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {opportunities.map((opportunity) => (
-                    <OpportunityCard key={opportunity._id} opportunity={opportunity} />
-                  ))}
-                </div>
+      {/* 篩選條件 */}
+      {renderFilters()}
 
-                {/* 載入更多按鈕 */}
-                {hasNextPage && (
-                  <div className="mt-8 text-center">
-                    <button
-                      onClick={() => fetchNextPage()}
-                      disabled={isFetchingNextPage}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400"
-                    >
-                      {isFetchingNextPage ? '載入中...' : '載入更多'}
-                    </button>
+      {/* 搜索結果數量顯示 */}
+      {!isLoadingSearch && !searchError && searchResults && (
+        <div className="mb-6">
+          <p className="text-gray-600">
+            找到 <span className="font-semibold">{searchResults.total}</span> 個符合條件的機會
+          </p>
+        </div>
+      )}
+
+      {/* 主內容區域 */}
+      {viewMode === 'list' ? (
+        <div>
+          {isLoadingSearch ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={`skeleton-${i}`} className="bg-white rounded-lg shadow animate-pulse h-80">
+                  <div className="h-48 bg-gray-200 rounded-t-lg"></div>
+                  <div className="p-4">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : opportunities.length === 0 ? (
+            renderEmptyState()
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {opportunities.map((opportunity, index) => {
+                  // 為每個機會生成唯一的 key，考慮所有可能的 ID 來源
+                  const uniqueKey =
+                    opportunity.id ||
+                    opportunity._id ||
+                    opportunity._tempId ||
+                    `opp-${index}-${Math.random().toString(36).substr(2, 9)}`;
+
+                  return (
+                    <OpportunityCard
+                      key={uniqueKey}
+                      opportunity={opportunity}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* 確保載入更多按鈕顯示 */}
+              {hasMoreItems && (
+                <div className="mt-8 text-center">
+                <button
+                    type="button"
+                    onClick={(e) => {
+                      // 完全阻止事件傳播
+                      e.preventDefault();
+                      e.stopPropagation();
+
+                      // 使用 requestAnimationFrame 來確保 DOM 更新平滑
+                      requestAnimationFrame(() => {
+                        handleLoadMore();
+                      });
+
+                      return false; // 進一步阻止默認行為
+                    }}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-blue-300"
+                  >
+                    {isLoading ? '載入中...' : '載入更多'}
+                </button>
+                  <p className="text-xs text-gray-500 mt-1">
+                    已顯示 {opportunities.length} / {searchResults?.total || '?'} 個機會
+                  </p>
                   </div>
                 )}
               </>
             )}
-          </>
-        ) : (
-          // 地圖視圖
-          <div className="h-[600px] relative rounded-lg overflow-hidden">
-            <MapComponent
-              filters={{
-                type: searchFilters.type,
-                region: searchFilters.region,
-                city: searchFilters.city
-              }}
-            />
-
-            {isLoadingMap && (
-              <div className="absolute top-4 right-4 bg-white px-3 py-2 rounded-lg shadow-md z-[1000]">
-                <div className="flex items-center">
-                  <div className="mr-2 w-4 h-4 border-2 border-t-blue-500 border-r-transparent border-b-blue-500 border-l-transparent rounded-full animate-spin"></div>
-                  <span className="text-sm">載入地圖中...</span>
-                </div>
+        </div>
+      ) : (
+        <div className="h-[600px] bg-white rounded-lg shadow">
+          {isLoadingMap ? (
+            <div className="h-full flex items-center justify-center bg-gray-100">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="mt-2 text-gray-600">載入地圖中...</p>
               </div>
+            </div>
+          ) : mapError ? (
+            <div className="h-full flex items-center justify-center bg-gray-100">
+              <div className="text-center text-red-500">
+                載入地圖數據時出錯
+              </div>
+            </div>
+          ) : (
+            <MapComponent
+              opportunities={mapData?.opportunities || []}
+              isLoading={isLoadingMap}
+              enableClustering={true}
+            />
             )}
           </div>
         )}
-      </div>
     </div>
   );
 };

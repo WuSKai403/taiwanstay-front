@@ -103,8 +103,8 @@ async function getOpportunityBySlug(req: NextApiRequest, res: NextApiResponse, s
       hasTimeSlots: opportunity.hasTimeSlots || false,
       timeSlots: opportunity.timeSlots ? opportunity.timeSlots.map((slot: ITimeSlot) => ({
         id: slot._id ? slot._id.toString() : '',
-        startDate: slot.startDate,
-        endDate: slot.endDate,
+        startMonth: slot.startMonth,
+        endMonth: slot.endMonth,
         defaultCapacity: slot.defaultCapacity,
         minimumStay: slot.minimumStay,
         appliedCount: slot.appliedCount,

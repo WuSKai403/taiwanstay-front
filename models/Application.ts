@@ -12,8 +12,8 @@ export interface IApplication extends Document {
   // 申請資訊
   applicationDetails: {
     message: string;
-    startDate: Date; // 用戶申請的開始日期
-    endDate?: Date; // 用戶申請的結束日期
+    startMonth: string; // 用戶申請的開始月份，格式：YYYY-MM
+    endMonth?: string; // 用戶申請的結束月份，格式：YYYY-MM
     duration: number; // 以天為單位，可以自動計算
     travelingWith?: {
       partner: boolean;
@@ -114,8 +114,8 @@ const ApplicationSchema: Schema = new Schema({
   // 申請資訊
   applicationDetails: {
     message: { type: String, required: true },
-    startDate: { type: Date, required: true },
-    endDate: { type: Date },
+    startMonth: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // YYYY-MM 格式
+    endMonth: { type: String, match: /^\d{4}-\d{2}$/ }, // YYYY-MM 格式
     duration: { type: Number, required: true }, // 以天為單位
     travelingWith: {
       partner: { type: Boolean, default: false },
@@ -207,8 +207,8 @@ const ApplicationSchema: Schema = new Schema({
 ApplicationSchema.index({ userId: 1, opportunityId: 1, timeSlotId: 1 }, { unique: true });
 ApplicationSchema.index({ hostId: 1 });
 ApplicationSchema.index({ status: 1 });
-ApplicationSchema.index({ 'applicationDetails.startDate': 1 });
-ApplicationSchema.index({ 'applicationDetails.endDate': 1 });
+ApplicationSchema.index({ 'applicationDetails.startMonth': 1 });
+ApplicationSchema.index({ 'applicationDetails.endMonth': 1 });
 ApplicationSchema.index({ createdAt: 1 });
 ApplicationSchema.index({ timeSlotId: 1 });
 ApplicationSchema.index({ opportunityId: 1, timeSlotId: 1 });
@@ -240,16 +240,16 @@ ApplicationSchema.pre('save', async function(next) {
       }
 
       // 檢查最短停留時間
-      const startDate = new Date(application.applicationDetails.startDate);
-      const endDate = application.applicationDetails.endDate
-        ? new Date(application.applicationDetails.endDate)
+      const startMonth = new Date(application.applicationDetails.startMonth);
+      const endMonth = application.applicationDetails.endMonth
+        ? new Date(application.applicationDetails.endMonth)
         : null;
 
-      if (!endDate) {
-        return next(new Error('請提供結束日期'));
+      if (!endMonth) {
+        return next(new Error('請提供結束月份'));
       }
 
-      const durationDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+      const durationDays = Math.ceil((endMonth.getTime() - startMonth.getTime()) / (1000 * 60 * 60 * 24));
 
       // 檢查申請的時間範圍是否符合時段的最短停留要求
       if (timeSlot.minimumStay > 0 && durationDays < timeSlot.minimumStay) {
@@ -260,7 +260,7 @@ ApplicationSchema.pre('save', async function(next) {
       const timeSlotStart = new Date(timeSlot.startDate);
       const timeSlotEnd = new Date(timeSlot.endDate);
 
-      if (startDate < timeSlotStart || endDate > timeSlotEnd) {
+      if (startMonth < timeSlotStart || endMonth > timeSlotEnd) {
         return next(new Error('申請的時間範圍超出了時段的有效期'));
       }
 
@@ -269,9 +269,9 @@ ApplicationSchema.pre('save', async function(next) {
 
       // 獲取所有日期
       const allDates = [];
-      const currentDate = new Date(startDate);
+      const currentDate = new Date(startMonth);
 
-      while (currentDate <= endDate) {
+      while (currentDate <= endMonth) {
         allDates.push(formatDate(currentDate));
         currentDate.setDate(currentDate.getDate() + 1);
       }

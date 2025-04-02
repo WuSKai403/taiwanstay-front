@@ -1,34 +1,37 @@
 import { useState } from 'react';
-import { format, isValid, parseISO } from 'date-fns';
-import { zhTW } from 'date-fns/locale';
 
 interface TimeSlotDisplayProps {
-  startDate: string | Date;
-  endDate: string | Date;
+  startMonth: string; // YYYY-MM 格式
+  endMonth: string; // YYYY-MM 格式
   defaultCapacity: number;
   minimumStay: number;
   appliedCount: number;
 }
 
 const TimeSlotDisplay: React.FC<TimeSlotDisplayProps> = ({
-  startDate,
-  endDate,
+  startMonth,
+  endMonth,
   defaultCapacity,
   minimumStay,
   appliedCount,
 }) => {
-  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
-  const end = typeof endDate === 'string' ? parseISO(endDate) : endDate;
-  const [currentYear, setCurrentYear] = useState(start.getFullYear());
+  // 解析年月
+  const parseYearMonth = (yearMonth: string): { year: number; month: number } => {
+    const [yearStr, monthStr] = yearMonth.split('-');
+    return {
+      year: parseInt(yearStr, 10),
+      month: parseInt(monthStr, 10) - 1 // 轉換為 0-11 的月份索引
+    };
+  };
 
-  if (!isValid(start) || !isValid(end)) {
-    return null;
-  }
+  const startDate = parseYearMonth(startMonth);
+  const endDate = parseYearMonth(endMonth);
+  const [currentYear, setCurrentYear] = useState(startDate.year);
 
-  const startYear = start.getFullYear();
-  const endYear = end.getFullYear();
-  const startMonth = start.getMonth();
-  const endMonth = end.getMonth();
+  const startYear = startDate.year;
+  const endYear = endDate.year;
+  const startMonthIndex = startDate.month;
+  const endMonthIndex = endDate.month;
 
   // 檢查年份是否可選
   const canGoPrev = currentYear > startYear;
@@ -38,16 +41,16 @@ const TimeSlotDisplay: React.FC<TimeSlotDisplayProps> = ({
   const generateMonthsForYear = (year: number) => {
     return Array.from({ length: 12 }, (_, index) => {
       const isAvailable =
-        (year === startYear && index >= startMonth) ||
-        (year === endYear && index <= endMonth) ||
+        (year === startYear && index >= startMonthIndex) ||
+        (year === endYear && index <= endMonthIndex) ||
         (year > startYear && year < endYear);
 
       return {
         month: index + 1,
         available: isAvailable,
         disabled:
-          (year === startYear && index < startMonth) ||
-          (year === endYear && index > endMonth) ||
+          (year === startYear && index < startMonthIndex) ||
+          (year === endYear && index > endMonthIndex) ||
           year < startYear ||
           year > endYear
       };

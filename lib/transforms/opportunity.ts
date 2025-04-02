@@ -52,16 +52,16 @@ export interface TransformedOpportunity {
   host: {
     id: string;
     name: string;
-    avatar?: string;
+    avatar?: string | null;
   };
   location: {
     region: string;
     city: string;
-    address?: string;
+    address?: string | null;
     coordinates?: {
       lat: number;
       lng: number;
-    };
+    } | null;
   };
   media?: {
     images: {
@@ -72,11 +72,11 @@ export interface TransformedOpportunity {
   workTimeSettings: {
     hoursPerDay: number;
     daysPerWeek: number;
-    minimumStay?: number;
-    availableMonths?: number[];
+    minimumStay?: number | null;
+    availableMonths?: number[] | null;
   };
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface OpportunityMarker {
@@ -92,27 +92,47 @@ export interface OpportunityMarker {
 
 // 將原始機會數據轉換為前端使用的格式
 export function transformOpportunity(opportunity: Opportunity): TransformedOpportunity {
+  if (!opportunity) {
+    console.error('無效的機會數據：', opportunity);
+    throw new Error('無效的機會數據');
+  }
+
+  // 安全處理可能不存在的 _id
+  const opportunityId = opportunity._id || '';
+
+  // 安全處理可能不存在的 host
+  const host = opportunity.host || {};
+  const hostId = host._id || '';
+  const hostName = host.name || '未知主辦方';
+
   return {
-    _id: opportunity._id,
-    id: opportunity._id,
-    title: opportunity.title,
-    slug: opportunity.slug,
-    type: opportunity.type,
+    _id: opportunityId,
+    id: opportunityId,
+    title: opportunity.title || '未命名機會',
+    slug: opportunity.slug || '',
+    type: opportunity.type || 'OTHER',
     host: {
-      id: opportunity.host._id,
-      name: opportunity.host.name,
-      avatar: opportunity.host.avatar
+      id: hostId,
+      name: hostName,
+      avatar: host.avatar || null
     },
     location: {
-      region: opportunity.location.region,
-      city: opportunity.location.city,
-      address: opportunity.location.address,
-      coordinates: opportunity.location.coordinates
+      region: opportunity.location?.region || '',
+      city: opportunity.location?.city || '',
+      address: opportunity.location?.address || null,
+      coordinates: opportunity.location?.coordinates || null
     },
-    media: opportunity.media,
-    workTimeSettings: opportunity.workTimeSettings,
-    createdAt: new Date(opportunity.createdAt),
-    updatedAt: new Date(opportunity.updatedAt)
+    media: opportunity.media || { images: [] },
+    workTimeSettings: opportunity.workTimeSettings || {
+      hoursPerDay: 0,
+      daysPerWeek: 0
+    },
+    createdAt: typeof opportunity.createdAt === 'string'
+      ? opportunity.createdAt
+      : opportunity.createdAt ? new Date(opportunity.createdAt).toISOString() : new Date().toISOString(),
+    updatedAt: typeof opportunity.updatedAt === 'string'
+      ? opportunity.updatedAt
+      : opportunity.updatedAt ? new Date(opportunity.updatedAt).toISOString() : new Date().toISOString()
   };
 }
 
@@ -123,12 +143,18 @@ export function transformOpportunities(opportunities: Opportunity[]): Transforme
 
 // 將機會數據轉換為地圖標記
 export function transformToMarkers(opportunities: Opportunity[] | TransformedOpportunity[]): OpportunityMarker[] {
+  if (!opportunities || !Array.isArray(opportunities)) {
+    console.error('無效的機會數據數組：', opportunities);
+    return [];
+  }
+
   const validOpportunities = [];
 
   // 使用循環而非 filter 方法來避免類型問題
   for (let i = 0; i < opportunities.length; i++) {
     const opportunity = opportunities[i];
     if (
+      opportunity &&
       opportunity.location?.coordinates?.lat !== undefined &&
       opportunity.location.coordinates?.lng !== undefined
     ) {
@@ -137,16 +163,21 @@ export function transformToMarkers(opportunities: Opportunity[] | TransformedOpp
   }
 
   // 對有效的機會數據進行映射
-  return validOpportunities.map(opportunity => ({
-    id: opportunity._id,
-    position: {
-      lat: opportunity.location.coordinates!.lat,
-      lng: opportunity.location.coordinates!.lng
-    },
-    title: opportunity.title,
-    type: opportunity.type,
-    slug: opportunity.slug
-  }));
+  return validOpportunities.map(opportunity => {
+    // 安全獲取 ID
+    const id = opportunity._id || (opportunity as any).id || `marker-${Math.random().toString(36).substr(2, 9)}`;
+
+    return {
+      id,
+      position: {
+        lat: opportunity.location.coordinates!.lat,
+        lng: opportunity.location.coordinates!.lng
+      },
+      title: opportunity.title || '未命名機會',
+      type: opportunity.type || 'OTHER',
+      slug: opportunity.slug || ''
+    };
+  });
 }
 
 // 根據類型獲取顏色

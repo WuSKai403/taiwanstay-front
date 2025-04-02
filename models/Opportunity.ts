@@ -14,8 +14,8 @@ export interface ICapacityOverride {
 // 時段介面定義
 export interface ITimeSlot {
   _id?: mongoose.Types.ObjectId;
-  startDate: Date; // 時段開始日期
-  endDate: Date; // 時段結束日期
+  startMonth: string; // 時段開始年月，格式為 'YYYY-MM'
+  endMonth: string; // 時段結束年月，格式為 'YYYY-MM'
   defaultCapacity: number; // 默認容量（需求人數）
   minimumStay: number; // 最短停留天數
   appliedCount: number; // 已申請人數
@@ -45,6 +45,7 @@ export interface IOpportunity extends Document {
     learningOpportunities: string[];
     physicalDemand: 'low' | 'medium' | 'high';
     languages: string[];
+    availableMonths: number[];
   };
 
   // 工作時間設置 - 整體時間框架
@@ -171,8 +172,8 @@ const CapacityOverrideSchema: Schema = new Schema({
 
 // 時段模式定義
 const TimeSlotSchema: Schema = new Schema({
-  startDate: { type: Date, required: true },
-  endDate: { type: Date, required: true },
+  startMonth: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
+  endMonth: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
   defaultCapacity: { type: Number, required: true, min: 1 }, // 改名為 defaultCapacity 更清晰
   minimumStay: { type: Number, required: true, min: 1, default: 14 }, // 最短停留天數，默認 14 天
   appliedCount: { type: Number, default: 0 },
@@ -215,7 +216,8 @@ const OpportunitySchema: Schema = new Schema({
       enum: ['low', 'medium', 'high'],
       default: 'medium'
     },
-    languages: [{ type: String, required: true }]
+    languages: [{ type: String, required: true }],
+    availableMonths: [{ type: Number }]
   },
 
   // 工作時間設置 - 整體時間框架
@@ -357,13 +359,14 @@ OpportunitySchema.index({ 'location.coordinates': '2dsphere' });
 OpportunitySchema.index({ 'workTimeSettings.startDate': 1 });
 OpportunitySchema.index({ 'workTimeSettings.endDate': 1 });
 OpportunitySchema.index({ 'workTimeSettings.isOngoing': 1 });
-OpportunitySchema.index({ 'timeSlots.startDate': 1 });
-OpportunitySchema.index({ 'timeSlots.endDate': 1 });
+OpportunitySchema.index({ 'timeSlots.startMonth': 1 });
+OpportunitySchema.index({ 'timeSlots.endMonth': 1 });
 OpportunitySchema.index({ 'timeSlots.status': 1 });
 OpportunitySchema.index({ 'timeSlots.defaultCapacity': 1 });
-OpportunitySchema.index({ 'timeSlots.startDate': 1, 'timeSlots.endDate': 1 });
+OpportunitySchema.index({ 'timeSlots.startMonth': 1, 'timeSlots.endMonth': 1 });
 OpportunitySchema.index({ 'timeSlots.status': 1, 'timeSlots.defaultCapacity': 1 });
 OpportunitySchema.index({ hasTimeSlots: 1 });
+OpportunitySchema.index({ 'workDetails.availableMonths': 1 });
 
 // 保存前更新 hasTimeSlots 欄位
 OpportunitySchema.pre('save', function(next) {
@@ -388,8 +391,11 @@ OpportunitySchema.pre('save', function(next) {
         slot.status = TimeSlotStatus.OPEN;
       }
 
-      // 如果結束日期已過，將狀態設為已關閉
-      if (new Date(slot.endDate) < new Date() &&
+      // 如果結束月份已過，將狀態設為已關閉
+      const currentDate = new Date();
+      const currentYearMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+
+      if (slot.endMonth < currentYearMonth &&
           (slot.status === TimeSlotStatus.OPEN || slot.status === TimeSlotStatus.FILLED)) {
         slot.status = TimeSlotStatus.CLOSED;
       }

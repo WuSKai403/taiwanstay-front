@@ -27,6 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       accommodationType,  // 住宿類型
       mealsProvided,      // 是否提供餐食
       stipendProvided,    // 是否提供津貼
+      availableMonths,    // 可用月份 - 新格式為 "YYYY-MM,YYYY-MM,..."
       status = OpportunityStatus.ACTIVE, // 默認只搜尋活躍的機會
       near,               // 附近位置搜尋 (經度,緯度)
       distance,           // 搜尋半徑 (公里)
@@ -138,6 +139,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       query['benefits.stipend.provided'] = true;
     }
 
+    // 處理 availableMonths 參數
+    if (availableMonths) {
+      try {
+        // 處理 availableMonths 參數 - 格式為 "YYYY-MM,YYYY-MM,..." 或 "YYYY-M,YYYY-M,..."
+        const monthsArray = (availableMonths as string).split(',');
+        console.log(`搜尋 API - 處理 availableMonths 參數: ${monthsArray.join(', ')}`);
+
+        // 從 "YYYY-MM" 或 "YYYY-M" 格式中提取月份數字
+        const monthNumbers = monthsArray
+          .map(yearMonth => {
+            if (!yearMonth || !yearMonth.includes('-')) return null;
+            const parts = yearMonth.split('-');
+            if (parts.length !== 2) return null;
+
+            // 提取月份部分並轉換為數字
+            const monthPart = parts[1];
+            const monthNum = parseInt(monthPart, 10);
+
+            // 驗證月份是否有效 (1-12)
+            return monthNum >= 1 && monthNum <= 12 ? monthNum : null;
+          })
+          .filter((month): month is number => month !== null);
+
+        if (monthNumbers.length > 0) {
+          console.log(`搜尋 API - 找到有效月份: ${monthNumbers.join(', ')}`);
+
+          // 添加數據庫查詢條件 - 尋找 workDetails.availableMonths 包含任一選中月份的機會
+          query['workDetails.availableMonths'] = { $in: monthNumbers };
+        } else {
+          console.log('搜尋 API - 未找到有效月份，忽略月份篩選');
+        }
+      } catch (error) {
+        console.error('搜尋 API - 處理 availableMonths 參數時出錯:', error);
+      }
+    } else {
+      console.log('搜尋 API - 未提供 availableMonths 參數');
+    }
+
     // 附近位置搜尋
     if (near && typeof near === 'string') {
       const [longitude, latitude] = near.split(',').map(coord => parseFloat(coord));
@@ -247,7 +286,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         total,
         page: pageNum,
         limit: limitNum,
-        totalPages: Math.ceil(total / limitNum)
+        totalPages: Math.ceil(total / limitNum),
+        currentPage: pageNum,
+        hasNextPage: pageNum * limitNum < total,
+        hasPrevPage: pageNum > 1
       }
     });
   } catch (error) {

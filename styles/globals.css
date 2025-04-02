@@ -79,3 +79,74 @@
   transform: scale(1.1);
   z-index: 1000 !important;
 }
+
+/* 自定義動畫 */
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* 表單驗證樣式 */
+.error-highlight {
+  animation: pulse 1.5s ease-in-out;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5); /* 紅色陰影 */
+  transition: all 0.3s ease;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+/* 輸入欄位樣式 */
+.form-input {
+  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
+}
+
+.form-textarea {
+  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
+}
+
+.form-select {
+  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
+}
+
+.form-checkbox {
+  @apply h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500;
+}
+
+.form-radio {
+  @apply h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500;
+}
