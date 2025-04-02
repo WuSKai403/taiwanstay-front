@@ -9,7 +9,13 @@ const nextConfig = {
     scrollRestoration: true,
   },
   async redirects() {
-    return [];
+    return [
+      {
+        source: '/settings',
+        destination: '/profile/settings',
+        permanent: false,
+      },
+    ];
   },
   async rewrites() {
     return [];

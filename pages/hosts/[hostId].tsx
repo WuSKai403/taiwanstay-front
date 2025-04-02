@@ -422,35 +422,38 @@ export default function HostDetail({ host, opportunities }: HostDetailProps) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  try {
-    const { slug } = context.params as { slug: string };
+  const { hostId } = context.params as { hostId: string };
 
+  try {
     await connectToDatabase();
 
     // 獲取主辦方詳情
-    const host = await Host.findById(slug).lean();
+    const host = await Host.findById(hostId).lean();
 
     if (!host) {
-      return {
-        notFound: true
-      };
+      return { props: { host: null, opportunities: [] } };
     }
 
-    // 獲取該主辦方的機會列表
-    const opportunities = await Opportunity.find({ hostId: slug })
-      .sort({ createdAt: -1 })
-      .lean();
+    // 獲取該主辦方的工作機會
+    const opportunities = await Opportunity.find({ hostId }).sort({ createdAt: -1 }).lean();
+
+    // 轉換_id為字符串
+    const serializedHost = JSON.parse(JSON.stringify(host));
+    const serializedOpportunities = JSON.parse(JSON.stringify(opportunities));
 
     return {
       props: {
-        host: JSON.parse(JSON.stringify(host)),
-        opportunities: JSON.parse(JSON.stringify(opportunities))
-      }
+        host: serializedHost,
+        opportunities: serializedOpportunities,
+      },
     };
   } catch (error) {
-    console.error('獲取主辦方詳情失敗:', error);
+    console.error('獲取主辦方詳情錯誤:', error);
     return {
-      notFound: true
+      props: {
+        host: null,
+        opportunities: [],
+      },
     };
   }
-}
+};
