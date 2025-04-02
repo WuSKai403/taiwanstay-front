@@ -3,7 +3,7 @@ const nextConfig = {
   swcMinify: true,
   reactStrictMode: true,
   images: {
-    domains: ['images.unsplash.com', 'res.cloudinary.com'],
+    domains: ['images.unsplash.com', 'res.cloudinary.com', 'picsum.photos'],
   },
   experimental: {
     scrollRestoration: true,
