@@ -109,89 +109,30 @@ const WorkCapabilityStep: React.FC<WorkCapabilityStepProps> = ({
         )}
       </div>
 
-      {/* 技能列表 */}
+      {/* 技能與專業能力（整合欄位） */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          技能列表
+          技能與專業能力（選填）
         </label>
+        <div className="mb-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+          <p>請填寫您擁有的技能、專業證照及工作類型偏好，例如：</p>
+          <ul className="list-disc list-inside">
+            <li>語言技能：英文流利、日文基礎</li>
+            <li>專業證照：廚師執照、救生員證書</li>
+            <li>擅長工作：園藝、攝影、網站維護</li>
+            <li>偏好工作類型：室內工作、客戶接待</li>
+          </ul>
+        </div>
         <textarea
-          placeholder="請列出您所擁有的相關技能和證照，每項技能請換行填寫（最多10項）"
-          value={watch('skills').join('\n')}
-          onChange={(e) => {
-            const skills = e.target.value.split('\n').filter(skill => skill.trim() !== '');
-            setValue('skills', skills.slice(0, 10));
-          }}
-          rows={4}
+          {...register('skills')}
+          placeholder="請列出您所擁有的各項技能、專業證照及工作偏好（最多300字，選填）"
+          maxLength={300}
+          rows={6}
           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
         />
         <p className="mt-1 text-sm text-gray-500">
-          已輸入 {watch('skills').length}/10 項技能
+          還可以輸入 {300 - (watch('skills')?.toString().length || 0)} 字
         </p>
-      </div>
-
-      {/* 擅長工作類型 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          擅長工作類型 <span className="text-red-500">*</span>
-        </label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {[
-            '農耕', '接待', '清潔', '廚房', '營銷',
-            '手工藝', '維修', '照顧（動物）', '照顧（植物）',
-            '教學', '翻譯', '攝影', '網站維護', '其他'
-          ].map(type => (
-            <label key={type} className="flex items-center p-2 border rounded-md hover:bg-gray-50">
-              <input
-                type="checkbox"
-                value={type}
-                onChange={(e) => {
-                  const current = watch('preferredWorkTypes') || [];
-                  const newValue = e.target.checked
-                    ? [...current, type]
-                    : current.filter(t => t !== type);
-                  setValue('preferredWorkTypes', newValue);
-                }}
-                checked={watch('preferredWorkTypes')?.includes(type) || false}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <span className="ml-2 text-sm">{type}</span>
-            </label>
-          ))}
-        </div>
-        {errors.preferredWorkTypes && (
-          <p className="mt-1 text-sm text-red-600">請至少選擇一種擅長的工作類型</p>
-        )}
-      </div>
-
-      {/* 不願從事工作 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          不願從事工作
-        </label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {[
-            '農耕', '接待', '清潔', '廚房', '營銷',
-            '手工藝', '維修', '照顧（動物）', '照顧（植物）',
-            '教學', '翻譯', '攝影', '網站維護', '其他'
-          ].map(type => (
-            <label key={type} className="flex items-center p-2 border rounded-md hover:bg-gray-50">
-              <input
-                type="checkbox"
-                value={type}
-                onChange={(e) => {
-                  const current = watch('unwillingWorkTypes') || [];
-                  const newValue = e.target.checked
-                    ? [...current, type]
-                    : current.filter(t => t !== type);
-                  setValue('unwillingWorkTypes', newValue);
-                }}
-                checked={watch('unwillingWorkTypes')?.includes(type) || false}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <span className="ml-2 text-sm">{type}</span>
-            </label>
-          ))}
-        </div>
       </div>
 
       {/* 體力活接受度 */}
@@ -215,43 +156,17 @@ const WorkCapabilityStep: React.FC<WorkCapabilityStepProps> = ({
           </div>
         </div>
         <p className="mt-2 text-sm text-gray-500">目前選擇：{watch('physicalStrength') || 3}/5</p>
-      </div>
 
-      {/* 專業證照 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          專業證照
-        </label>
-        <textarea
-          {...register('certifications')}
-          placeholder="請列出您所擁有的專業證照或資格（最多 200 字）"
-          maxLength={200}
-          rows={3}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-        />
-        <p className="mt-1 text-sm text-gray-500">
-          還可以輸入 {200 - (watch('certifications')?.length || 0)} 字
-        </p>
-      </div>
-
-      {/* 期望工作時數 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          期望工作時數（每週）
-        </label>
-        <select
-          {...register('preferredWorkHours')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-        >
-          <option value="">請選擇</option>
-          <option value="20小時以下">20小時以下</option>
-          <option value="20-30小時">20-30小時</option>
-          <option value="30-40小時">30-40小時</option>
-          <option value="40小時以上">40小時以上</option>
-        </select>
-        <p className="mt-1 text-sm text-gray-500">
-          若機會已有規定工作時數，此欄位可不必填寫
-        </p>
+        <div className="mt-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+          <p className="font-medium mb-1">參考指標：</p>
+          <ul className="list-disc list-inside space-y-1">
+            <li><span className="font-medium">1分</span>：較輕的室內工作，需要休息較多</li>
+            <li><span className="font-medium">2分</span>：可接受輕度體力活，如清潔或短時間站立工作</li>
+            <li><span className="font-medium">3分</span>：一般體力活動，能持續工作數小時</li>
+            <li><span className="font-medium">4分</span>：較高體力活動，可接受農務等戶外勞動</li>
+            <li><span className="font-medium">5分</span>：高強度體力活動，長時間戶外工作無壓力</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { UseFormRegister, UseFormWatch, FieldErrors } from 'react-hook-form';
 import { ApplicationFormData } from '@/lib/schemas/application';
 import Link from 'next/link';
@@ -26,8 +26,57 @@ const FinalConfirmationStep: React.FC<FinalConfirmationStepProps> = ({
     '其他'
   ];
 
+  const termsAgreed = watch('termsAgreed');
+  const message = watch('message');
+
+  useEffect(() => {
+    console.log('最終確認頁面狀態:', {
+      termsAgreed,
+      message,
+      messageLength: message?.length || 0,
+      errors
+    });
+  }, [termsAgreed, message, errors]);
+
   return (
     <div className="space-y-8">
+      {/* 留言給主辦方 */}
+      <div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">留言給主辦方</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          請告訴主辦方您為什麼想要參與這個計劃以及您有什麼疑問或特殊需求。
+        </p>
+        <div className={`relative ${errors.message ? 'border-red-500 ring-1 ring-red-500 rounded-md' : ''}`}>
+          <textarea
+            {...register('message')}
+            id="message"
+            rows={4}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            placeholder="您的留言（至少50個字）"
+          ></textarea>
+          <div className="absolute bottom-2 right-2 text-sm text-gray-500">
+            {message?.length || 0}/50
+          </div>
+        </div>
+        {errors.message && (
+          <p className="mt-1 text-red-600">{errors.message.message as string}</p>
+        )}
+      </div>
+
+      {/* 附註 */}
+      <div>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">附註</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          如有其他想告訴主辦方的事項，請在這裡填寫。
+        </p>
+        <textarea
+          {...register('additionalNotes')}
+          rows={3}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+          placeholder="附註（選填）"
+        ></textarea>
+      </div>
+
       {/* 來源渠道 */}
       <div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">您是如何發現我們的？</h3>
@@ -79,13 +128,17 @@ const FinalConfirmationStep: React.FC<FinalConfirmationStepProps> = ({
           </ul>
         </div>
 
-        <div className="flex items-start">
+        <div className={`flex items-start ${errors.termsAgreed ? 'border-red-500 ring-1 ring-red-500 rounded-md p-2' : ''}`}>
           <div className="flex h-5 items-center">
             <input
               id="termsAgreed"
               type="checkbox"
               {...register('termsAgreed')}
               className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              onChange={(e) => {
+                console.log('條款與條件複選框狀態變更:', e.target.checked);
+                register('termsAgreed').onChange(e);
+              }}
             />
           </div>
           <div className="ml-3 text-sm">
@@ -132,6 +185,9 @@ const FinalConfirmationStep: React.FC<FinalConfirmationStepProps> = ({
             type="checkbox"
             className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             required
+            onChange={(e) => {
+              console.log('數據處理同意複選框狀態變更:', e.target.checked);
+            }}
           />
         </div>
         <div className="ml-3 text-sm">

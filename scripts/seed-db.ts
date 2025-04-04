@@ -401,18 +401,34 @@ async function importOpportunities() {
 
     if (hasTimeSlots) {
       // 創建時段
+      const startMonth = opp.timeSlotStartMonth; // 直接使用 YYYY-MM 格式
+      const endMonth = opp.timeSlotEndMonth; // 直接使用 YYYY-MM 格式
+      const defaultCapacity = parseInt(opp.timeSlotDefaultCapacity) || 2;
+
+      // 生成月份範圍
+      const months = generateMonthRange(startMonth, endMonth);
+
+      // 創建月份容量記錄
+      const monthlyCapacities = months.map(month => ({
+        month,
+        capacity: defaultCapacity,
+        bookedCount: 0
+      }));
+
       const timeSlot = {
         _id: new mongoose.Types.ObjectId(),
-        startMonth: opp.timeSlotStartMonth, // 直接使用 YYYY-MM 格式
-        endMonth: opp.timeSlotEndMonth, // 直接使用 YYYY-MM 格式
-        defaultCapacity: parseInt(opp.timeSlotDefaultCapacity) || 2,
+        startMonth,
+        endMonth,
+        defaultCapacity,
         minimumStay: parseInt(opp.timeSlotMinimumStay) || 14,
         appliedCount: 0,
         confirmedCount: 0,
         status: TimeSlotStatus.OPEN,
         description: `${opp.title}的開放時段`,
-        capacityOverrides: []
+        capacityOverrides: [],
+        monthlyCapacities
       };
+
       timeSlots.push(timeSlot);
     }
 
@@ -537,49 +553,45 @@ async function importOpportunities() {
       hasTimeSlots: hasTimeSlots
     });
 
-    // 如果有時段，初始化月份容量
-    if (hasTimeSlots && timeSlots.length > 0) {
-      await initializeDateCapacities(
-        createdOpportunity._id,
-        timeSlots[0]._id,
-        parseYearMonthToDate(opp.timeSlotStartMonth),
-        parseYearMonthToDate(opp.timeSlotEndMonth, true),
-        parseInt(opp.timeSlotDefaultCapacity) || 2,
-        opp.slug
-      );
-    }
+    // 注意：我們不再需要調用 initializeDateCapacities，因為月份容量現在直接嵌入在 timeSlots 中
   }
 
   console.log(`已導入 ${opportunities.length} 筆機會資料`);
 }
 
-// 初始化月份容量
-async function initializeDateCapacities(
-  opportunityId: mongoose.Types.ObjectId,
-  timeSlotId: mongoose.Types.ObjectId,
-  startDate: Date,
-  endDate: Date,
-  defaultCapacity: number,
-  opportunitySlug: string
-): Promise<void> {
-  // 將日期轉換為年月格式
-  const startYearMonth = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}`;
-  const endYearMonth = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}`;
+// 導入日期容量資料
+async function importDateCapacities() {
+  console.log('已棄用 DateCapacity，跳過處理，月份容量直接嵌入在時段中');
+  console.log('如需導入舊有的日期容量數據，請更新程式碼以匹配新結構');
 
-  // 生成所有月份
-  const allMonths: string[] = [];
+  // 此函數留在此處以保持向後兼容性，但實際上不再執行舊的導入邏輯
+}
 
-  // 從起始年月遍歷到結束年月
-  const startParts = startYearMonth.split('-').map(num => parseInt(num, 10));
-  const endParts = endYearMonth.split('-').map(num => parseInt(num, 10));
+/**
+ * 生成月份範圍
+ * @param startMonth 開始月份 (YYYY-MM)
+ * @param endMonth 結束月份 (YYYY-MM)
+ * @returns 月份列表 (YYYY-MM 格式)
+ */
+function generateMonthRange(startMonth: string, endMonth: string): string[] {
+  const months: string[] = [];
 
-  let currentYear = startParts[0];
-  let currentMonth = startParts[1];
-  const targetEndYear = endParts[0];
-  const targetEndMonth = endParts[1];
+  // 解析開始月份
+  const [startYear, startMonthNum] = startMonth.split('-').map(Number);
+  const [endYear, endMonthNum] = endMonth.split('-').map(Number);
 
-  while (currentYear < targetEndYear || (currentYear === targetEndYear && currentMonth <= targetEndMonth)) {
-    allMonths.push(`${currentYear}-${String(currentMonth).padStart(2, '0')}`);
+  // 設置初始月份
+  let currentYear = startYear;
+  let currentMonth = startMonthNum;
+
+  // 生成每個月份
+  while (
+    currentYear < endYear ||
+    (currentYear === endYear && currentMonth <= endMonthNum)
+  ) {
+    // 格式化為 YYYY-MM
+    const formattedMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    months.push(formattedMonth);
 
     // 移至下個月
     if (currentMonth === 12) {
@@ -590,76 +602,7 @@ async function initializeDateCapacities(
     }
   }
 
-  // 為每個月份創建容量記錄
-  const monthCapacities = [];
-
-  for (const month of allMonths) {
-    monthCapacities.push({
-      date: month,
-      opportunityId,
-      timeSlotId,
-      opportunitySlug,
-      capacity: defaultCapacity,
-      bookedCount: 0
-    });
-  }
-
-  // 批量插入
-  if (monthCapacities.length > 0) {
-    await DateCapacity.insertMany(monthCapacities);
-  }
-}
-
-// 導入日期容量資料
-async function importDateCapacities() {
-  console.log('導入日期容量資料...');
-
-  try {
-    const dateCapacities = readCsvFile(path.join(process.cwd(), 'data/seed/date_capacities.csv'));
-
-    for (const dc of dateCapacities) {
-      // 查找對應的機會
-      const opportunity = await Opportunity.findOne({ slug: dc.opportunitySlug });
-
-      if (!opportunity) {
-        console.warn(`找不到對應的機會: ${dc.opportunitySlug}`);
-        continue;
-      }
-
-      // 查找對應的時段
-      let timeSlotId = dc.timeSlotId;
-      if (!mongoose.Types.ObjectId.isValid(timeSlotId)) {
-        // 如果 timeSlotId 不是有效的 ObjectId，使用機會的第一個時段
-        if (opportunity.timeSlots && opportunity.timeSlots.length > 0) {
-          timeSlotId = opportunity.timeSlots[0]._id;
-        } else {
-          console.warn(`機會 ${dc.opportunitySlug} 沒有時段`);
-          continue;
-        }
-      }
-
-      // 更新日期容量
-      await DateCapacity.updateOne(
-        {
-          date: dc.date,
-          opportunityId: opportunity._id,
-          timeSlotId: timeSlotId
-        },
-        {
-          $set: {
-            capacity: parseInt(dc.capacity),
-            bookedCount: parseInt(dc.bookedCount)
-          }
-        },
-        { upsert: true }
-      );
-    }
-
-    console.log(`已導入 ${dateCapacities.length} 筆日期容量資料`);
-  } catch (error) {
-    console.error('導入日期容量資料失敗:', error);
-    // 如果找不到檔案，不中斷程序
-  }
+  return months;
 }
 
 // 導入申請資料
@@ -704,49 +647,76 @@ async function importApplications() {
       }
     }
 
-    // 處理結束日期
-    let endDate = null;
-    if (app.endDate && app.endDate.trim() !== '') {
-      endDate = new Date(app.endDate);
-    } else if (app.startDate && app.duration) {
-      // 如果沒有提供結束日期，根據開始日期和持續時間計算
-      const startDate = new Date(app.startDate);
-      endDate = new Date(startDate);
-      endDate.setDate(startDate.getDate() + parseInt(app.duration));
-    }
+    // 處理飲食限制
+    const dietaryRestrictionsType = app.dietaryRestrictions_type ? app.dietaryRestrictions_type.split(',') : [];
+    const dietaryRestrictions = {
+      type: dietaryRestrictionsType,
+      otherDetails: app.dietaryRestrictions_otherDetails || '',
+      vegetarianType: app.dietaryRestrictions_vegetarianType || ''
+    };
 
-    // 創建申請資料物件
+    // 處理語言
+    const languages = [{
+      language: app.languages_language || '中文',
+      level: app.languages_level || 'native'
+    }];
+
+    // 處理駕駛執照
+    const drivingLicense = {
+      motorcycle: app.drivingLicense_motorcycle === 'true',
+      car: app.drivingLicense_car === 'true',
+      none: app.drivingLicense_none === 'true',
+      other: {
+        enabled: false,
+        details: ''
+      }
+    };
+
+    // 處理文化興趣和學習目標
+    const culturalInterests = app.culturalInterests ? app.culturalInterests.split(',') : [];
+    const learningGoals = app.learningGoals ? app.learningGoals.split(',') : [];
+
+    // 創建申請資料
     const applicationData = {
+      _id: new mongoose.Types.ObjectId(),
       userId: user._id,
       opportunityId: opportunity._id,
       hostId: host._id,
       timeSlotId: timeSlotId,
-      status: app.status as ApplicationStatus,
+      status: app.status || 'PENDING',
       applicationDetails: {
-        message: app.message,
-        startDate: new Date(app.startDate),
-        endDate: endDate,
-        duration: parseInt(app.duration),
-        travelingWith: {
-          partner: false,
-          children: false,
-          pets: false
-        },
-        languages: ['中文', '英文'],
-        relevantExperience: '我有相關的經驗...',
-        motivation: '我希望能夠學習和成長...'
+        message: app.message || '',
+        startMonth: app.startMonth,
+        endMonth: app.endMonth,
+        duration: parseInt(app.duration) || 30,
+        dietaryRestrictions,
+        languages,
+        relevantExperience: app.relevantExperience || '',
+        motivation: app.motivation || '',
+        nationality: app.nationality || '台灣',
+        visaType: app.visaType || '無需簽證',
+        allergies: app.allergies || '無',
+        drivingLicense,
+        physicalCondition: app.physicalCondition || '健康良好',
+        skills: app.skills || '',
+        accommodationNeeds: app.accommodationNeeds || '',
+        culturalInterests,
+        learningGoals,
+        termsAgreed: app.termsAgreed === 'true'
       },
       communications: {
         messages: [{
           sender: user._id,
-          content: app.message,
+          content: app.message || '我對這個機會很感興趣，想要參與！',
           timestamp: new Date(),
-          read: app.status !== 'PENDING'
+          read: false
         }],
         lastMessageAt: new Date(),
         unreadHostMessages: 1,
         unreadUserMessages: 0
-      }
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
     try {
@@ -771,29 +741,6 @@ async function importApplications() {
             { _id: opportunity._id, 'timeSlots._id': timeSlotId },
             { $inc: { 'timeSlots.$.confirmedCount': 1 } }
           );
-        }
-
-        // 手動更新日期容量的已預訂數量
-        if (app.startDate && endDate) {
-          const startDate = new Date(app.startDate);
-          const allDates = [];
-          const currentDate = new Date(startDate);
-
-          while (currentDate <= endDate) {
-            allDates.push(formatDate(currentDate));
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
-
-          for (const date of allDates) {
-            await DateCapacity.updateOne(
-              {
-                date,
-                opportunityId: opportunity._id,
-                timeSlotId: timeSlotId
-              },
-              { $inc: { bookedCount: 1 } }
-            );
-          }
         }
       }
     } catch (error) {
@@ -824,7 +771,8 @@ async function main() {
     await importHosts();
     await importOrganizations();
     await importOpportunities();
-    await importDateCapacities();
+    // 不再需要單獨導入日期容量，因為月份容量直接嵌入在時段中
+    // await importDateCapacities();
     await importApplications();
 
     console.log('資料導入完成！');

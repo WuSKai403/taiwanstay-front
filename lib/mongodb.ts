@@ -186,6 +186,24 @@ export async function connectToDatabase(): Promise<DatabaseConnection> {
     await db.command({ ping: 1 });
     console.log('數據庫 ping 測試成功');
 
+    // 預先加載所有必要的模型，確保它們已被註冊
+    try {
+      // 動態導入所有模型以確保它們被正確註冊
+      // 注意：這裡的順序很重要，因為某些模型可能依賴於其他模型
+      require('@/models/User');
+      require('@/models/Host');
+      require('@/models/Opportunity');
+      require('@/models/Application');
+      require('@/models/Review');
+      require('@/models/Media');
+      require('@/models/Message');
+      require('@/models/Organization');
+      console.log('所有模型已成功預加載');
+    } catch (modelError) {
+      console.error('模型預加載失敗:', modelError);
+      // 繼續執行，不中斷連接流程
+    }
+
     console.timeEnd('MongoDB連線時間');
     return { client, db };
   } catch (error: any) {

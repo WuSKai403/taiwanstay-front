@@ -129,10 +129,10 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
               </label>
               <div className="space-y-2">
                 {[
-                  { value: '全素', label: '全素（純素）' },
-                  { value: '蛋奶素', label: '蛋奶素' },
-                  { value: '蛋素', label: '蛋素（不食用奶製品）' },
-                  { value: '奶素', label: '奶素（不食用蛋）' }
+                  { value: '純素', label: '純素（不含任何動物製品）' },
+                  { value: '蛋奶素', label: '蛋奶素（可食用蛋及奶製品）' },
+                  { value: '蛋素', label: '蛋素（可食用蛋但不含奶製品）' },
+                  { value: '鍋邊素', label: '鍋邊素（可與葷食共用烹飪器具）' }
                 ].map(option => (
                   <div key={option.value} className="flex items-center">
                     <input
@@ -169,51 +169,6 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
         </div>
       </div>
 
-      {/* 旅伴情況 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          旅伴情況
-        </label>
-        <div className="mt-2 space-y-2">
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...register('travelingWith.partner')}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span className="ml-2">伴侶</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...register('travelingWith.children')}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span className="ml-2">小孩</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                {...register('travelingWith.pets')}
-                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <span className="ml-2">寵物</span>
-            </label>
-          </div>
-          <textarea
-            {...register('travelingWith.details')}
-            placeholder="請提供更多關於旅伴的細節（最多 150 字）"
-            maxLength={150}
-            className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            rows={3}
-          />
-          <p className="mt-1 text-sm text-gray-500">
-            還可以輸入 {150 - (watch('travelingWith.details')?.length || 0)} 字
-          </p>
-        </div>
-      </div>
-
       {/* 特殊需求 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -221,10 +176,10 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
         </label>
         <textarea
           {...register('specialRequirements')}
-          placeholder="請描述您的特殊需求或考量（最多 300 字）"
+          placeholder="請說明您的特殊需求，例如：過敏原、慢性疾病、宗教信仰等需要注意的事項（選填）"
           maxLength={300}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           rows={3}
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
         />
         <p className="mt-1 text-sm text-gray-500">
           還可以輸入 {300 - (watch('specialRequirements')?.length || 0)} 字
@@ -255,35 +210,41 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
         </label>
         <select
           {...register('nationality')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
         >
           <option value="">請選擇國籍</option>
-          <option value="台灣">台灣</option>
-          <option value="日本">日本</option>
-          <option value="韓國">韓國</option>
-          <option value="美國">美國</option>
-          <option value="加拿大">加拿大</option>
-          <option value="英國">英國</option>
-          <option value="法國">法國</option>
-          <option value="德國">德國</option>
-          <option value="澳洲">澳洲</option>
-          <option value="紐西蘭">紐西蘭</option>
-          <option value="其他">其他</option>
+          <option value="Taiwan">Taiwan 台灣</option>
+          <option value="China">China 中國</option>
+          <option value="Hong Kong">Hong Kong 香港</option>
+          <option value="Japan">Japan 日本</option>
+          <option value="Korea">Korea 韓國</option>
+          <option value="Malaysia">Malaysia 馬來西亞</option>
+          <option value="Singapore">Singapore 新加坡</option>
+          <option value="Thailand">Thailand 泰國</option>
+          <option value="United States">United States 美國</option>
+          <option value="United Kingdom">United Kingdom 英國</option>
+          <option value="Australia">Australia 澳洲</option>
+          <option value="Canada">Canada 加拿大</option>
+          <option value="France">France 法國</option>
+          <option value="Germany">Germany 德國</option>
+          <option value="India">India 印度</option>
+          <option value="Indonesia">Indonesia 印尼</option>
+          <option value="Philippines">Philippines 菲律賓</option>
+          <option value="Vietnam">Vietnam 越南</option>
+          <option value="other">Other 其他</option>
         </select>
-        {errors.nationality && (
-          <p className="mt-1 text-sm text-red-600">請選擇國籍</p>
-        )}
+        {errors.nationality && <p className="mt-1 text-sm text-red-600">請選擇國籍</p>}
       </div>
 
-      {/* 簽證類型 - 根據國籍顯示 */}
-      {watch('nationality') && watch('nationality') !== '台灣' && (
+      {/* 簽證類型 - 非台灣國籍才顯示 */}
+      {watch('nationality') && watch('nationality') !== 'Taiwan' && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             持有簽證類型 <span className="text-red-500">*</span>
           </label>
           <select
             {...register('visaType')}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
           >
             <option value="">請選擇簽證類型</option>
             <option value="觀光簽證">觀光簽證</option>
@@ -292,9 +253,14 @@ const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
             <option value="居留證">居留證</option>
             <option value="其他">其他</option>
           </select>
-          {errors.visaType && (
-            <p className="mt-1 text-sm text-red-600">請選擇簽證類型</p>
-          )}
+          {errors.visaType && <p className="mt-1 text-sm text-red-600">請選擇簽證類型</p>}
+        </div>
+      )}
+
+      {/* 台灣國籍時自動設置簽證類型 */}
+      {watch('nationality') === 'Taiwan' && (
+        <div className="hidden">
+          <input type="hidden" {...register('visaType')} value="不需要（本國人士）" />
         </div>
       )}
     </div>

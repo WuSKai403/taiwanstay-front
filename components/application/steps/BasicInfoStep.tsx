@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { UseFormRegister, Control, UseFormWatch, UseFormSetValue, FieldErrors, FieldError } from 'react-hook-form';
 import { monthSelectionSchema, timeSlotSchema, type ApplicationFormData, type MonthSelection, type TimeSlot } from '@/lib/schemas/application';
 import FormField from '@/components/ui/FormField';
@@ -27,7 +27,11 @@ interface BasicInfoStepProps {
   onMonthsChange?: (months: MonthSelection[]) => void;
 }
 
-const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
+export interface BasicInfoStepRef {
+  validateMinimumStay: () => boolean;
+}
+
+const BasicInfoStep = forwardRef<BasicInfoStepRef, BasicInfoStepProps>(({
   register,
   control,
   watch,
@@ -37,11 +41,48 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
   setSelectedMonths,
   opportunity,
   onMonthsChange
-}) => {
+}, ref) => {
   const [dateRangeDisplay, setDateRangeDisplay] = useState('');
   const [totalDays, setTotalDays] = useState(0);
   const [validationError, setValidationError] = useState<string>();
   const [currentYear, setCurrentYear] = useState(2025);
+  const [minDaysRequired, setMinDaysRequired] = useState(0);  // 最小停留天數
+
+  // 獲取選定時段的最小停留天數
+  useEffect(() => {
+    const timeSlotId = watch('timeSlotId');
+    if (timeSlotId && opportunity.timeSlots) {
+      const selectedTimeSlot = opportunity.timeSlots.find(slot => slot.id === timeSlotId);
+      if (selectedTimeSlot) {
+        setMinDaysRequired(selectedTimeSlot.minimumStay || 60);
+      } else {
+        setMinDaysRequired(60); // 默認最小停留天數
+      }
+    } else {
+      setMinDaysRequired(60); // 默認最小停留天數
+    }
+  }, [watch, opportunity.timeSlots]);
+
+  // 驗證最小停留天數
+  const validateMinimumStay = (): boolean => {
+    const startMonth = watch('startMonth');
+    const endMonth = watch('endMonth');
+    if (!startMonth || !endMonth) return false;
+
+    const days = calculateDaysBetweenMonths(startMonth, endMonth);
+    if (days < minDaysRequired) {
+      setValidationError(`停留時間不得少於 ${minDaysRequired} 天`);
+      return false;
+    }
+
+    setValidationError(undefined);
+    return true;
+  };
+
+  // 將validateMinimumStay公開給父組件
+  useImperativeHandle(ref, () => ({
+    validateMinimumStay
+  }));
 
   const generateMonthsForYear = (year: number): MonthSelection[] => {
     const months: MonthSelection[] = [];
@@ -184,6 +225,9 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
     if (onMonthsChange) {
       onMonthsChange(allSelectedMonths);
     }
+
+    // 在這裡添加以下代碼，更新總天數後重置驗證錯誤
+    setValidationError(undefined);
   };
 
   const handleYearChange = (increment: number) => {
@@ -255,6 +299,9 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
           <h4 className="font-medium mb-2">選擇的時間範圍</h4>
           <p>{dateRangeDisplay}</p>
           <p className="mt-1 text-gray-600">總計 {totalDays} 天</p>
+          {minDaysRequired > 0 && (
+            <p className="mt-1 text-gray-600">最小停留時間要求：{minDaysRequired} 天</p>
+          )}
         </div>
       )}
 
@@ -265,19 +312,33 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
       >
         <div className="mt-2 space-y-2">
           <div className="flex flex-wrap gap-4">
-            <label className="flex items-center">
+            <label className={`flex items-center ${watch('drivingLicense.none') ? 'opacity-50' : ''}`}>
               <input
                 type="checkbox"
                 {...register('drivingLicense.motorcycle')}
                 className="form-checkbox"
+                disabled={watch('drivingLicense.none')}
+                onChange={(e) => {
+                  if (e.target.checked && watch('drivingLicense.none')) {
+                    // 如果勾選機車且目前已勾選無駕照，取消無駕照
+                    setValue('drivingLicense.none', false);
+                  }
+                }}
               />
               <span className="ml-2">機車</span>
             </label>
-            <label className="flex items-center">
+            <label className={`flex items-center ${watch('drivingLicense.none') ? 'opacity-50' : ''}`}>
               <input
                 type="checkbox"
                 {...register('drivingLicense.car')}
                 className="form-checkbox"
+                disabled={watch('drivingLicense.none')}
+                onChange={(e) => {
+                  if (e.target.checked && watch('drivingLicense.none')) {
+                    // 如果勾選汽車且目前已勾選無駕照，取消無駕照
+                    setValue('drivingLicense.none', false);
+                  }
+                }}
               />
               <span className="ml-2">汽車</span>
             </label>
@@ -286,32 +347,64 @@ const BasicInfoStep: React.FC<BasicInfoStepProps> = ({
                 type="checkbox"
                 {...register('drivingLicense.none')}
                 className="form-checkbox"
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    // 如果勾選無駕照，取消其他所有選項
+                    setValue('drivingLicense.motorcycle', false);
+                    setValue('drivingLicense.car', false);
+                    setValue('drivingLicense.other.enabled', false);
+                    setValue('drivingLicense.other.details', '');
+                  }
+                }}
               />
               <span className="ml-2">無駕照</span>
             </label>
           </div>
           <div className="mt-2">
-            <label className="flex items-center">
+            <label className={`flex items-center ${watch('drivingLicense.none') ? 'opacity-50' : ''}`}>
               <input
                 type="checkbox"
+                id="other-license-checkbox"
                 {...register('drivingLicense.other.enabled')}
                 className="form-checkbox"
+                disabled={watch('drivingLicense.none')}
+                onChange={(e) => {
+                  if (e.target.checked && watch('drivingLicense.none')) {
+                    // 如果勾選其他且目前已勾選無駕照，取消無駕照
+                    setValue('drivingLicense.none', false);
+                  }
+
+                  // 直接設置值以確保狀態更新
+                  setValue('drivingLicense.other.enabled', e.target.checked);
+
+                  // 如果取消勾選，清空詳情
+                  if (!e.target.checked) {
+                    setValue('drivingLicense.other.details', '');
+                  }
+                }}
               />
               <span className="ml-2">其他</span>
             </label>
-            {watch('drivingLicense.other.enabled') && (
-              <input
-                type="text"
-                {...register('drivingLicense.other.details')}
-                placeholder="請說明其他駕照類型"
-                className="mt-2 form-input"
-              />
+
+            {/* 使用額外條件確保文字方塊顯示 */}
+            {(watch('drivingLicense.other.enabled') === true) && (
+              <div className="mt-2 ml-6">
+                <input
+                  type="text"
+                  {...register('drivingLicense.other.details')}
+                  placeholder="請說明其他駕照類型"
+                  className="form-input w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                  disabled={watch('drivingLicense.none')}
+                />
+              </div>
             )}
           </div>
         </div>
       </FormField>
     </div>
   );
-};
+});
+
+BasicInfoStep.displayName = 'BasicInfoStep';
 
 export default BasicInfoStep;

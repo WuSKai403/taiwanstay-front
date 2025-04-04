@@ -11,6 +11,14 @@ export interface ICapacityOverride {
   capacity: number; // 該日期範圍的容量
 }
 
+// 月份容量介面定義
+export interface IMonthlyCapacity {
+  _id?: mongoose.Types.ObjectId;
+  month: string; // 月份，格式為 'YYYY-MM'
+  capacity: number; // 容量
+  bookedCount: number; // 已預訂人數
+}
+
 // 時段介面定義
 export interface ITimeSlot {
   _id?: mongoose.Types.ObjectId;
@@ -23,6 +31,7 @@ export interface ITimeSlot {
   status: TimeSlotStatus; // 時段狀態
   description?: string; // 時段描述
   capacityOverrides?: ICapacityOverride[]; // 特定日期範圍的容量覆蓋
+  monthlyCapacities?: IMonthlyCapacity[]; // 每月容量管理
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -170,6 +179,13 @@ const CapacityOverrideSchema: Schema = new Schema({
   capacity: { type: Number, required: true, min: 1 }
 });
 
+// 月份容量模式定義
+const MonthlyCapacitySchema: Schema = new Schema({
+  month: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
+  capacity: { type: Number, required: true, min: 0 },
+  bookedCount: { type: Number, default: 0, min: 0 }
+});
+
 // 時段模式定義
 const TimeSlotSchema: Schema = new Schema({
   startMonth: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
@@ -184,7 +200,8 @@ const TimeSlotSchema: Schema = new Schema({
     default: TimeSlotStatus.OPEN
   },
   description: { type: String },
-  capacityOverrides: [CapacityOverrideSchema] // 特定日期範圍的容量覆蓋
+  capacityOverrides: [CapacityOverrideSchema], // 特定日期範圍的容量覆蓋
+  monthlyCapacities: [MonthlyCapacitySchema] // 每月容量管理
 }, { timestamps: true });
 
 const OpportunitySchema: Schema = new Schema({

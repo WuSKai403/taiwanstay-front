@@ -97,25 +97,31 @@ export const cloudinaryImageResourceSchema = z.object({
 
 // 定義主要申請表單的 schema
 export const applicationFormSchema = z.object({
-  message: z.string().min(50, '訊息至少需要 50 個字'),
+  message: z.string().min(50, '訊息至少需要 50 個字').transform((val) => {
+    console.log('驗證message欄位:', val, val.length >= 50);
+    return val;
+  }),
   startMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
   endMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
   duration: z.number().min(1, '停留時間必須大於 0'),
   timeSlotId: z.string().optional(),
   availableMonths: z.array(z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM')),
   workExperience: z.array(workExperienceSchema),
-  physicalCondition: z.string().min(1, '身體狀況不能為空'),
-  skills: z.array(z.string()),
-  preferredWorkHours: z.string().min(1, '偏好工作時間不能為空'),
-  accommodationNeeds: z.string().min(1, '住宿需求不能為空'),
+  physicalCondition: z.string(),
+  skills: z.string().default(''),
+  preferredWorkHours: z.string().optional(),
+  accommodationNeeds: z.string(),
   culturalInterests: z.array(z.string()),
   learningGoals: z.array(z.string()),
-  travelingWith: travelingWithSchema,
+  travelingWith: travelingWithSchema.optional(),
   specialRequirements: z.string(),
   dietaryRestrictions: dietaryRestrictionsSchema,
   languages: z.array(languageSchema).min(1, '至少需要一種語言能力'),
   relevantExperience: z.string().optional(),
-  motivation: z.string().optional(),
+  motivation: z.string().min(100, '申請動機至少需要 100 個字').transform((val) => {
+    console.log('驗證motivation欄位:', val, val.length >= 100);
+    return val;
+  }),
   photos: z.array(cloudinaryImageResourceSchema).min(1, '至少需要上傳一張照片').max(5, '最多只能上傳 5 張照片'),
 
   // 新增欄位
@@ -131,13 +137,13 @@ export const applicationFormSchema = z.object({
   allergies: z.string().default(''),
   nationality: z.string().min(1, '國籍不能為空'),
   visaType: z.string().optional(),
-  preferredWorkTypes: z.array(z.string()).default([]),
-  unwillingWorkTypes: z.array(z.string()).default([]),
+  preferredWorkTypes: z.string().default(''),
+  unwillingWorkTypes: z.string().default(''),
   physicalStrength: z.number().min(1).max(5).default(3),
   certifications: z.string().default(''),
   workawayExperiences: z.array(workawayExperienceSchema).default([]),
   expectedSkills: z.array(z.string()).default([]),
-  contribution: z.string().min(1, '請說明您可以提供的貢獻'),
+  contribution: z.string().default(''),
   adaptabilityRatings: adaptabilityRatingsSchema.default({
     environmentAdaptation: 3,
     teamwork: 3,
@@ -149,7 +155,12 @@ export const applicationFormSchema = z.object({
   videoIntroduction: z.string().default(''),
   additionalNotes: z.string().default(''),
   sourceChannel: z.string().default(''),
-  termsAgreed: z.boolean().default(false)
+  termsAgreed: z.boolean().refine(val => val === true, {
+    message: '您必須同意條款才能繼續',
+  }).transform((val) => {
+    console.log('驗證termsAgreed欄位:', val);
+    return val;
+  })
 });
 
 // 導出類型

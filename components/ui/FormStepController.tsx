@@ -15,6 +15,7 @@ interface FormStepControllerProps<T extends FieldValues> {
   errors: FieldErrors<T>;
   stepFieldNames: string[];
   className?: string;
+  customValidation?: () => boolean; // 自定義驗證函數
 }
 
 const FormStepController = <T extends FieldValues>({
@@ -30,7 +31,8 @@ const FormStepController = <T extends FieldValues>({
   trigger,
   errors,
   stepFieldNames,
-  className = ''
+  className = '',
+  customValidation
 }: FormStepControllerProps<T>) => {
   const [isValidating, setIsValidating] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -38,6 +40,12 @@ const FormStepController = <T extends FieldValues>({
   // 處理下一步點擊
   const handleNextClick = async () => {
     setIsValidating(true);
+
+    // 先執行自定義驗證（如果有）
+    if (customValidation && !customValidation()) {
+      setIsValidating(false);
+      return;
+    }
 
     // 觸發當前步驟的所有欄位驗證
     const result = await trigger(stepFieldNames as any);
@@ -56,15 +64,26 @@ const FormStepController = <T extends FieldValues>({
   // 處理提交
   const handleSubmit = async () => {
     setIsValidating(true);
+    console.log('FormStepController.handleSubmit 被調用');
+    console.log('當前步驟欄位名稱:', stepFieldNames);
 
-    // 觸發當前步驟的所有欄位驗證
-    const result = await trigger(stepFieldNames as any);
+    // 先執行自定義驗證（如果有）
+    if (customValidation && !customValidation()) {
+      setIsValidating(false);
+      return;
+    }
 
-    if (result) {
-      // 如果驗證通過
-      onSubmit?.();
+    // 先只觸發當前步驟的欄位驗證
+    const currentStepValid = await trigger(stepFieldNames as any);
+    console.log('當前步驟驗證結果:', currentStepValid, '錯誤:', errors);
+
+    if (currentStepValid) {
+      // 如果當前步驟驗證通過，再觸發整個表單的驗證
+      console.log('當前步驟驗證通過，準備調用onSubmit');
+      onSubmit?.(); // 調用整個表單的提交，它會檢查所有步驟的欄位
     } else {
       // 如果驗證失敗，找到第一個錯誤欄位並滾動到該位置
+      console.log('當前步驟驗證失敗，滾動到第一個錯誤欄位');
       scrollToFirstError();
     }
 

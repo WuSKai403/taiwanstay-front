@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import HostLayout from '@/components/layout/HostLayout';
 import { getSession } from 'next-auth/react';
 
@@ -96,9 +96,9 @@ const HostApplicationsPage: NextPage<HostApplicationsPageProps> = ({ hostId }) =
     isLoading,
     error,
     refetch
-  } = useQuery(
-    ['hostApplications', hostId, activeTab, opportunityFilter, searchQuery],
-    async () => {
+  } = useQuery({
+    queryKey: ['hostApplications', hostId, activeTab, opportunityFilter, searchQuery],
+    queryFn: async () => {
       const queryParams = new URLSearchParams();
 
       if (activeTab !== 'all') {
@@ -121,11 +121,9 @@ const HostApplicationsPage: NextPage<HostApplicationsPageProps> = ({ hostId }) =
 
       return await response.json();
     },
-    {
-      enabled: !!hostId && sessionStatus === 'authenticated',
-      refetchOnWindowFocus: false
-    }
-  );
+    enabled: !!hostId && sessionStatus === 'authenticated',
+    refetchOnWindowFocus: false
+  });
 
   // 處理申請狀態變更
   const handleStatusChange = async (applicationId: string, newStatus: ApplicationStatus) => {

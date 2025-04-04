@@ -1,5 +1,13 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
+/**
+ * @deprecated 此模型已廢棄，請使用 Opportunity.timeSlots.monthlyCapacities 替代
+ * 為了向後兼容性，本文件仍然保留
+ *
+ * 新的設計將月份容量直接嵌入到 TimeSlot 結構中，避免額外的資料庫查詢和同步問題
+ * 請參考 models/Opportunity.ts 中的 ITimeSlot 和 IMonthlyCapacity 結構
+ */
+
 // 更名為 MonthCapacity，但保持檔名為 DateCapacity.ts 以避免破壞現有引用
 export interface IMonthCapacity extends Document {
   date: string; // 月份，格式為 YYYY-MM

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CldUploadWidget } from 'next-cloudinary';
@@ -32,6 +32,7 @@ import {
   PhotoUploadStep,
   FinalConfirmationStep
 } from './steps';
+import type { BasicInfoStepRef } from './steps/BasicInfoStep';
 
 // 引入表單控制器組件
 import FormStepController from '../ui/FormStepController';
@@ -60,20 +61,20 @@ const formSteps: FormStep[] = [
   {
     title: '個人資訊',
     description: '請告訴我們更多關於您的資訊',
-    fields: ['travelingWith', 'languages', 'dietaryRestrictions', 'specialRequirements', 'allergies', 'nationality', 'visaType'],
+    fields: ['languages', 'dietaryRestrictions', 'specialRequirements', 'allergies', 'nationality', 'visaType'],
     isValid: (data) => data.languages.length > 0 && Boolean(data.nationality)
   },
   {
     title: '工作能力',
     description: '請分享您的相關經驗和技能',
-    fields: ['workExperience', 'skills', 'physicalCondition', 'preferredWorkHours', 'preferredWorkTypes', 'unwillingWorkTypes', 'physicalStrength', 'certifications'],
-    isValid: (data) => Boolean(data.physicalCondition) && Boolean(data.preferredWorkTypes?.length)
+    fields: ['workExperience', 'skills', 'physicalCondition', 'physicalStrength', 'certifications'],
+    isValid: (data) => true
   },
   {
     title: '期望與動機',
     description: '請告訴我們您的學習目標和期望',
-    fields: ['accommodationNeeds', 'culturalInterests', 'learningGoals', 'motivation', 'workawayExperiences', 'expectedSkills', 'contribution', 'adaptabilityRatings'],
-    isValid: (data) => Boolean(data.motivation) && Boolean(data.contribution)
+    fields: ['motivation', 'learningGoals', 'accommodationNeeds', 'contribution', 'adaptabilityRatings'],
+    isValid: (data) => Boolean(data.motivation && data.motivation.length >= 100)
   },
   {
     title: '照片上傳',
@@ -104,6 +105,7 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
   const [isDraft, setIsDraft] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string>();
+  const basicInfoStepRef = useRef<BasicInfoStepRef>(null);
 
   const {
     register,
@@ -126,7 +128,7 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
       availableMonths: [],
       workExperience: [],
       physicalCondition: '',
-      skills: [],
+      skills: '',
       preferredWorkHours: '',
       accommodationNeeds: '',
       culturalInterests: [],
@@ -159,8 +161,6 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
       allergies: '',
       nationality: '',
       visaType: '',
-      preferredWorkTypes: [],
-      unwillingWorkTypes: [],
       physicalStrength: 3,
       certifications: '',
       workawayExperiences: [],
@@ -401,14 +401,81 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
   // 處理表單提交
   const onSubmitForm = async (data: ApplicationFormData) => {
     try {
+      console.log('開始提交表單', data);
+
+      // 在提交前檢查所有表單欄位的驗證狀態
+      const formIsValid = await trigger();
+      console.log('整個表單驗證狀態:', formIsValid, '所有錯誤:', errors);
+
+      if (!formIsValid) {
+        // 如果表單有錯誤，找出首個有錯誤的步驟並跳轉到該步驟
+        findErrorStepAndNavigate();
+        return;
+      }
+
       setIsSubmitting(true);
       setError(undefined);
       await onSubmit(data);
+      console.log('表單提交成功');
       localStorage.removeItem(`application_draft_${opportunity.id}`);
     } catch (err) {
+      console.error('表單提交失敗:', err);
       setError(err instanceof Error ? err.message : '提交失敗，請稍後再試');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // 尋找有錯誤的表單步驟並導航至該步驟
+  const findErrorStepAndNavigate = () => {
+    // 取得所有的錯誤欄位名稱
+    const errorFieldNames = Object.keys(errors);
+    console.log('錯誤欄位名稱列表:', errorFieldNames);
+
+    if (errorFieldNames.length === 0) return;
+
+    // 遍歷所有步驟，找出第一個包含錯誤欄位的步驟
+    for (let stepIndex = 0; stepIndex < formSteps.length; stepIndex++) {
+      const stepFields = formSteps[stepIndex].fields;
+      const hasError = errorFieldNames.some(errorField => stepFields.includes(errorField));
+
+      if (hasError) {
+        console.log(`發現錯誤在第 ${stepIndex + 1} 步 (${formSteps[stepIndex].title})，正在切換到該步驟`);
+        setCurrentStep(stepIndex);
+
+        // 添加延遲以確保步驟切換後再滾動到錯誤欄位
+        setTimeout(() => {
+          // 找出步驟中的第一個錯誤欄位
+          const firstErrorInStep = stepFields.find(field => errorFieldNames.includes(field));
+
+          if (firstErrorInStep) {
+            // 找到包含錯誤欄位的元素
+            const errorElement = document.querySelector(`[name="${firstErrorInStep}"], #${firstErrorInStep}`);
+
+            if (errorElement) {
+              // 添加高亮樣式
+              errorElement.classList.add('error-highlight');
+
+              // 滾動到錯誤欄位
+              errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+              // 嘗試聚焦元素
+              try {
+                (errorElement as HTMLElement).focus();
+              } catch (e) {
+                console.log('無法聚焦元素', e);
+              }
+
+              // 移除高亮效果（延遲 3 秒）
+              setTimeout(() => {
+                errorElement.classList.remove('error-highlight');
+              }, 3000);
+            }
+          }
+        }, 100);
+
+        return;
+      }
     }
   };
 
@@ -418,6 +485,7 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
       case 0:
         return (
           <BasicInfoStep
+            ref={basicInfoStepRef}
             register={register}
             control={control}
             watch={watch}
@@ -581,13 +649,19 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
           onPrevious={handlePrevious}
           onNext={handleNext}
           onSaveDraft={() => setIsDraft(true)}
-          onSubmit={handleSubmit(onSubmitForm)}
+          onSubmit={() => {
+            console.log('FormStepController提交按鈕被點擊');
+            console.log('當前步驟:', currentStep, '是否最後一步:', currentStep === formSteps.length - 1);
+            console.log('當前步驟是否有效:', isCurrentStepValid());
+            handleSubmit(onSubmitForm)();
+          }}
           isLastStep={currentStep === formSteps.length - 1}
           isValid={isCurrentStepValid()}
           isSubmitting={isSubmitting}
           trigger={trigger}
           errors={errors}
           stepFieldNames={getCurrentStepFieldNames()}
+          customValidation={currentStep === 0 ? () => basicInfoStepRef.current?.validateMinimumStay() ?? true : undefined}
         />
         </form>
       </div>

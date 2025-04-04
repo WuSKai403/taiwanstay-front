@@ -26,8 +26,8 @@ interface OpportunityDetail {
   hasTimeSlots: boolean;
   timeSlots?: {
     id: string;
-    startDate: string;
-    endDate: string;
+    startMonth: string;
+    endMonth: string;
     defaultCapacity: number;
     minimumStay: number;
     appliedCount: number;
@@ -84,20 +84,165 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
 
   const handleSubmit = async (formData: any) => {
     try {
+      console.log('原始表單資料:', JSON.stringify(formData, null, 2));
+
+      // 格式轉換和調整
+      const adaptedFormData = {
+        ...formData,
+
+        // 確保 languages 是正確的物件陣列格式
+        languages: Array.isArray(formData.languages)
+          ? formData.languages.map((lang: any) => {
+              // 如果已經是物件，保持不變
+              if (typeof lang === 'object' && lang !== null) {
+                return {
+                  language: lang.language || '中文',
+                  level: lang.level || 'native'
+                };
+              }
+              // 如果是字串，嘗試解析
+              if (typeof lang === 'string') {
+                const parts = lang.split('(');
+                return {
+                  language: parts[0].trim(),
+                  level: parts.length > 1 ? parts[1].replace(')', '').trim() : 'native'
+                };
+              }
+              return { language: '中文', level: 'native' };
+            })
+          : [{ language: '中文', level: 'native' }],
+
+        // 更嚴格處理 dietaryRestrictions，確保它始終是物件格式
+        dietaryRestrictions: (() => {
+          // 創建一個標準結構的物件
+          const defaultRestrictions = {
+            type: [] as string[],
+            otherDetails: '',
+            vegetarianType: ''
+          };
+
+          // 如果沒有 dietaryRestrictions 或不是物件，返回預設值
+          if (!formData.dietaryRestrictions || typeof formData.dietaryRestrictions !== 'object') {
+            return defaultRestrictions;
+          }
+
+          // 如果是字串形式的物件，嘗試解析
+          if (typeof formData.dietaryRestrictions === 'string') {
+            try {
+              const parsed = JSON.parse(formData.dietaryRestrictions);
+              if (typeof parsed === 'object' && parsed !== null) {
+                return {
+                  type: Array.isArray(parsed.type) ? parsed.type :
+                       (parsed.type ? [parsed.type] : []),
+                  otherDetails: parsed.otherDetails || '',
+                  vegetarianType: parsed.vegetarianType || ''
+                };
+              }
+            } catch (e) {
+              console.error('解析 dietaryRestrictions 失敗:', e);
+              return defaultRestrictions;
+            }
+          }
+
+          // 最常見的情況：是物件但需要確保所有字段格式正確
+          return {
+            // 確保 type 是字串陣列
+            type: Array.isArray(formData.dietaryRestrictions.type)
+              ? formData.dietaryRestrictions.type
+              : (formData.dietaryRestrictions.type
+                  ? [formData.dietaryRestrictions.type]
+                  : []),
+            otherDetails: formData.dietaryRestrictions.otherDetails || '',
+            vegetarianType: formData.dietaryRestrictions.vegetarianType || ''
+          };
+        })(),
+
+        // 處理 photoDescriptions 為普通 JavaScript 物件
+        photoDescriptions: (formData.photoDescriptions && typeof formData.photoDescriptions === 'object' && !Array.isArray(formData.photoDescriptions))
+          ? formData.photoDescriptions
+          : {},
+
+        // 處理 videoIntroduction 為物件格式
+        videoIntroduction: formData.videoIntroduction
+          ? (typeof formData.videoIntroduction === 'string'
+              ? { url: formData.videoIntroduction }
+              : formData.videoIntroduction)
+          : null,
+
+        // 確保其他必要欄位存在
+        message: formData.message || '',
+        termsAgreed: Boolean(formData.termsAgreed)
+      };
+
+      // 輸出最終提交的資料結構
+      console.log('提交前最終資料檢查:', {
+        'dietaryRestrictions': JSON.stringify(adaptedFormData.dietaryRestrictions),
+        'dietaryRestrictions.type 類型': typeof adaptedFormData.dietaryRestrictions.type,
+        'dietaryRestrictions.type 是否陣列': Array.isArray(adaptedFormData.dietaryRestrictions.type),
+        'dietaryRestrictions.type 值': adaptedFormData.dietaryRestrictions.type,
+        'languages 是否陣列': Array.isArray(adaptedFormData.languages),
+        'languages 範例': adaptedFormData.languages[0],
+        'photoDescriptions 類型': typeof adaptedFormData.photoDescriptions,
+        'photoDescriptions 是否陣列': Array.isArray(adaptedFormData.photoDescriptions),
+        'videoIntroduction 類型': typeof adaptedFormData.videoIntroduction
+      });
+
+      // 準備API請求資料
+      const requestData = {
+        opportunityId: opportunity.id,
+        hostId: opportunity.host.id,
+        timeSlotId: formData.timeSlotId,
+        applicationDetails: adaptedFormData
+      };
+
+      console.log('API請求資料:', JSON.stringify(requestData, null, 2));
+
+      // 驗證 dietaryRestrictions 是否為正確的物件結構
+      const validateDietaryRestrictions = (data: any) => {
+        const dr = data?.applicationDetails?.dietaryRestrictions;
+        if (!dr) return false;
+        if (typeof dr !== 'object' || Array.isArray(dr)) return false;
+        if (!Array.isArray(dr.type)) return false;
+        return true;
+      };
+
+      if (!validateDietaryRestrictions(requestData)) {
+        console.error('dietaryRestrictions 格式驗證失敗，將嘗試修復：',
+          requestData.applicationDetails.dietaryRestrictions);
+
+        // 修復結構
+        requestData.applicationDetails.dietaryRestrictions = {
+          type: Array.isArray(requestData.applicationDetails.dietaryRestrictions?.type)
+            ? requestData.applicationDetails.dietaryRestrictions.type
+            : [],
+          otherDetails: requestData.applicationDetails.dietaryRestrictions?.otherDetails || '',
+          vegetarianType: requestData.applicationDetails.dietaryRestrictions?.vegetarianType || ''
+        };
+
+        console.log('修復後的 dietaryRestrictions:',
+          JSON.stringify(requestData.applicationDetails.dietaryRestrictions));
+      }
+
       const response = await fetch('/api/applications', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          opportunityId: opportunity.id,
-          applicationDetails: formData
-        }),
+        body: JSON.stringify(requestData)
       });
 
+      // 輸出API回應
+      let responseData;
+      try {
+        responseData = await response.json();
+        console.log('API回應:', responseData);
+      } catch (parseError) {
+        console.error('解析API回應失敗:', parseError);
+        responseData = { message: '無法解析API回應' };
+      }
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || '申請提交失敗');
+        throw new Error(responseData.message || '申請提交失敗');
       }
 
       setSuccess(true);

@@ -8,7 +8,6 @@ import { TimeSlotStatus } from '@/models/enums/TimeSlotStatus';
 import { ApiError } from '@/lib/errors';
 import mongoose, { Types } from 'mongoose';
 import { TimeSlot } from '@/types/opportunity';
-import DateCapacity from '../../../../../models/DateCapacity';
 
 export default async function handler(
   req: NextApiRequest,
@@ -63,31 +62,32 @@ export default async function handler(
 
       // 更新時段
       case 'PUT':
-        const { startDate, endDate, defaultCapacity, minimumStay, capacityOverrides, description, status } = req.body;
+        const { startMonth, endMonth, defaultCapacity, minimumStay, description, status } = req.body;
 
         // 驗證必要欄位
-        if (!startDate || !endDate || !defaultCapacity) {
+        if (!startMonth || !endMonth || !defaultCapacity) {
           return res.status(400).json({
             success: false,
             message: '請提供所有必要欄位'
           });
         }
 
-        // 驗證日期
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        // 驗證日期格式 (YYYY-MM)
+        const startMonthRegex = /^\d{4}-\d{2}$/;
+        const endMonthRegex = /^\d{4}-\d{2}$/;
 
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        if (!startMonthRegex.test(startMonth) || !endMonthRegex.test(endMonth)) {
           return res.status(400).json({
             success: false,
-            message: '請提供有效的日期格式'
+            message: '請提供有效的月份格式 (YYYY-MM)'
           });
         }
 
-        if (start >= end) {
+        // 比較開始和結束月份
+        if (startMonth >= endMonth) {
           return res.status(400).json({
             success: false,
-            message: '結束日期必須晚於開始日期'
+            message: '結束月份必須晚於開始月份'
           });
         }
 
@@ -108,49 +108,6 @@ export default async function handler(
           });
         }
 
-        // 驗證容量覆蓋
-        if (capacityOverrides && Array.isArray(capacityOverrides)) {
-          for (const override of capacityOverrides) {
-            if (!override.startDate || !override.endDate || !override.capacity) {
-              return res.status(400).json({
-                success: false,
-                message: '容量覆蓋必須包含開始日期、結束日期和容量'
-              });
-            }
-
-            const overrideStart = new Date(override.startDate);
-            const overrideEnd = new Date(override.endDate);
-
-            if (isNaN(overrideStart.getTime()) || isNaN(overrideEnd.getTime())) {
-              return res.status(400).json({
-                success: false,
-                message: '請提供有效的日期格式'
-              });
-            }
-
-            if (overrideStart >= overrideEnd) {
-              return res.status(400).json({
-                success: false,
-                message: '覆蓋結束日期必須晚於開始日期'
-              });
-            }
-
-            if (overrideStart < start || overrideEnd > end) {
-              return res.status(400).json({
-                success: false,
-                message: '覆蓋日期範圍必須在時段日期範圍內'
-              });
-            }
-
-            if (override.capacity < 1) {
-              return res.status(400).json({
-                success: false,
-                message: '覆蓋容量必須大於0'
-              });
-            }
-          }
-        }
-
         // 驗證狀態
         if (status && !Object.values(TimeSlotStatus).includes(status as TimeSlotStatus)) {
           return res.status(400).json({
@@ -160,28 +117,38 @@ export default async function handler(
         }
 
         // 更新時段
-        timeSlot.startDate = start;
-        timeSlot.endDate = end;
+        timeSlot.startMonth = startMonth;
+        timeSlot.endMonth = endMonth;
         timeSlot.defaultCapacity = defaultCapacity;
         timeSlot.minimumStay = minStay;
         timeSlot.description = description || '';
-        timeSlot.capacityOverrides = capacityOverrides || [];
 
         // 只有在提供狀態時才更新
         if (status) {
           timeSlot.status = status as TimeSlotStatus;
         }
 
+        // 生成月份範圍
+        const months = generateMonthRange(startMonth, endMonth);
+
+        // 保留已有月份的預訂數量
+        const updatedMonthlyCapacities = months.map(month => {
+          // 檢查是否已有該月份的容量記錄
+          const existingCapacity = timeSlot.monthlyCapacities?.find(
+            (mc: any) => mc.month === month
+          );
+
+          return {
+            month,
+            capacity: defaultCapacity,
+            bookedCount: existingCapacity ? existingCapacity.bookedCount : 0
+          };
+        });
+
+        // 更新時段的月份容量
+        timeSlot.monthlyCapacities = updatedMonthlyCapacities;
+
         await opportunity.save();
-
-        // 更新日期容量
-        const DateCapacity = mongoose.model('DateCapacity');
-
-        // 刪除現有的容量記錄
-        await DateCapacity.deleteMany({ opportunityId: opportunity._id, timeSlotId: timeSlotObjectId });
-
-        // 重新初始化月份容量
-        await initializeMonthCapacities(opportunity._id, timeSlotObjectId, timeSlot);
 
         return res.status(200).json({
           success: true,
@@ -212,10 +179,6 @@ export default async function handler(
 
         await opportunity.save();
 
-        // 刪除相關的日期容量記錄
-        const DateCapacityModel = mongoose.model('DateCapacity');
-        await DateCapacityModel.deleteMany({ opportunityId: opportunity._id, timeSlotId: timeSlotObjectId });
-
         return res.status(200).json({
           success: true,
           message: '時段刪除成功'
@@ -233,78 +196,40 @@ export default async function handler(
   }
 }
 
-// 與 index.ts 相同的 initializeMonthCapacities 函數
 /**
- * 初始化月份容量記錄
- * @param opportunityId 機會ID
- * @param timeSlotId 時段ID
- * @param timeSlot 時段物件
+ * 生成月份範圍
+ * @param startMonth 開始月份 (YYYY-MM)
+ * @param endMonth 結束月份 (YYYY-MM)
+ * @returns 月份列表 (YYYY-MM 格式)
  */
-async function initializeMonthCapacities(
-  opportunityId: mongoose.Types.ObjectId,
-  timeSlotId: mongoose.Types.ObjectId,
-  timeSlot: any
-) {
-  try {
-    // 檢查時段是否有開始和結束月份
-    if (!timeSlot.startMonth || !timeSlot.endMonth) {
-      return;
+function generateMonthRange(startMonth: string, endMonth: string): string[] {
+  const months: string[] = [];
+
+  // 解析開始月份
+  const [startYear, startMonthNum] = startMonth.split('-').map(Number);
+  const [endYear, endMonthNum] = endMonth.split('-').map(Number);
+
+  // 設置初始月份
+  let currentYear = startYear;
+  let currentMonth = startMonthNum;
+
+  // 生成每個月份
+  while (
+    currentYear < endYear ||
+    (currentYear === endYear && currentMonth <= endMonthNum)
+  ) {
+    // 格式化為 YYYY-MM
+    const formattedMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+    months.push(formattedMonth);
+
+    // 移至下個月
+    if (currentMonth === 12) {
+      currentYear++;
+      currentMonth = 1;
+    } else {
+      currentMonth++;
     }
-
-    // 解析開始和結束月份
-    const startParts = timeSlot.startMonth.split('-').map((part: string) => parseInt(part));
-    const endParts = timeSlot.endMonth.split('-').map((part: string) => parseInt(part));
-
-    if (startParts.length !== 2 || endParts.length !== 2) {
-      throw new Error('月份格式不正確，應為 YYYY-MM');
-    }
-
-    const startYear = startParts[0];
-    const startMonth = startParts[1];
-    const endYear = endParts[0];
-    const endMonth = endParts[1];
-
-    // 取得 timeSlot 所在的 opportunity
-    const opportunity = await Opportunity.findById(opportunityId);
-    if (!opportunity) {
-      throw new Error('找不到對應的機會');
-    }
-
-    // 生成所有需要的月份
-    const monthCapacities = [];
-    let currentYear = startYear;
-    let currentMonth = startMonth;
-
-    while (currentYear < endYear || (currentYear === endYear && currentMonth <= endMonth)) {
-      const monthString = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
-
-      monthCapacities.push({
-        date: monthString,
-        opportunityId,
-        timeSlotId,
-        opportunitySlug: opportunity.slug,
-        capacity: timeSlot.defaultCapacity || 1,
-        bookedCount: 0
-      });
-
-      // 移至下個月
-      if (currentMonth === 12) {
-        currentYear++;
-        currentMonth = 1;
-      } else {
-        currentMonth++;
-      }
-    }
-
-    // 批量插入月份容量記錄
-    if (monthCapacities.length > 0) {
-      await DateCapacity.deleteMany({ opportunityId, timeSlotId });
-      await DateCapacity.insertMany(monthCapacities);
-    }
-
-    console.log(`已為時段 ${timeSlotId} 創建 ${monthCapacities.length} 筆月份容量記錄`);
-  } catch (error) {
-    console.error('初始化月份容量時出錯:', error);
-    throw error;
   }
+
+  return months;
 }
