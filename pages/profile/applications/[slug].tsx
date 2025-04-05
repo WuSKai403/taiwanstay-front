@@ -386,25 +386,57 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
                   <div className="mb-6">
                     <p className="text-sm text-gray-500 mb-1">語言</p>
                     <div className="flex flex-wrap gap-2">
-                      {application.applicationDetails.languages.map((lang, index) => (
+                      {application.applicationDetails.languages.map((lang: any, index: number) => (
                         <span key={index} className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
-                          {lang}
+                          {typeof lang === 'string'
+                            ? lang
+                            : (lang.language && `${lang.language}${lang.level ? ` (${lang.level})` : ''}`)}
                         </span>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {application.applicationDetails.dietaryRestrictions && application.applicationDetails.dietaryRestrictions.length > 0 && (
+                {application.applicationDetails.dietaryRestrictions &&
+                  (Array.isArray(application.applicationDetails.dietaryRestrictions)
+                    ? application.applicationDetails.dietaryRestrictions.length > 0
+                    : application.applicationDetails.dietaryRestrictions &&
+                      typeof application.applicationDetails.dietaryRestrictions === 'object' &&
+                      application.applicationDetails.dietaryRestrictions.type &&
+                      Array.isArray(application.applicationDetails.dietaryRestrictions.type) &&
+                      application.applicationDetails.dietaryRestrictions.type.length > 0) && (
                   <div className="mb-6">
                     <p className="text-sm text-gray-500 mb-1">飲食限制</p>
                     <div className="flex flex-wrap gap-2">
-                      {application.applicationDetails.dietaryRestrictions.map((diet, index) => (
-                        <span key={index} className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
-                          {diet}
+                      {Array.isArray(application.applicationDetails.dietaryRestrictions)
+                        ? application.applicationDetails.dietaryRestrictions.map((diet: any, index: number) => (
+                            <span key={index} className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                              {typeof diet === 'string' ? diet : JSON.stringify(diet)}
+                            </span>
+                          ))
+                        : application.applicationDetails.dietaryRestrictions.type &&
+                          Array.isArray(application.applicationDetails.dietaryRestrictions.type) &&
+                          application.applicationDetails.dietaryRestrictions.type.map((diet: string, index: number) => (
+                            <span key={index} className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                              {diet}
+                            </span>
+                          ))
+                      }
+                      {application.applicationDetails.dietaryRestrictions &&
+                       !Array.isArray(application.applicationDetails.dietaryRestrictions) &&
+                       typeof application.applicationDetails.dietaryRestrictions === 'object' &&
+                       application.applicationDetails.dietaryRestrictions.vegetarianType && (
+                        <span className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                          {application.applicationDetails.dietaryRestrictions.vegetarianType}
                         </span>
-                      ))}
+                      )}
                     </div>
+                    {application.applicationDetails.dietaryRestrictions &&
+                     !Array.isArray(application.applicationDetails.dietaryRestrictions) &&
+                     typeof application.applicationDetails.dietaryRestrictions === 'object' &&
+                     application.applicationDetails.dietaryRestrictions.otherDetails && (
+                      <p className="mt-2 text-gray-600 text-sm">{application.applicationDetails.dietaryRestrictions.otherDetails}</p>
+                    )}
                   </div>
                 )}
 

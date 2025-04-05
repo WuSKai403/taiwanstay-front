@@ -274,6 +274,12 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
     }
 
     console.log('===== 申請創建開始 =====');
+    console.log('當前用戶:', {
+      userId,
+      sessionUserId: session.user.id,
+      userEmail: session.user.email
+    });
+
     const { opportunityId, hostId, timeSlotId, applicationDetails } = req.body;
 
     // 輸出請求體的關鍵部分
@@ -281,6 +287,7 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
       opportunityId,
       hostId,
       timeSlotId,
+      userId,
       'applicationDetails.message': applicationDetails?.message?.substring(0, 20) + '...',
       'applicationDetails.languages': applicationDetails?.languages,
       'applicationDetails.languages類型': typeof applicationDetails?.languages,
@@ -565,8 +572,15 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
 
     // 創建申請
     console.log('準備創建申請...');
+    // 確保userId有值
+    if (!userId) {
+      console.error('用戶ID缺失，將使用會話中的用戶ID');
+    }
+    const actualUserId = userId || session.user.id;
+    console.log('使用的用戶ID:', actualUserId);
+
     const application = new Application({
-      userId,
+      userId: actualUserId, // 確保使用有效的userId
       opportunityId,
       hostId: hostId || opportunity.hostId, // 允許傳入 hostId 或從機會獲取
       timeSlotId,
@@ -587,7 +601,7 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
       // 保存申請
       console.log('保存申請...');
       await application.save();
-      console.log('申請已成功保存:', application._id);
+      console.log('申請已成功保存:', application._id, '用戶ID:', application.userId);
 
       // 更新時段的申請計數（如果適用）
       if (timeSlotId && opportunity.timeSlots) {

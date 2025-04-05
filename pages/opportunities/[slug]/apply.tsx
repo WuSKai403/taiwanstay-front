@@ -192,7 +192,9 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
         opportunityId: opportunity.id,
         hostId: opportunity.host.id,
         timeSlotId: formData.timeSlotId,
-        applicationDetails: adaptedFormData
+        applicationDetails: adaptedFormData,
+        // 確保有用戶ID
+        userId: session?.user?.id  // 顯式添加用戶ID
       };
 
       console.log('API請求資料:', JSON.stringify(requestData, null, 2));
