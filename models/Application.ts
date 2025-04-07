@@ -474,9 +474,9 @@ ApplicationSchema.pre('save', async function(next) {
 ApplicationSchema.pre('save', async function(next) {
   const application = this as unknown as IApplication;
 
-  // 檢查是否有時段ID且狀態變更為已確認
+  // 檢查是否有時段ID且狀態變更為已確認（ACTIVE）
   if (application.timeSlotId &&
-      application.status === ApplicationStatus.CONFIRMED &&
+      application.status === ApplicationStatus.ACTIVE &&
       application.isModified('status')) {
     try {
       const Opportunity = mongoose.model('Opportunity');

@@ -195,7 +195,6 @@ export async function connectToDatabase(): Promise<DatabaseConnection> {
       require('@/models/Opportunity');
       require('@/models/Application');
       require('@/models/Review');
-      require('@/models/Media');
       require('@/models/Message');
       require('@/models/Organization');
       console.log('所有模型已成功預加載');

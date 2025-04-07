@@ -483,7 +483,11 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
           };
         } else {
           // 是物件，但需要確保內部欄位格式正確
-          const tempDR = {
+          const tempDR: {
+            type: string[];
+            otherDetails: string;
+            vegetarianType: string;
+          } = {
             type: [],
             otherDetails: '',
             vegetarianType: ''
@@ -553,6 +557,47 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
       applicationDetails.videoIntroduction = {
         url: applicationDetails.videoIntroduction
       };
+    }
+
+    // 處理照片資料，確保符合資料庫schema
+    if (applicationDetails.photos && Array.isArray(applicationDetails.photos)) {
+      console.log('處理照片資料，原始格式:', applicationDetails.photos.length, '張照片');
+
+      // 暫時清空照片陣列
+      const originalPhotos = applicationDetails.photos;
+      (applicationDetails as any).photos = undefined;
+
+      // 建立一個新的符合資料庫結構的照片陣列
+      const processedPhotos: any[] = [];
+
+      for (const photo of originalPhotos) {
+        // 已經是資料庫格式
+        if (photo.url) {
+          processedPhotos.push(photo);
+          continue;
+        }
+
+        // 從 CloudinaryImageResource 格式轉換
+        if (photo.public_id && photo.secure_url) {
+          processedPhotos.push({
+            publicId: photo.public_id,
+            url: photo.secure_url,
+            width: photo.width || 0,
+            height: photo.height || 0,
+            format: photo.format || 'jpg',
+            type: photo.type || 'image'
+          });
+          continue;
+        }
+
+        // 如果格式不符，記錄
+        console.warn('無法識別的照片格式:', photo);
+      }
+
+      // 重新賦值
+      (applicationDetails as any).photos = processedPhotos;
+
+      console.log('照片資料處理完成，轉換後:', processedPhotos.length, '張照片');
     }
 
     // 創建申請前的最終檢查

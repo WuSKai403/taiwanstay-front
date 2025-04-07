@@ -73,7 +73,7 @@ export default function ProfilePage() {
     } else if (status === 'unauthenticated') {
       router.push('/auth/signin');
     }
-  }, [status, session]);
+  }, [status, session, router]);
 
   // 獲取用戶資料
   const fetchUserProfile = async () => {

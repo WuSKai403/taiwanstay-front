@@ -17,7 +17,8 @@
       "@/types/*": ["types/*"],
       "@/utils/*": ["utils/*"],
       "@/store/*": ["store/*"],
-      "@/hooks/*": ["hooks/*"]
+      "@/hooks/*": ["hooks/*"],
+      "@/constants/*": ["constants/*"]
     },
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,

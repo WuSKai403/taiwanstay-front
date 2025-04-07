@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -66,7 +66,7 @@ export default function HostsPage({ initialHosts, cities }: { initialHosts: Host
   };
 
   // 獲取主辦方數據
-  const fetchHosts = async () => {
+  const fetchHosts = useCallback(async () => {
     setLoading(true);
     try {
       // 構建查詢參數
@@ -86,12 +86,12 @@ export default function HostsPage({ initialHosts, cities }: { initialHosts: Host
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, filters]);
 
   // 當過濾器或搜尋詞變更時獲取數據
   useEffect(() => {
     fetchHosts();
-  }, [filters]);
+  }, [fetchHosts]);
 
   return (
     <Layout>

@@ -1,20 +1,25 @@
 import { useState, useEffect, useMemo } from 'react';
-import { NextPage, GetServerSideProps, GetStaticPaths, GetStaticProps } from 'next';
+import { NextPage, GetServerSideProps } from 'next';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/router';
+import Layout from '@/components/layout/Layout';
+import { OpportunityType } from '@/models/enums';
+import { connectToDatabase } from '@/lib/mongodb';
+import Opportunity from '@/models/Opportunity';
+import { useSession } from 'next-auth/react';
+import TimeSlotDisplay from '@/components/opportunities/TimeSlotDisplay';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
-import { OpportunityType } from '../../models/enums/OpportunityType';
 import SocialMediaIcons from '../../components/SocialMediaIcons';
-import { connectToDatabase } from '../../lib/mongodb';
-import { Opportunity } from '../../models/index';
-import { useSession } from 'next-auth/react';
-import Layout from '../../components/layout/Layout';
 import TimeSlotFilter from '../../components/opportunities/TimeSlotFilter';
 import TimeSlotCalendar from '../../components/opportunities/TimeSlotCalendar';
 import TimeSlotManager from '../../components/opportunities/TimeSlotManager';
-import TimeSlotDisplay from '@/components/opportunities/TimeSlotDisplay';
+import toast from 'react-hot-toast';
+import { FiBookmark } from 'react-icons/fi';
+import { BiTimeFive, BiCalendarAlt } from 'react-icons/bi';
+import { HiOutlineClock } from 'react-icons/hi';
+import { RiLeafLine } from 'react-icons/ri';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('../../components/MapComponent'), {
@@ -417,8 +422,9 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                     <Image
                       src={opportunity.media.images[0].url}
                       alt={opportunity.title}
-                      layout="fill"
-                      objectFit="cover"
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      style={{ objectFit: 'cover' }}
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
@@ -491,8 +497,9 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                           <Image
                             src={opportunity.host.profileImage}
                             alt={opportunity.host.name}
-                            layout="fill"
-                            objectFit="cover"
+                            fill
+                            sizes="(max-width: 768px) 80px, 128px"
+                            style={{ objectFit: 'cover' }}
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -708,89 +715,64 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
   );
 };
 
-export const getStaticPaths: GetStaticPaths = async () => {
-  let db;
+// 新增從資料庫獲取機會的函數
+async function fetchOpportunityBySlug(slug: string) {
   try {
-    const conn = await connectToDatabase();
-    db = conn.db;
-
-    const opportunities = await db.collection('opportunities')
-      .find(
-        { status: 'ACTIVE' },
-        {
-          projection: { slug: 1 }
-        }
-      )
-      .toArray();
-
-    return {
-      paths: opportunities.map((opp) => ({
-        params: { slug: opp.slug }
-      })),
-      fallback: true // 改為 true 以支援增量靜態生成
-    };
-  } catch (error) {
-    console.error('生成靜態路徑失敗:', error);
-    return {
-      paths: [],
-      fallback: true
-    };
-  }
-};
-
-export const getStaticProps: GetStaticProps = async ({ params }) => {
-  const { slug } = params as { slug: string };
-  let db;
-
-  try {
-    const conn = await connectToDatabase();
-    db = conn.db;
-
-    const opportunity = await db.collection('opportunities').findOne(
-      { slug },
-      {
-        projection: {
-          _id: 1,
-          title: 1,
-          slug: 1,
-          shortDescription: 1,
-          description: 1,
-          type: 1,
-          status: 1,
-          location: 1,
-          workDetails: 1,
-          workTimeSettings: 1,
-          benefits: 1,
-          requirements: 1,
-          media: 1,
-          host: 1,
-          stats: 1,
-          hasTimeSlots: 1,
-          timeSlots: 1,
-          createdAt: 1,
-          updatedAt: 1
-        }
-      }
-    );
+    const opportunity = await Opportunity.findOne({ slug })
+      .populate('hostId', 'name description profileImage')
+      .lean();
 
     if (!opportunity) {
-      return { notFound: true };
+      return null;
     }
 
-    const { _id, ...rest } = opportunity;
-
+    // 格式化數據
+    const opportunityData = opportunity as any; // 使用類型斷言解決類型問題
+    const { _id, hostId, ...rest } = opportunityData;
     return {
-      props: {
-        opportunity: {
-          ...JSON.parse(JSON.stringify(rest)),
-          id: _id.toString()
-        }
-      },
-      revalidate: 60
+      ...rest,
+      id: _id.toString(),
+      host: hostId,
     };
   } catch (error) {
     console.error('獲取機會詳情失敗:', error);
-    return { notFound: true };
+    return null;
+  }
+}
+
+// 從靜態生成轉換為伺服器端渲染
+export const getServerSideProps: GetServerSideProps = async ({ params }) => {
+  try {
+    await connectToDatabase();
+
+    // 獲取 slug 參數
+    const slug = Array.isArray(params?.slug) ? params?.slug[0] : params?.slug;
+
+    if (!slug) {
+      return {
+        notFound: true
+      };
+    }
+
+    // 獲取機會詳情
+    const opportunity = await fetchOpportunityBySlug(slug);
+
+    if (!opportunity) {
+      return {
+        notFound: true
+      };
+    }
+
+    return {
+      props: {
+        opportunity: JSON.parse(JSON.stringify(opportunity))
+      }
+    };
+  } catch (error) {
+    console.error('獲取機會詳情失敗:', error);
+    return {
+      notFound: true
+    };
   }
 };
 

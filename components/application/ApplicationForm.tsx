@@ -1,16 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CldUploadWidget } from 'next-cloudinary';
 import Image from 'next/image';
-import type { CloudinaryUploadWidgetResults, CloudinaryUploadWidgetInfo } from 'next-cloudinary';
 import {
-  getUploadPreset,
   getUploadFolder,
 } from '@/lib/cloudinary/config';
 import {
   getUploadParams,
-  convertToImageResource
 } from '@/lib/cloudinary/utils';
 import type { CloudinaryImageResource } from '@/lib/cloudinary/types';
 import {
@@ -364,23 +360,6 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
 
     // 保存草稿
     saveDraft();
-  };
-
-  // 處理照片上傳
-  const handlePhotoUpload = (result: CloudinaryUploadWidgetResults) => {
-    if (result.event === 'success' && result.info) {
-      const photo = convertToImageResource(result.info as CloudinaryUploadWidgetInfo);
-      const currentPhotos = watch('photos');
-      if (currentPhotos.length < 5) {
-        setValue('photos', [...currentPhotos, photo]);
-      }
-    }
-  };
-
-  // 處理照片移除
-  const handleRemovePhoto = (index: number) => {
-    const currentPhotos = watch('photos');
-    setValue('photos', currentPhotos.filter((_: unknown, i: number) => i !== index));
   };
 
   // 處理下一步

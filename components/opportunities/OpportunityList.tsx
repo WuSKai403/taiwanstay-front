@@ -163,6 +163,9 @@ const OpportunityCard = memo(({ opportunity }: { opportunity: TransformedOpportu
   );
 });
 
+// 添加顯示名稱
+OpportunityCard.displayName = 'OpportunityCard';
+
 const OpportunityList: React.FC<OpportunityListProps> = ({
   initialOpportunities,
   totalCount,

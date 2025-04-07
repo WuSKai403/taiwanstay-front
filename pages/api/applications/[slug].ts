@@ -117,13 +117,13 @@ async function updateApplication(req: NextApiRequest, res: NextApiResponse, slug
     if (status) {
       // 申請者只能取消或確認申請
       if (isApplicant) {
-        if (![ApplicationStatus.WITHDRAWN, ApplicationStatus.CONFIRMED].includes(status)) {
+        if (![ApplicationStatus.COMPLETED, ApplicationStatus.ACTIVE].includes(status)) {
           return res.status(403).json({ success: false, message: '無權執行此操作' });
         }
       }
       // 主辦方可以審核、接受或拒絕申請
       else if (isHost) {
-        if (![ApplicationStatus.REVIEWING, ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED].includes(status)) {
+        if (![ApplicationStatus.PENDING, ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED].includes(status)) {
           return res.status(403).json({ success: false, message: '無權執行此操作' });
         }
       }

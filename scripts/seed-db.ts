@@ -736,7 +736,7 @@ async function importApplications() {
         );
 
         // 如果狀態為已確認，更新時段的確認數量
-        if (app.status === ApplicationStatus.CONFIRMED) {
+        if (app.status === ApplicationStatus.ACTIVE) {
           await Opportunity.updateOne(
             { _id: opportunity._id, 'timeSlots._id': timeSlotId },
             { $inc: { 'timeSlots.$.confirmedCount': 1 } }

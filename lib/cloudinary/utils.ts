@@ -1,9 +1,5 @@
-import { CloudinaryImageConfig, CloudinaryResource, CloudinaryImageResource } from './types';
-import type {
-  CloudinaryUploadWidgetOptions,
-  CloudinaryUploadWidgetResults,
-  CloudinaryUploadWidgetInfo
-} from 'next-cloudinary';
+import { CloudinaryImageConfig, CloudinaryResource, CloudinaryImageResource, CloudinaryUploadResult, SignedUrls } from './types';
+import React from 'react';
 
 export const generateTransformation = (config: CloudinaryImageConfig): string => {
   const transformations: string[] = [];
@@ -34,23 +30,76 @@ export const formatBytes = (bytes: number): string => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
-export const convertToImageResource = (info: CloudinaryUploadWidgetInfo): CloudinaryImageResource => {
-  if (!info.public_id || !info.secure_url) {
+export const convertToImageResource = (result: CloudinaryUploadResult): CloudinaryImageResource => {
+  if (!result.public_id || !result.secure_url) {
     throw new Error('Missing required fields in CloudinaryResource');
   }
 
   const resource: CloudinaryResource = {
-    public_id: info.public_id,
-    secure_url: info.secure_url,
-    version_id: info.version_id as string | undefined,
-    signature: info.signature as string | undefined,
-    api_key: info.api_key as string | undefined
+    public_id: result.public_id,
+    secure_url: result.secure_url
   };
 
   return {
     ...resource,
     thumbnailUrl: resource.secure_url.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200/'),
     previewUrl: resource.secure_url.replace('/upload/', '/upload/c_scale,w_600/')
+  };
+};
+
+/**
+ * 創建 Cloudinary 圖片設定
+ * 適合 MVP 階段使用，避免 Next.js Image 元件對私有資源的權限問題
+ * 返回的是圖片配置對象，而非 JSX 元素
+ */
+export const createCloudinaryImageConfig = (props: {
+  resource: CloudinaryImageResource;
+  alt?: string;
+  className?: string;
+  objectFit?: 'cover' | 'contain' | 'fill';
+  width?: string | number;
+  height?: string | number;
+  fallbackText?: string;
+  isPrivate?: boolean;
+  index?: number;
+}): {
+  imageUrl: string;
+  alt: string;
+  className: string;
+  style: {
+    objectFit: string;
+    width: string | number;
+    height: string | number;
+  };
+  fallbackText: string;
+} => {
+  const {
+    resource,
+    alt,
+    className = '',
+    objectFit = 'cover',
+    width,
+    height,
+    fallbackText = '圖片載入失敗',
+    isPrivate = false,
+    index
+  } = props;
+
+  // 對於私有資源，直接使用 secure_url 而不是透過 Next.js Image 元件
+  const imageUrl = isPrivate
+    ? resource.secure_url // 直接使用 Cloudinary URL
+    : resource.previewUrl || resource.secure_url;
+
+  return {
+    imageUrl,
+    alt: alt || resource.altText || `照片 ${index !== undefined ? index + 1 : ''}`,
+    className,
+    style: {
+      objectFit,
+      width: width || '100%',
+      height: height || '100%'
+    },
+    fallbackText
   };
 };
 
@@ -62,7 +111,7 @@ export const getUploadParams = (
     tags?: string[];
     resourceType?: string;
   }
-): CloudinaryUploadWidgetOptions => {
+): Record<string, any> => {
   return {
     folder,
     tags: options?.tags || [],
@@ -155,4 +204,25 @@ export const validateImageDimensions = (
   }
 
   return { isValid: true };
+};
+
+/**
+ * 從伺服器獲取資源的簽名URL
+ * @param publicId 資源的公開ID
+ * @returns SignedUrls 包含不同大小的簽名URL
+ */
+export const getSignedUrls = async (publicId: string): Promise<SignedUrls> => {
+  try {
+    const response = await fetch(`/api/cloudinary/sign-url?publicId=${encodeURIComponent(publicId)}`);
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || '獲取簽名URL失敗');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('獲取簽名URL錯誤:', error);
+    throw error;
+  }
 };

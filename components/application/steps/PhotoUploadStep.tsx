@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { UseFormRegister, Control, UseFormWatch, UseFormSetValue, FieldErrors } from 'react-hook-form';
 import { ApplicationFormData, CloudinaryImageResource } from '@/lib/schemas/application';
-import Image from 'next/image';
+import { CloudinaryUploadService } from '@/lib/cloudinary/uploadService';
+import CloudinaryImage from '@/components/CloudinaryImage';
 
 interface PhotoUploadStepProps {
   register: UseFormRegister<ApplicationFormData>;
@@ -22,50 +23,90 @@ const PhotoUploadStep: React.FC<PhotoUploadStepProps> = ({
 
   // 照片上傳處理
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
-  // 模擬照片上傳功能
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-
-    setUploading(true);
-
-    try {
-      // 這裡會實際上傳照片到 Cloudinary，目前僅模擬
-      // 實際實現需要接入Cloudinary API
-
-      const newPhotos: CloudinaryImageResource[] = Array.from(e.target.files).map((file, index) => ({
-        public_id: `photo_${Date.now()}_${index}`,
-        secure_url: URL.createObjectURL(file),
-        thumbnailUrl: URL.createObjectURL(file),
-        previewUrl: URL.createObjectURL(file),
-        caption: '',
-        altText: file.name,
-        displayOrder: photos.length + index
-      }));
-
-      setValue('photos', [...photos, ...newPhotos]);
-
-      // 為每張新照片增加一個空的描述
-      setValue('photoDescriptions', [
-        ...photoDescriptions,
-        ...Array(newPhotos.length).fill('')
-      ]);
-    } catch (error) {
-      console.error('照片上傳失敗', error);
+  // 處理照片上傳
+  const handlePhotoUpload = async (file: File) => {
+    // 檢查檔案類型
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      setUploadError('不支援的檔案類型，請上傳 JPG 或 PNG 圖片');
+      return;
     }
 
-    setUploading(false);
+    // 檢查檔案大小 (限制 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setUploadError('檔案過大，請上傳小於 5MB 的圖片');
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+    setUploadProgress(0);
+
+    try {
+      // 使用CloudinaryUploadService上傳照片
+      const result = await CloudinaryUploadService.uploadFile({
+        file,
+        folder: 'applications/photos',
+        resourceType: 'image',
+        uploadMode: 'applicant',
+        onProgress: (percent) => setUploadProgress(percent)
+      });
+
+      console.log('上傳成功:', result);
+
+      // 將結果轉換為應用程式需要的格式
+      const photo = CloudinaryUploadService.convertToImageResource(result);
+
+      // 更新表單資料
+      const currentPhotos = watch('photos') || [];
+      if (currentPhotos.length < 5) {
+        setValue('photos', [...currentPhotos, photo], { shouldValidate: true });
+
+        // 為新上傳的照片增加一個空的描述
+        const newDescriptions = [...(watch('photoDescriptions') || [])];
+        newDescriptions[currentPhotos.length] = '';
+        setValue('photoDescriptions', newDescriptions);
+
+        console.log('照片已新增:', photo);
+      }
+    } catch (error) {
+      console.error('上傳處理失敗', error);
+      setUploadError(error instanceof Error ? error.message : '上傳失敗，請重試');
+    } finally {
+      setUploading(false);
+    }
   };
 
   // 移除照片
-  const removePhoto = (index: number) => {
-    const newPhotos = [...photos];
-    newPhotos.splice(index, 1);
-    setValue('photos', newPhotos);
+  const removePhoto = async (index: number) => {
+    try {
+      const newPhotos = [...photos];
+      const removedPhoto = newPhotos[index];
 
-    const newDescriptions = [...photoDescriptions];
-    newDescriptions.splice(index, 1);
-    setValue('photoDescriptions', newDescriptions);
+      // 先從UI移除
+      newPhotos.splice(index, 1);
+      setValue('photos', newPhotos);
+
+      const newDescriptions = [...photoDescriptions];
+      newDescriptions.splice(index, 1);
+      setValue('photoDescriptions', newDescriptions);
+
+      // 如果有publicId，嘗試從Cloudinary刪除
+      if (removedPhoto?.public_id) {
+        try {
+          await CloudinaryUploadService.deleteFile(removedPhoto.public_id);
+          console.log('已刪除Cloudinary上的照片:', removedPhoto.public_id);
+        } catch (error) {
+          console.error('刪除Cloudinary照片失敗，但UI已更新', error);
+        }
+      }
+    } catch (error) {
+      console.error('移除照片錯誤', error);
+    }
   };
 
   // 更新照片描述
@@ -88,48 +129,88 @@ const PhotoUploadStep: React.FC<PhotoUploadStepProps> = ({
         </p>
 
         <div className="mb-4">
-          <label className="flex justify-center w-full h-32 px-4 transition bg-white border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-primary-500 focus:outline-none">
-            <span className="flex items-center space-x-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <span className="font-medium text-gray-600">
-                {uploading ? '上傳中...' : '點擊上傳照片或拖放照片至此'}
-              </span>
-            </span>
-            <input
-              type="file"
-              name="photos"
-              multiple
-              accept="image/png, image/jpeg, image/jpg"
-              className="hidden"
-              onChange={handlePhotoUpload}
-              disabled={uploading || photos.length >= 5}
-            />
-          </label>
-          {photos.length >= 5 && (
-            <p className="mt-1 text-sm text-orange-500">已達上傳上限 (5張)</p>
+          {photos.length < 5 ? (
+            <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    handlePhotoUpload(e.target.files[0]);
+                  }
+                }}
+                disabled={uploading}
+                className="hidden"
+                id="photo-upload"
+              />
+              <label
+                htmlFor="photo-upload"
+                className={`cursor-pointer flex flex-col items-center justify-center ${uploading ? 'opacity-50' : ''}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p className="text-gray-700 font-medium">
+                  {uploading ? '上傳中...' : '點擊上傳照片'}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  支援的檔案類型：PNG、JPEG、JPG
+                </p>
+              </label>
+            </div>
+          ) : (
+            <div className="p-4 border-2 border-dashed rounded-lg text-center bg-gray-50">
+              <p className="text-gray-600">已達上傳上限 (5張)</p>
+            </div>
           )}
+
+          {/* 上傳進度顯示 */}
+          {uploading && (
+            <div className="mt-4 space-y-1">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>上傳進度</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="h-2 rounded-full transition-all duration-300 bg-primary-600"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {uploadError && (
+            <p className="mt-2 text-sm text-red-600">{uploadError}</p>
+          )}
+
           {errors.photos && (
-            <p className="mt-1 text-sm text-red-600">{errors.photos.message}</p>
+            <p className="mt-2 text-sm text-red-600">{errors.photos.message}</p>
           )}
         </div>
 
         {/* 已上傳照片預覽 */}
         {photos.length > 0 && (
           <div className="mt-6 space-y-4">
-            <h4 className="font-medium">已上傳照片</h4>
+            <h4 className="font-medium">已上傳照片 ({photos.length}/5)</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {photos.map((photo, index) => (
-                <div key={photo.public_id} className="border rounded-md p-3 space-y-3">
+                <div key={photo.public_id || index} className="border rounded-md p-3 space-y-3">
                   <div className="relative h-40 w-full overflow-hidden rounded">
-                    <Image
-                      src={photo.previewUrl}
-                      alt={photo.altText || `照片 ${index + 1}`}
-                      fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      style={{objectFit: 'cover'}}
-                    />
+                    {photo.secure_url ? (
+                      <CloudinaryImage
+                        resource={photo}
+                        alt={`照片 ${index + 1}`}
+                        className="w-full h-full"
+                        objectFit="cover"
+                        isPrivate={true}
+                        index={index}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                        <span className="text-gray-500">照片處理中...</span>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => removePhoto(index)}
@@ -139,6 +220,14 @@ const PhotoUploadStep: React.FC<PhotoUploadStepProps> = ({
                         <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    <div className="flex justify-between">
+                      <span>照片 #{index + 1}</span>
+                      <span className="truncate" title={photo.public_id || ''}>
+                        {photo.public_id ? photo.public_id.split('/').pop() : '處理中...'}
+                      </span>
+                    </div>
                   </div>
                   <textarea
                     value={photoDescriptions[index] || ''}

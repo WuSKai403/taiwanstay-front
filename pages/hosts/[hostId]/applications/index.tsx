@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { NextPage, GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
@@ -11,32 +11,7 @@ import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
 import { useQuery } from '@tanstack/react-query';
 import HostLayout from '@/components/layout/HostLayout';
 import { getSession } from 'next-auth/react';
-
-// 申請狀態中文名稱映射
-const statusNameMap: Record<ApplicationStatus, string> = {
-  [ApplicationStatus.DRAFT]: '草稿',
-  [ApplicationStatus.PENDING]: '待審核',
-  [ApplicationStatus.REVIEWING]: '審核中',
-  [ApplicationStatus.ACCEPTED]: '已接受',
-  [ApplicationStatus.REJECTED]: '已拒絕',
-  [ApplicationStatus.CONFIRMED]: '已確認',
-  [ApplicationStatus.CANCELLED]: '已取消',
-  [ApplicationStatus.COMPLETED]: '已完成',
-  [ApplicationStatus.WITHDRAWN]: '已撤回'
-};
-
-// 申請狀態顏色映射
-const statusColorMap: Record<ApplicationStatus, string> = {
-  [ApplicationStatus.DRAFT]: 'bg-gray-100 text-gray-800',
-  [ApplicationStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
-  [ApplicationStatus.REVIEWING]: 'bg-blue-100 text-blue-800',
-  [ApplicationStatus.ACCEPTED]: 'bg-green-100 text-green-800',
-  [ApplicationStatus.REJECTED]: 'bg-red-100 text-red-800',
-  [ApplicationStatus.CONFIRMED]: 'bg-green-100 text-green-800',
-  [ApplicationStatus.CANCELLED]: 'bg-gray-100 text-gray-800',
-  [ApplicationStatus.COMPLETED]: 'bg-purple-100 text-purple-800',
-  [ApplicationStatus.WITHDRAWN]: 'bg-gray-100 text-gray-800'
-};
+import { statusNameMap, statusColorMap } from '@/constants/applicationStatus';
 
 // 申請接口
 interface Application {
@@ -292,8 +267,9 @@ const HostApplicationsPage: NextPage<HostApplicationsPageProps> = ({ hostId }) =
                             <Image
                               src={application.userId.profileImage}
                               alt={application.userId.name}
-                              layout="fill"
-                              objectFit="cover"
+                              fill
+                              sizes="48px"
+                              style={{ objectFit: 'cover' }}
                             />
                           ) : (
                             <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -326,7 +302,7 @@ const HostApplicationsPage: NextPage<HostApplicationsPageProps> = ({ hostId }) =
                         {application.status === ApplicationStatus.PENDING && (
                           <>
                             <button
-                              onClick={() => handleStatusChange(application._id, ApplicationStatus.REVIEWING)}
+                              onClick={() => handleStatusChange(application._id, ApplicationStatus.PENDING)}
                               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
                             >
                               開始審核
@@ -334,7 +310,7 @@ const HostApplicationsPage: NextPage<HostApplicationsPageProps> = ({ hostId }) =
                           </>
                         )}
 
-                        {application.status === ApplicationStatus.REVIEWING && (
+                        {application.status === ApplicationStatus.PENDING && (
                           <>
                             <button
                               onClick={() => handleStatusChange(application._id, ApplicationStatus.ACCEPTED)}

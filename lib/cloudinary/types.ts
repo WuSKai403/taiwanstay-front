@@ -1,16 +1,29 @@
-import { CloudinaryUploadWidgetResults, CloudinaryUploadWidgetInfo } from 'next-cloudinary';
-
 // Cloudinary 資源基本介面
 export interface CloudinaryResource {
   public_id: string;
+  format?: string;
+  version?: string;
+  filename?: string;
   secure_url: string;
-  version_id?: string;
-  signature?: string;
-  api_key?: string;
+  url?: string;
+  bytes?: number;
+  width?: number;
+  height?: number;
+  created_at?: string;
+  resource_type?: string;
 }
 
-// 上傳結果介面
-export type CloudinaryUploadResult = CloudinaryUploadWidgetResults;
+// 上傳結果介面 (原始的Cloudinary API回應)
+export interface CloudinaryUploadResult {
+  public_id: string;
+  secure_url: string;
+  bytes: number;
+  created_at: string;
+  format: string;
+  original_filename: string;
+  width: number;
+  height: number;
+}
 
 // 上傳設定介面
 export interface CloudinaryUploadConfig {
@@ -46,12 +59,31 @@ export interface CloudinaryImageConfig {
   flags?: string[];
 }
 
-// 圖片資源介面（用於前端顯示）
-export interface CloudinaryImageResource extends CloudinaryResource {
-  public_id: string;  // 用於訪問和傳遞上傳資產的唯一標識符
+// 簽名URL介面
+export interface CloudinaryResourceURL {
   thumbnailUrl: string;
   previewUrl: string;
-  transformedUrl?: string;
+  originalUrl: string;
+}
+
+export interface SignedUrls {
+  thumbnailUrl: string;
+  previewUrl: string;
+  originalUrl: string;
+  privateDownload?: CloudinaryResourceURL;
+  timestamp?: number;
+  expires?: number;
+}
+
+// 圖片資源介面（用於前端顯示）
+export interface CloudinaryImageResource extends CloudinaryResource {
+  alt?: string;
+  original_url?: string;
+  original_secure_url?: string;
+  thumbnailUrl: string;
+  previewUrl: string;
+  originalUrl?: string;
+  signedUrls?: SignedUrls;
   caption?: string;
   altText?: string;
   displayOrder?: number;

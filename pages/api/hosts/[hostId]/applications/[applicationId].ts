@@ -63,88 +63,83 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { status, statusNote } = req.body;
 
       // 驗證狀態轉換的合法性
-      if (status) {
-        const currentStatus = application.status as ApplicationStatus;
+      const allowedTransitions: Record<ApplicationStatus, ApplicationStatus[]> = {
+        [ApplicationStatus.DRAFT]: [ApplicationStatus.PENDING, ApplicationStatus.COMPLETED],
+        [ApplicationStatus.PENDING]: [ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED, ApplicationStatus.COMPLETED],
+        [ApplicationStatus.ACCEPTED]: [ApplicationStatus.ACTIVE, ApplicationStatus.REJECTED, ApplicationStatus.COMPLETED],
+        [ApplicationStatus.REJECTED]: [ApplicationStatus.PENDING, ApplicationStatus.ACCEPTED],
+        [ApplicationStatus.ACTIVE]: [ApplicationStatus.COMPLETED],
+        [ApplicationStatus.COMPLETED]: []
+      };
 
-        // 檢查狀態轉換是否合法
-        const allowedTransitions: Record<ApplicationStatus, ApplicationStatus[]> = {
-          [ApplicationStatus.DRAFT]: [ApplicationStatus.PENDING, ApplicationStatus.WITHDRAWN],
-          [ApplicationStatus.PENDING]: [ApplicationStatus.REVIEWING, ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED],
-          [ApplicationStatus.REVIEWING]: [ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED],
-          [ApplicationStatus.ACCEPTED]: [ApplicationStatus.CONFIRMED, ApplicationStatus.WITHDRAWN, ApplicationStatus.CANCELLED],
-          [ApplicationStatus.REJECTED]: [ApplicationStatus.REVIEWING],
-          [ApplicationStatus.CONFIRMED]: [ApplicationStatus.COMPLETED, ApplicationStatus.CANCELLED],
-          [ApplicationStatus.CANCELLED]: [],
-          [ApplicationStatus.COMPLETED]: [],
-          [ApplicationStatus.WITHDRAWN]: []
+      if (!allowedTransitions[application.status as ApplicationStatus].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: `不允許從 ${application.status} 狀態轉換為 ${status} 狀態`
+        });
+      }
+
+      // 更新狀態
+      application.status = status;
+
+      // 如果有備註，則保存
+      if (statusNote) {
+        application.statusNote = statusNote;
+      }
+
+      // 根據狀態設置相關詳情
+      const now = new Date();
+
+      if (status === ApplicationStatus.PENDING) {
+        // 從草稿狀態轉為待審核狀態
+        // 不需要特別處理
+      } else if (status === ApplicationStatus.ACCEPTED) {
+        application.reviewDetails = {
+          reviewedBy: host.userId,
+          reviewedAt: now,
+          notes: statusNote || undefined
         };
-
-        if (!allowedTransitions[currentStatus].includes(status)) {
-          return res.status(400).json({
-            success: false,
-            message: `不允許從 ${currentStatus} 狀態轉換為 ${status} 狀態`
-          });
-        }
-
-        // 更新狀態
-        application.status = status;
-
-        // 如果有備註，則保存
-        if (statusNote) {
-          application.statusNote = statusNote;
-        }
-
-        // 根據狀態設置相關詳情
-        const now = new Date();
-
-        if (status === ApplicationStatus.REVIEWING) {
-          application.reviewDetails = {
-            reviewedBy: host.userId,
-            reviewedAt: now,
-            notes: statusNote || undefined
+      } else if (status === ApplicationStatus.REJECTED) {
+        application.reviewDetails = {
+          reviewedBy: host.userId,
+          reviewedAt: now,
+          notes: statusNote || undefined
+        };
+      } else if (status === ApplicationStatus.ACTIVE) {
+        // 已確認參與，表示申請進入進行中狀態
+        if (!application.confirmationDetails) {
+          application.confirmationDetails = {
+            confirmedBy: host.userId,
+            confirmedAt: now,
+            additionalNotes: statusNote
           };
-        } else if (status === ApplicationStatus.ACCEPTED) {
-          if (!application.reviewDetails) {
-            application.reviewDetails = {
-              reviewedBy: host.userId,
-              reviewedAt: now,
-              notes: statusNote || undefined
-            };
-          }
-        } else if (status === ApplicationStatus.REJECTED) {
-          if (!application.reviewDetails) {
-            application.reviewDetails = {
-              reviewedBy: host.userId,
-              reviewedAt: now,
-              notes: statusNote || undefined
-            };
-          }
-        } else if (status === ApplicationStatus.CANCELLED) {
+        }
+      } else if (status === ApplicationStatus.COMPLETED) {
+        // 完成、取消或撤回，統一使用completed狀態
+        // 根據是否已經開始進行，決定是設為取消還是完成
+        if (application.status === ApplicationStatus.ACTIVE) {
+          // 已經開始進行，設為完成
+          application.completionDetails = {
+            completedAt: now
+          };
+        } else {
+          // 未開始進行，設為取消
           application.cancellationDetails = {
             cancelledBy: host.userId,
             cancelledAt: now,
             reason: statusNote || undefined,
             initiatedBy: 'host'
           };
-        } else if (status === ApplicationStatus.COMPLETED) {
-          application.completionDetails = {
-            completedAt: now
-          };
         }
-
-        await application.save();
-
-        return res.status(200).json({
-          success: true,
-          message: '申請狀態已更新',
-          data: application
-        });
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: '缺少必要參數'
-        });
       }
+
+      await application.save();
+
+      return res.status(200).json({
+        success: true,
+        message: '申請狀態已更新',
+        data: application
+      });
     }
   } catch (error) {
     console.error('申請詳情處理錯誤:', error);

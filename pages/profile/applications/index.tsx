@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { NextPage, GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
@@ -9,32 +9,7 @@ import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
 import ProfileLayout from '@/components/layout/ProfileLayout';
-
-// 申請狀態中文名稱映射
-const statusNameMap: Record<ApplicationStatus, string> = {
-  [ApplicationStatus.DRAFT]: '草稿',
-  [ApplicationStatus.PENDING]: '待審核',
-  [ApplicationStatus.REVIEWING]: '審核中',
-  [ApplicationStatus.ACCEPTED]: '已接受',
-  [ApplicationStatus.REJECTED]: '已拒絕',
-  [ApplicationStatus.CONFIRMED]: '已確認',
-  [ApplicationStatus.CANCELLED]: '已取消',
-  [ApplicationStatus.COMPLETED]: '已完成',
-  [ApplicationStatus.WITHDRAWN]: '已撤回'
-};
-
-// 申請狀態顏色映射
-const statusColorMap: Record<ApplicationStatus, string> = {
-  [ApplicationStatus.DRAFT]: 'bg-gray-100 text-gray-800',
-  [ApplicationStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
-  [ApplicationStatus.REVIEWING]: 'bg-blue-100 text-blue-800',
-  [ApplicationStatus.ACCEPTED]: 'bg-green-100 text-green-800',
-  [ApplicationStatus.REJECTED]: 'bg-red-100 text-red-800',
-  [ApplicationStatus.CONFIRMED]: 'bg-green-100 text-green-800',
-  [ApplicationStatus.CANCELLED]: 'bg-gray-100 text-gray-800',
-  [ApplicationStatus.COMPLETED]: 'bg-purple-100 text-purple-800',
-  [ApplicationStatus.WITHDRAWN]: 'bg-gray-100 text-gray-800'
-};
+import { statusNameMap, statusColorMap } from '@/constants/applicationStatus';
 
 // 申請接口
 interface Application {
@@ -76,16 +51,29 @@ interface Application {
   updatedAt: string;
 }
 
+// 更新狀態過濾器
+type StatusFilterKey = 'all' | ApplicationStatus;
+
+const statusFilters: {key: StatusFilterKey, label: string}[] = [
+  { key: 'all', label: '全部' },
+  { key: ApplicationStatus.DRAFT, label: '草稿' },
+  { key: ApplicationStatus.PENDING, label: '待審核' },
+  { key: ApplicationStatus.ACCEPTED, label: '已接受' },
+  { key: ApplicationStatus.REJECTED, label: '已拒絕' },
+  { key: ApplicationStatus.ACTIVE, label: '進行中' },
+  { key: ApplicationStatus.COMPLETED, label: '已結束' }
+];
+
 const ApplicationsPage: NextPage = () => {
   const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<ApplicationStatus | 'all'>('all');
+  const [error, setError] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<StatusFilterKey>('all');
 
   // 獲取申請列表
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/applications${activeTab !== 'all' ? `?status=${activeTab}` : ''}`);
@@ -102,14 +90,14 @@ const ApplicationsPage: NextPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   // 當用戶登入狀態或標籤變化時獲取數據
   useEffect(() => {
     if (sessionStatus === 'authenticated') {
       fetchApplications();
     }
-  }, [sessionStatus, activeTab]);
+  }, [sessionStatus, fetchApplications]);
 
   // 如果用戶未登入，重定向到登入頁面
   useEffect(() => {
@@ -121,6 +109,10 @@ const ApplicationsPage: NextPage = () => {
   // 處理申請狀態變更
   const handleStatusChange = async (applicationId: string, newStatus: ApplicationStatus) => {
     try {
+      const confirmed = window.confirm(`確定要將申請狀態更改為「${statusNameMap[newStatus]}」嗎？`);
+
+      if (!confirmed) return;
+
       const response = await fetch(`/api/applications/${applicationId}`, {
         method: 'PUT',
         headers: {
@@ -135,14 +127,8 @@ const ApplicationsPage: NextPage = () => {
         throw new Error('更新申請狀態失敗');
       }
 
-      // 更新本地狀態
-      setApplications(prev =>
-        prev.map(app =>
-          app._id === applicationId
-            ? { ...app, status: newStatus }
-            : app
-        )
-      );
+      // 重新獲取申請列表
+      fetchApplications();
     } catch (err) {
       console.error('更新申請狀態錯誤:', err);
       alert((err as Error).message);
@@ -174,27 +160,17 @@ const ApplicationsPage: NextPage = () => {
         {/* 標籤導航 */}
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`py-4 px-6 font-medium text-sm border-b-2 whitespace-nowrap ${
-                activeTab === 'all'
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              全部
-            </button>
-            {Object.values(ApplicationStatus).map((status) => (
+            {statusFilters.map((filter) => (
               <button
-                key={status}
-                onClick={() => setActiveTab(status)}
+                key={filter.key}
+                onClick={() => setActiveTab(filter.key as StatusFilterKey)}
                 className={`py-4 px-6 font-medium text-sm border-b-2 whitespace-nowrap ${
-                  activeTab === status
+                  activeTab === filter.key
                     ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                {statusNameMap[status]}
+                {filter.label}
               </button>
             ))}
           </nav>
@@ -312,7 +288,7 @@ const ApplicationsPage: NextPage = () => {
 
                       {application.status === ApplicationStatus.PENDING && (
                         <button
-                          onClick={() => handleStatusChange(application._id, ApplicationStatus.WITHDRAWN)}
+                          onClick={() => handleStatusChange(application._id, ApplicationStatus.COMPLETED)}
                           className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors"
                         >
                           撤回申請
@@ -321,7 +297,7 @@ const ApplicationsPage: NextPage = () => {
 
                       {application.status === ApplicationStatus.ACCEPTED && (
                         <button
-                          onClick={() => handleStatusChange(application._id, ApplicationStatus.CONFIRMED)}
+                          onClick={() => handleStatusChange(application._id, ApplicationStatus.ACTIVE)}
                           className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
                         >
                           確認參與
@@ -330,7 +306,7 @@ const ApplicationsPage: NextPage = () => {
 
                       {application.status === ApplicationStatus.ACCEPTED && (
                         <button
-                          onClick={() => handleStatusChange(application._id, ApplicationStatus.WITHDRAWN)}
+                          onClick={() => handleStatusChange(application._id, ApplicationStatus.COMPLETED)}
                           className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors"
                         >
                           婉拒邀請

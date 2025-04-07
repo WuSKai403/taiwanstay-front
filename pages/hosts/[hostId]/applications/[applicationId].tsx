@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { NextPage, GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
@@ -10,103 +10,7 @@ import { zhTW } from 'date-fns/locale';
 import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
 import HostLayout from '@/components/layout/HostLayout';
 import { getSession } from 'next-auth/react';
-
-// 申請狀態中文名稱映射
-const statusNameMap: Record<ApplicationStatus, string> = {
-  [ApplicationStatus.DRAFT]: '草稿',
-  [ApplicationStatus.PENDING]: '待審核',
-  [ApplicationStatus.REVIEWING]: '審核中',
-  [ApplicationStatus.ACCEPTED]: '已接受',
-  [ApplicationStatus.REJECTED]: '已拒絕',
-  [ApplicationStatus.CONFIRMED]: '已確認',
-  [ApplicationStatus.CANCELLED]: '已取消',
-  [ApplicationStatus.COMPLETED]: '已完成',
-  [ApplicationStatus.WITHDRAWN]: '已撤回'
-};
-
-// 申請狀態顏色映射
-const statusColorMap: Record<ApplicationStatus, string> = {
-  [ApplicationStatus.DRAFT]: 'bg-gray-100 text-gray-800',
-  [ApplicationStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
-  [ApplicationStatus.REVIEWING]: 'bg-blue-100 text-blue-800',
-  [ApplicationStatus.ACCEPTED]: 'bg-green-100 text-green-800',
-  [ApplicationStatus.REJECTED]: 'bg-red-100 text-red-800',
-  [ApplicationStatus.CONFIRMED]: 'bg-green-100 text-green-800',
-  [ApplicationStatus.CANCELLED]: 'bg-gray-100 text-gray-800',
-  [ApplicationStatus.COMPLETED]: 'bg-purple-100 text-purple-800',
-  [ApplicationStatus.WITHDRAWN]: 'bg-gray-100 text-gray-800'
-};
-
-// 申請詳情接口
-interface ApplicationDetail {
-  _id: string;
-  status: ApplicationStatus;
-  statusNote?: string;
-  opportunityId: {
-    _id: string;
-    title: string;
-    slug: string;
-    type: string;
-    location?: {
-      city?: string;
-      district?: string;
-    };
-    media?: {
-      images?: Array<{
-        url: string;
-        alt?: string;
-      }>;
-    };
-  };
-  hostId: {
-    _id: string;
-    name: string;
-    profileImage?: string;
-  };
-  userId: {
-    _id: string;
-    name: string;
-    email: string;
-    profile?: {
-      avatar?: string;
-    };
-  };
-  applicationDetails: {
-    message: string;
-    startMonth: string;
-    endMonth?: string;
-    duration: number;
-    travelingWith?: {
-      partner: boolean;
-      children: boolean;
-      pets: boolean;
-      details?: string;
-    };
-    answers?: {
-      question: string;
-      answer: string;
-    }[];
-    specialRequirements?: string;
-    dietaryRestrictions?: string[];
-    languages?: string[];
-    relevantExperience?: string;
-    motivation?: string;
-  };
-  communications: {
-    messages: {
-      _id: string;
-      sender: string;
-      content: string;
-      timestamp: string;
-      read: boolean;
-    }[];
-    lastMessageAt?: string;
-    unreadHostMessages: number;
-    unreadUserMessages: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
+import { statusNameMap, statusColorMap, ApplicationDetail } from '@/constants/applicationStatus';
 
 interface ApplicationDetailPageProps {
   hostId: string;
@@ -125,8 +29,19 @@ const HostApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ hostI
   const [changingStatus, setChangingStatus] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 標記訊息為已讀
+  const markMessagesAsRead = useCallback(async () => {
+    try {
+      await fetch(`/api/hosts/${hostId}/applications/${applicationId}/messages/read`, {
+        method: 'POST'
+      });
+    } catch (err) {
+      console.error('標記訊息為已讀錯誤:', err);
+    }
+  }, [hostId, applicationId]);
+
   // 獲取申請詳情
-  const fetchApplicationDetail = async () => {
+  const fetchApplicationDetail = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/hosts/${hostId}/applications/${applicationId}`);
@@ -148,25 +63,14 @@ const HostApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ hostI
     } finally {
       setLoading(false);
     }
-  };
-
-  // 標記訊息為已讀
-  const markMessagesAsRead = async () => {
-    try {
-      await fetch(`/api/hosts/${hostId}/applications/${applicationId}/messages/read`, {
-        method: 'POST'
-      });
-    } catch (err) {
-      console.error('標記訊息為已讀錯誤:', err);
-    }
-  };
+  }, [hostId, applicationId, markMessagesAsRead]);
 
   // 當用戶登入狀態變化時獲取數據
   useEffect(() => {
     if (sessionStatus === 'authenticated' && applicationId) {
       fetchApplicationDetail();
     }
-  }, [sessionStatus, applicationId]);
+  }, [sessionStatus, applicationId, fetchApplicationDetail]);
 
   // 如果用戶未登入，重定向到登入頁面
   useEffect(() => {
@@ -332,8 +236,9 @@ const HostApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ hostI
                       <Image
                         src={application.userId.profile.avatar}
                         alt={application.userId.name}
-                        layout="fill"
-                        objectFit="cover"
+                        fill
+                        sizes="64px"
+                        style={{ objectFit: 'cover' }}
                       />
                     ) : (
                       <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -409,11 +314,25 @@ const HostApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ hostI
                     </div>
                   )}
 
-                  {application.applicationDetails.dietaryRestrictions && application.applicationDetails.dietaryRestrictions.length > 0 && (
-                    <div>
-                      <h3 className="font-medium text-gray-700 mb-2">飲食限制</h3>
-                      <p>{application.applicationDetails.dietaryRestrictions.join(', ')}</p>
-                    </div>
+                  {application.applicationDetails.dietaryRestrictions && (
+                    Array.isArray(application.applicationDetails.dietaryRestrictions) ?
+                      application.applicationDetails.dietaryRestrictions.length > 0 && (
+                        <div>
+                          <h3 className="font-medium text-gray-700 mb-2">飲食限制</h3>
+                          <p>{application.applicationDetails.dietaryRestrictions.join(', ')}</p>
+                        </div>
+                      ) : application.applicationDetails.dietaryRestrictions.type && application.applicationDetails.dietaryRestrictions.type.length > 0 && (
+                        <div>
+                          <h3 className="font-medium text-gray-700 mb-2">飲食限制</h3>
+                          <p>{application.applicationDetails.dietaryRestrictions.type.join(', ')}</p>
+                          {application.applicationDetails.dietaryRestrictions.vegetarianType && (
+                            <p className="mt-1">素食類型: {application.applicationDetails.dietaryRestrictions.vegetarianType}</p>
+                          )}
+                          {application.applicationDetails.dietaryRestrictions.otherDetails && (
+                            <p className="mt-1">其他詳情: {application.applicationDetails.dietaryRestrictions.otherDetails}</p>
+                          )}
+                        </div>
+                      )
                   )}
 
                   {application.applicationDetails.relevantExperience && (
@@ -459,48 +378,48 @@ const HostApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ hostI
               </div>
 
               {/* 狀態更新 */}
-              {[ApplicationStatus.PENDING, ApplicationStatus.REVIEWING].includes(application.status) && (
+              {[ApplicationStatus.PENDING].includes(application.status) && (
                 <div className="mb-8 border-t border-gray-200 pt-6">
                   <h2 className="text-lg font-semibold mb-4">更新申請狀態</h2>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="mb-4">
-                      <label htmlFor="statusNote" className="block font-medium text-gray-700 mb-2">
-                        狀態備註（選填）
+                      <label htmlFor="statusNote" className="block text-sm font-medium text-gray-700 mb-2">
+                        狀態備註（可選）
                       </label>
                       <textarea
                         id="statusNote"
+                        rows={3}
                         value={statusNote}
                         onChange={(e) => setStatusNote(e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                        rows={3}
-                        placeholder="輸入給申請者的備註..."
-                      ></textarea>
+                        className="focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
+                        placeholder="如有需要，請填寫狀態變更的備註說明"
+                      />
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {application.status === ApplicationStatus.PENDING && (
                         <button
-                          onClick={() => handleStatusChange(ApplicationStatus.REVIEWING)}
+                          onClick={() => handleStatusChange(ApplicationStatus.PENDING)}
                           className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                           disabled={changingStatus}
                         >
-                          {changingStatus ? '處理中...' : '開始審核'}
+                          開始審核
                         </button>
                       )}
-                      {[ApplicationStatus.PENDING, ApplicationStatus.REVIEWING].includes(application.status) && (
+                      {[ApplicationStatus.PENDING].includes(application.status) && (
                         <>
                           <button
                             onClick={() => handleStatusChange(ApplicationStatus.ACCEPTED)}
                             className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors disabled:opacity-50"
                             disabled={changingStatus}
                           >
-                            {changingStatus ? '處理中...' : '接受申請'}
+                            接受申請
                           </button>
                           <button
                             onClick={() => handleStatusChange(ApplicationStatus.REJECTED)}
                             className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
                             disabled={changingStatus}
                           >
-                            {changingStatus ? '處理中...' : '拒絕申請'}
+                            拒絕申請
                           </button>
                         </>
                       )}

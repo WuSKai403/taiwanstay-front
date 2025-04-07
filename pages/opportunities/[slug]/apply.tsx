@@ -112,6 +112,25 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
             })
           : [{ language: '中文', level: 'native' }],
 
+        // 處理照片資料，確保符合資料庫結構
+        photos: Array.isArray(formData.photos)
+          ? formData.photos.map((photo: any) => {
+              // 如果已經是符合資料庫格式的物件，保持不變
+              if (photo.url) {
+                return photo;
+              }
+              // 從 CloudinaryImageResource 格式轉換為資料庫格式
+              return {
+                publicId: photo.public_id,
+                url: photo.secure_url, // 使用 secure_url 作為 url
+                width: photo.width || 0,
+                height: photo.height || 0,
+                format: photo.format || 'jpg',
+                type: photo.type || 'image'
+              };
+            })
+          : [],
+
         // 更嚴格處理 dietaryRestrictions，確保它始終是物件格式
         dietaryRestrictions: (() => {
           // 創建一個標準結構的物件

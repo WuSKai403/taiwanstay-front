@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
@@ -23,6 +25,12 @@ interface HostRegisterFormData {
   hostType: string;
   capacity: number;
   amenities: string[];
+}
+
+export const getServerSideProps = async () => {
+  return {
+    props: {}, // 將會被傳遞給頁面元件作為 props
+  }
 }
 
 export default function HostRegister() {

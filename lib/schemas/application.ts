@@ -80,6 +80,15 @@ export const workawayExperienceSchema = z.object({
   experience: z.string()
 });
 
+// 定義簽名URL的schema
+export const signedUrlsSchema = z.object({
+  thumbnailUrl: z.string().url(),
+  previewUrl: z.string().url(),
+  originalUrl: z.string().url(),
+  timestamp: z.number().optional(),
+  expires: z.number().optional()
+});
+
 // 定義照片資源的 schema
 export const cloudinaryImageResourceSchema = z.object({
   public_id: z.string(),
@@ -92,7 +101,8 @@ export const cloudinaryImageResourceSchema = z.object({
   displayOrder: z.number().optional(),
   version_id: z.string().optional(),
   signature: z.string().optional(),
-  api_key: z.string().optional()
+  api_key: z.string().optional(),
+  signedUrls: signedUrlsSchema.optional()
 });
 
 // 定義主要申請表單的 schema

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { NextPage, GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
@@ -10,103 +10,9 @@ import { zhTW } from 'date-fns/locale';
 import { ApplicationStatus } from '@/models/enums/ApplicationStatus';
 import ProfileLayout from '@/components/layout/ProfileLayout';
 import { getSession } from 'next-auth/react';
+import { statusNameMap, statusColorMap, ApplicationDetail } from '@/constants/applicationStatus';
+import CloudinaryImage from '@/components/CloudinaryImage';
 
-// 申請狀態中文名稱映射
-const statusNameMap: Record<ApplicationStatus, string> = {
-  [ApplicationStatus.DRAFT]: '草稿',
-  [ApplicationStatus.PENDING]: '待審核',
-  [ApplicationStatus.REVIEWING]: '審核中',
-  [ApplicationStatus.ACCEPTED]: '已接受',
-  [ApplicationStatus.REJECTED]: '已拒絕',
-  [ApplicationStatus.CONFIRMED]: '已確認',
-  [ApplicationStatus.CANCELLED]: '已取消',
-  [ApplicationStatus.COMPLETED]: '已完成',
-  [ApplicationStatus.WITHDRAWN]: '已撤回'
-};
-
-// 申請狀態顏色映射
-const statusColorMap: Record<ApplicationStatus, string> = {
-  [ApplicationStatus.DRAFT]: 'bg-gray-100 text-gray-800',
-  [ApplicationStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
-  [ApplicationStatus.REVIEWING]: 'bg-blue-100 text-blue-800',
-  [ApplicationStatus.ACCEPTED]: 'bg-green-100 text-green-800',
-  [ApplicationStatus.REJECTED]: 'bg-red-100 text-red-800',
-  [ApplicationStatus.CONFIRMED]: 'bg-green-100 text-green-800',
-  [ApplicationStatus.CANCELLED]: 'bg-gray-100 text-gray-800',
-  [ApplicationStatus.COMPLETED]: 'bg-purple-100 text-purple-800',
-  [ApplicationStatus.WITHDRAWN]: 'bg-gray-100 text-gray-800'
-};
-
-// 申請詳情接口
-interface ApplicationDetail {
-  _id: string;
-  status: ApplicationStatus;
-  statusNote?: string;
-  opportunityId: {
-    _id: string;
-    title: string;
-    slug: string;
-    type: string;
-    location?: {
-      city?: string;
-      district?: string;
-    };
-    media?: {
-      images?: Array<{
-        url: string;
-        alt?: string;
-      }>;
-    };
-  };
-  hostId: {
-    _id: string;
-    name: string;
-    profileImage?: string;
-  };
-  userId: {
-    _id: string;
-    name: string;
-    email: string;
-    profile?: {
-      avatar?: string;
-    };
-  };
-  applicationDetails: {
-    message: string;
-    startMonth: string;
-    endMonth?: string;
-    duration: number;
-    travelingWith?: {
-      partner: boolean;
-      children: boolean;
-      pets: boolean;
-      details?: string;
-    };
-    answers?: {
-      question: string;
-      answer: string;
-    }[];
-    specialRequirements?: string;
-    dietaryRestrictions?: string[];
-    languages?: string[];
-    relevantExperience?: string;
-    motivation?: string;
-  };
-  communications: {
-    messages: {
-      _id: string;
-      sender: string;
-      content: string;
-      timestamp: string;
-      read: boolean;
-    }[];
-    lastMessageAt?: string;
-    unreadHostMessages: number;
-    unreadUserMessages: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface ApplicationDetailPageProps {
   applicationId: string;
@@ -122,8 +28,19 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
   const [sendingMessage, setSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 標記訊息為已讀
+  const markMessagesAsRead = useCallback(async () => {
+    try {
+      await fetch(`/api/applications/${applicationId}/messages/read`, {
+        method: 'POST'
+      });
+    } catch (err) {
+      console.error('標記訊息為已讀錯誤:', err);
+    }
+  }, [applicationId]);
+
   // 獲取申請詳情
-  const fetchApplicationDetail = async () => {
+  const fetchApplicationDetail = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/applications/${applicationId}`);
@@ -145,25 +62,14 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
     } finally {
       setLoading(false);
     }
-  };
-
-  // 標記訊息為已讀
-  const markMessagesAsRead = async () => {
-    try {
-      await fetch(`/api/applications/${applicationId}/messages/read`, {
-        method: 'POST'
-      });
-    } catch (err) {
-      console.error('標記訊息為已讀錯誤:', err);
-    }
-  };
+  }, [applicationId, markMessagesAsRead]);
 
   // 當用戶登入狀態變化時獲取數據
   useEffect(() => {
     if (sessionStatus === 'authenticated' && applicationId) {
       fetchApplicationDetail();
     }
-  }, [sessionStatus, applicationId]);
+  }, [sessionStatus, applicationId, fetchApplicationDetail]);
 
   // 如果用戶未登入，重定向到登入頁面
   useEffect(() => {
@@ -182,6 +88,10 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
   // 處理申請狀態變更
   const handleStatusChange = async (newStatus: ApplicationStatus) => {
     try {
+      const confirmed = window.confirm(`確定要將申請狀態更改為「${statusNameMap[newStatus]}」嗎？`);
+
+      if (!confirmed) return;
+
       const response = await fetch(`/api/applications/${applicationId}`, {
         method: 'PUT',
         headers: {
@@ -366,6 +276,18 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
                     <p className="text-sm text-gray-500">停留時間</p>
                     <p className="font-medium">{application.applicationDetails.duration} 天</p>
                   </div>
+                  {application.applicationDetails.nationality && (
+                    <div>
+                      <p className="text-sm text-gray-500">國籍</p>
+                      <p className="font-medium">{application.applicationDetails.nationality}</p>
+                    </div>
+                  )}
+                  {application.applicationDetails.visaType && (
+                    <div>
+                      <p className="text-sm text-gray-500">簽證類型</p>
+                      <p className="font-medium">{application.applicationDetails.visaType}</p>
+                    </div>
+                  )}
                 </div>
 
                 {application.applicationDetails.travelingWith && (
@@ -397,46 +319,298 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
                   </div>
                 )}
 
-                {application.applicationDetails.dietaryRestrictions &&
-                  (Array.isArray(application.applicationDetails.dietaryRestrictions)
-                    ? application.applicationDetails.dietaryRestrictions.length > 0
-                    : application.applicationDetails.dietaryRestrictions &&
-                      typeof application.applicationDetails.dietaryRestrictions === 'object' &&
-                      application.applicationDetails.dietaryRestrictions.type &&
-                      Array.isArray(application.applicationDetails.dietaryRestrictions.type) &&
-                      application.applicationDetails.dietaryRestrictions.type.length > 0) && (
+                {/* 飲食限制 */}
+                {application.applicationDetails.dietaryRestrictions && (
+                  Array.isArray(application.applicationDetails.dietaryRestrictions) ?
+                    application.applicationDetails.dietaryRestrictions.length > 0 && (
+                      <div className="mb-6">
+                        <p className="text-sm text-gray-500 mb-1">飲食限制</p>
+                        <p className="text-gray-700">{application.applicationDetails.dietaryRestrictions.join(', ')}</p>
+                      </div>
+                    ) : application.applicationDetails.dietaryRestrictions.type && application.applicationDetails.dietaryRestrictions.type.length > 0 && (
+                      <div className="mb-6">
+                        <p className="text-sm text-gray-500 mb-1">飲食限制</p>
+                        <p className="text-gray-700">{application.applicationDetails.dietaryRestrictions.type.join(', ')}</p>
+                        {application.applicationDetails.dietaryRestrictions.vegetarianType && (
+                          <p className="text-gray-700 mt-1">素食類型: {application.applicationDetails.dietaryRestrictions.vegetarianType}</p>
+                        )}
+                        {application.applicationDetails.dietaryRestrictions.otherDetails && (
+                          <p className="text-gray-700 mt-1">其他詳情: {application.applicationDetails.dietaryRestrictions.otherDetails}</p>
+                        )}
+                      </div>
+                    )
+                )}
+
+                {application.applicationDetails.allergies && (
                   <div className="mb-6">
-                    <p className="text-sm text-gray-500 mb-1">飲食限制</p>
-                    <div className="flex flex-wrap gap-2">
-                      {Array.isArray(application.applicationDetails.dietaryRestrictions)
-                        ? application.applicationDetails.dietaryRestrictions.map((diet: any, index: number) => (
-                            <span key={index} className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
-                              {typeof diet === 'string' ? diet : JSON.stringify(diet)}
-                            </span>
-                          ))
-                        : application.applicationDetails.dietaryRestrictions.type &&
-                          Array.isArray(application.applicationDetails.dietaryRestrictions.type) &&
-                          application.applicationDetails.dietaryRestrictions.type.map((diet: string, index: number) => (
-                            <span key={index} className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
-                              {diet}
-                            </span>
-                          ))
-                      }
-                      {application.applicationDetails.dietaryRestrictions &&
-                       !Array.isArray(application.applicationDetails.dietaryRestrictions) &&
-                       typeof application.applicationDetails.dietaryRestrictions === 'object' &&
-                       application.applicationDetails.dietaryRestrictions.vegetarianType && (
-                        <span className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
-                          {application.applicationDetails.dietaryRestrictions.vegetarianType}
-                        </span>
+                    <p className="text-sm text-gray-500 mb-1">過敏情況</p>
+                    <p className="text-gray-700">{application.applicationDetails.allergies}</p>
+                  </div>
+                )}
+
+                {application.applicationDetails.drivingLicense && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">駕照</p>
+                    <ul className="list-disc list-inside text-gray-700">
+                      {application.applicationDetails.drivingLicense.motorcycle && <li>機車駕照</li>}
+                      {application.applicationDetails.drivingLicense.car && <li>汽車駕照</li>}
+                      {application.applicationDetails.drivingLicense.none && <li>無駕照</li>}
+                      {application.applicationDetails.drivingLicense.other &&
+                       application.applicationDetails.drivingLicense.other.enabled && (
+                        <li>其他: {application.applicationDetails.drivingLicense.other.details}</li>
                       )}
+                    </ul>
+                  </div>
+                )}
+
+                {application.applicationDetails.workExperience &&
+                 application.applicationDetails.workExperience.length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">工作經驗</p>
+                    <div className="space-y-3">
+                      {application.applicationDetails.workExperience.map((exp, index) => (
+                        <div key={index} className="border-l-2 border-gray-200 pl-3">
+                          <p className="font-medium">{exp.position} - {exp.company}</p>
+                          <p className="text-sm text-gray-600">
+                            {exp.startDate} ~ {exp.isCurrent ? '至今' : exp.endDate}
+                          </p>
+                          {exp.description && <p className="text-sm mt-1">{exp.description}</p>}
+                        </div>
+                      ))}
                     </div>
-                    {application.applicationDetails.dietaryRestrictions &&
-                     !Array.isArray(application.applicationDetails.dietaryRestrictions) &&
-                     typeof application.applicationDetails.dietaryRestrictions === 'object' &&
-                     application.applicationDetails.dietaryRestrictions.otherDetails && (
-                      <p className="mt-2 text-gray-600 text-sm">{application.applicationDetails.dietaryRestrictions.otherDetails}</p>
-                    )}
+                  </div>
+                )}
+
+                {application.applicationDetails.skills && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">技能</p>
+                    <p className="text-gray-700">{application.applicationDetails.skills}</p>
+                  </div>
+                )}
+
+                {application.applicationDetails.physicalCondition && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">身體狀況</p>
+                    <p className="text-gray-700">{application.applicationDetails.physicalCondition}</p>
+                  </div>
+                )}
+
+                {application.applicationDetails.preferredWorkHours && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">偏好工作時間</p>
+                    <p className="text-gray-700">{application.applicationDetails.preferredWorkHours}</p>
+                  </div>
+                )}
+
+                {application.applicationDetails.accommodationNeeds && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">住宿需求</p>
+                    <p className="text-gray-700">{application.applicationDetails.accommodationNeeds}</p>
+                  </div>
+                )}
+
+                {application.applicationDetails.culturalInterests &&
+                 application.applicationDetails.culturalInterests.length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">文化興趣</p>
+                    <div className="flex flex-wrap gap-2">
+                      {application.applicationDetails.culturalInterests.map((interest, index) => (
+                        <span key={index} className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {application.applicationDetails.learningGoals &&
+                 application.applicationDetails.learningGoals.length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">學習目標</p>
+                    <div className="flex flex-wrap gap-2">
+                      {application.applicationDetails.learningGoals.map((goal, index) => (
+                        <span key={index} className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+                          {goal}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {application.applicationDetails.contribution && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">預期貢獻</p>
+                    <p className="text-gray-700">{application.applicationDetails.contribution}</p>
+                  </div>
+                )}
+
+                {application.applicationDetails.adaptabilityRatings && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">適應能力自評</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm">農場工作</p>
+                        <div className="flex items-center mt-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < (application.applicationDetails.adaptabilityRatings?.farmWork ?? 0) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm">戶外工作</p>
+                        <div className="flex items-center mt-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < (application.applicationDetails.adaptabilityRatings?.outdoorWork ?? 0) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm">體力工作</p>
+                        <div className="flex items-center mt-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < (application.applicationDetails.adaptabilityRatings?.physicalWork ?? 0) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm">團隊合作</p>
+                        <div className="flex items-center mt-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < (application.applicationDetails.adaptabilityRatings?.teamWork ?? 0) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm">獨立性</p>
+                        <div className="flex items-center mt-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < (application.applicationDetails.adaptabilityRatings?.independence ?? 0) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm">適應力</p>
+                        <div className="flex items-center mt-1">
+                          {[...Array(5)].map((_, i) => (
+                            <svg key={i} className={`w-4 h-4 ${i < (application.applicationDetails.adaptabilityRatings?.adaptability ?? 0) ? 'text-yellow-400' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {application.applicationDetails.videoIntroduction && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">影片介紹</p>
+                    <div className="aspect-w-16 aspect-h-9 mt-2">
+                      {(() => {
+                        let videoUrl = application.applicationDetails.videoIntroduction.url || '';
+                        let videoId = '';
+
+                        // 處理各種YouTube URL格式
+                        if (videoUrl.includes('youtube.com/watch?v=')) {
+                          try {
+                            videoId = new URL(videoUrl).searchParams.get('v') || '';
+                          } catch (e) {
+                            // 處理URL解析錯誤
+                            const match = videoUrl.match(/[?&]v=([^&]+)/);
+                            if (match) videoId = match[1];
+                          }
+                        } else if (videoUrl.includes('youtu.be/')) {
+                          const parts = videoUrl.split('youtu.be/');
+                          if (parts.length > 1) {
+                            videoId = parts[1].split('?')[0].split('&')[0];
+                          }
+                        } else if (videoUrl.includes('youtube.com/embed/')) {
+                          const parts = videoUrl.split('youtube.com/embed/');
+                          if (parts.length > 1) {
+                            videoId = parts[1].split('?')[0].split('&')[0];
+                          }
+                        }
+
+                        if (videoId) {
+                          // 使用嵌入格式
+                          const embedUrl = `https://www.youtube.com/embed/${videoId}`;
+                          return (
+                            <iframe
+                              src={embedUrl}
+                              className="w-full h-full rounded-lg"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              loading="lazy"
+                            />
+                          );
+                        } else {
+                          // 若無法解析為有效的YouTube ID，顯示原始連結
+                          return (
+                            <div className="bg-gray-100 p-4 rounded-lg text-center">
+                              <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">
+                                {videoUrl}
+                              </a>
+                              <p className="text-sm text-gray-500 mt-2">
+                                無法嵌入影片，請點擊連結在新視窗中查看
+                              </p>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {application.applicationDetails.photos &&
+                 application.applicationDetails.photos.length > 0 && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">相片集</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                      {application.applicationDetails.photos.map((photo, index) => {
+                        // 確保 URL 存在且有效
+                        if (!photo || !photo.url) {
+                          console.warn(`照片 #${index+1} 的 URL 無效:`, photo);
+                          return (
+                            <div key={index} className="relative h-48 w-full rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                              <span className="text-gray-500">無效照片</span>
+                            </div>
+                          );
+                        }
+
+                        // 將照片格式轉換為CloudinaryImage可接受的格式
+                        const cloudinaryResource = {
+                          public_id: photo.publicId,
+                          secure_url: photo.url,
+                          thumbnailUrl: photo.url.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200/'),
+                          previewUrl: photo.url.replace('/upload/', '/upload/c_scale,w_600/')
+                        };
+
+                        return (
+                          <div key={index} className="relative h-48 w-full">
+                            <CloudinaryImage
+                              resource={cloudinaryResource}
+                              alt={application.applicationDetails.photoDescriptions?.[photo.publicId] || `申請者照片 ${index + 1}`}
+                              containerClassName="h-full w-full"
+                              className="rounded-lg"
+                              objectFit="cover"
+                              isPrivate={true}
+                              index={index}
+                              onError={() => console.error(`照片 #${index+1} 載入失敗: ${photo.url}`)}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -458,6 +632,13 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
                   <div className="mb-6">
                     <p className="text-sm text-gray-500 mb-1">動機和期望</p>
                     <p className="text-gray-700">{application.applicationDetails.motivation}</p>
+                  </div>
+                )}
+
+                {application.applicationDetails.additionalNotes && (
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500 mb-1">其他備註</p>
+                    <p className="text-gray-700">{application.applicationDetails.additionalNotes}</p>
                   </div>
                 )}
 
@@ -488,7 +669,7 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
               <div className="flex flex-wrap gap-2 mt-6">
                 {application.status === ApplicationStatus.PENDING && (
                   <button
-                    onClick={() => handleStatusChange(ApplicationStatus.WITHDRAWN)}
+                    onClick={() => handleStatusChange(ApplicationStatus.COMPLETED)}
                     className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors"
                   >
                     撤回申請
@@ -498,13 +679,13 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
                 {application.status === ApplicationStatus.ACCEPTED && (
                   <>
                     <button
-                      onClick={() => handleStatusChange(ApplicationStatus.CONFIRMED)}
+                      onClick={() => handleStatusChange(ApplicationStatus.ACTIVE)}
                       className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
                     >
                       確認參與
                     </button>
                     <button
-                      onClick={() => handleStatusChange(ApplicationStatus.WITHDRAWN)}
+                      onClick={() => handleStatusChange(ApplicationStatus.COMPLETED)}
                       className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-md hover:bg-gray-50 transition-colors"
                     >
                       婉拒邀請

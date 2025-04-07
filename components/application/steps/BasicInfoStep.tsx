@@ -1,4 +1,4 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { UseFormRegister, Control, UseFormWatch, UseFormSetValue, FieldErrors, FieldError } from 'react-hook-form';
 import { monthSelectionSchema, timeSlotSchema, type ApplicationFormData, type MonthSelection, type TimeSlot } from '@/lib/schemas/application';
 import FormField from '@/components/ui/FormField';
@@ -84,7 +84,7 @@ const BasicInfoStep = forwardRef<BasicInfoStepRef, BasicInfoStepProps>(({
     validateMinimumStay
   }));
 
-  const generateMonthsForYear = (year: number): MonthSelection[] => {
+  const generateMonthsForYear = useCallback((year: number): MonthSelection[] => {
     const months: MonthSelection[] = [];
     const currentDate = new Date();
     const currentYear = currentDate.getFullYear();
@@ -110,7 +110,7 @@ const BasicInfoStep = forwardRef<BasicInfoStepRef, BasicInfoStepProps>(({
       });
     }
     return months;
-  };
+  }, [selectedMonths, opportunity.timeSlots]);
 
   const [displayedMonths, setDisplayedMonths] = useState<MonthSelection[]>(
     generateMonthsForYear(currentYear)
@@ -118,7 +118,7 @@ const BasicInfoStep = forwardRef<BasicInfoStepRef, BasicInfoStepProps>(({
 
   useEffect(() => {
     setDisplayedMonths(generateMonthsForYear(currentYear));
-  }, [currentYear, selectedMonths]);
+  }, [currentYear, generateMonthsForYear]);
 
   const handleMonthSelect = (index: number) => {
     if (!displayedMonths[index] || !displayedMonths[index].isAvailable) return;
