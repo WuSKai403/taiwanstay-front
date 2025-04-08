@@ -114,3 +114,115 @@ npm test
 ## 許可證
 
 MIT
+
+## 表單驗證與錯誤處理機制
+
+本專案實現了一套通用的表單驗證與錯誤處理機制，特別適用於多步驟表單和複雜的驗證需求。
+
+### 核心組件
+
+#### 1. 表單驗證工具 (`/lib/utils/formValidation.ts`)
+
+提供了三個主要功能：
+
+- `handleFormValidationError`: 處理表單驗證錯誤，自動設置表單錯誤狀態並滾動到第一個錯誤字段。
+- `createStepValidator`: 創建多步驟表單的步驟驗證器。
+- `createFormSubmitter`: 創建表單提交處理器，統一處理 API 請求與錯誤。
+
+```typescript
+// 使用範例 - 處理驗證錯誤
+try {
+  await schema.parseAsync(data);
+} catch (error) {
+  handleFormValidationError(error, methods);
+}
+
+// 使用範例 - 創建步驟驗證器
+const validateStep = createStepValidator(methods);
+const isValid = await validateStep(schema, onSuccess);
+
+// 使用範例 - 創建表單提交處理器
+const submit = createFormSubmitter<ResponseType>(methods);
+const result = await submit('/api/endpoint', {
+  transformData: (data) => ({ ...data, status: 'active' }),
+  onSuccess: (data) => console.log('成功', data),
+  onError: (error) => console.error('錯誤', error)
+});
+```
+
+#### 2. 表單錯誤摘要組件 (`/components/ui/FormErrorSummary.tsx`)
+
+顯示表單中所有的驗證錯誤，可配置顯示條件和包含/排除的欄位。
+
+```tsx
+// 基本使用
+<FormErrorSummary />
+
+// 進階配置
+<FormErrorSummary
+  title="請修正以下問題："
+  showWhen="submitted" // 'always' | 'submitted' | 'dirty'
+  includeFields={['name', 'email']}
+  excludeFields={['password']}
+  className="my-custom-class"
+/>
+```
+
+### 在多步驟表單中使用
+
+1. 在表單上下文中整合驗證工具：
+
+```tsx
+// 在 FormContext 中
+import { createStepValidator, createFormSubmitter } from '@/lib/utils/formValidation';
+
+// 創建通用的步驟驗證器
+const validateStep = createStepValidator(methods);
+
+// 提供給子組件使用
+const value = {
+  // ...
+  nextStep: async () => {
+    return await validateStep(currentStepSchema, () => {
+      // 驗證成功的處理邏輯
+    });
+  },
+  // ...
+};
+```
+
+2. 在表單步驟組件中使用錯誤摘要：
+
+```tsx
+// 在步驟組件中
+import FormErrorSummary from '@/components/ui/FormErrorSummary';
+
+return (
+  <div>
+    <FormErrorSummary
+      showWhen="submitted"
+      includeFields={['name', 'email']}
+    />
+
+    {/* 表單欄位 */}
+  </div>
+);
+```
+
+### 擴展與自定義
+
+這套機制設計為高度可擴展的，您可以：
+
+1. 自定義錯誤處理邏輯
+2. 擴展表單驗證器支持更多情況
+3. 調整錯誤摘要的顯示樣式與行為
+
+若有特殊需求，可以通過修改 `/lib/utils/formValidation.ts` 來實現更多功能。
+
+### 最佳實踐
+
+1. 始終使用 Zod 進行表單驗證
+2. 為每個步驟設置單獨的驗證模式
+3. 使用 `FormErrorSummary` 提供清晰的錯誤反饋
+4. 針對複雜字段設置獨立的錯誤提示
+5. 使用通用的 `handleFormValidationError` 統一處理錯誤

@@ -12,5 +12,8 @@ export enum HostType {
   ART_CENTER = 'ART_CENTER',         // 藝術中心
   ANIMAL_SHELTER = 'ANIMAL_SHELTER', // 動物收容所
   OUTDOOR_ACTIVITY = 'OUTDOOR_ACTIVITY', // 戶外活動
-  OTHER = 'OTHER'                    // 其他
+  OTHER = 'OTHER',                   // 其他
+  COWORKING_SPACE = 'COWORKING_SPACE', // 共享工作空間
+  CULTURAL_VENUE = 'CULTURAL_VENUE',   // 文化場所
+  COMMUNITY_CENTER = 'COMMUNITY_CENTER' // 社區中心
 }

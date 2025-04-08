@@ -16,10 +16,10 @@ const HostLayout = ({ children }: HostLayoutProps) => {
 
   // 側邊欄導航項目
   const navItems = [
+    { label: '儀表板', href: `/hosts/${hostId}/dashboard` },
     { label: '主人資料', href: `/hosts/${hostId}` },
     { label: '工作機會管理', href: `/hosts/${hostId}/opportunities` },
     { label: '申請管理', href: `/hosts/${hostId}/applications` },
-    { label: '時段管理', href: `/hosts/${hostId}/timeslots` },
     { label: '評價管理', href: `/hosts/${hostId}/reviews` },
     { label: '統計數據', href: `/hosts/${hostId}/stats` },
     { label: '設定', href: `/hosts/${hostId}/settings` },
@@ -60,7 +60,8 @@ const HostLayout = ({ children }: HostLayoutProps) => {
                           className={`block px-4 py-2 rounded-md ${
                             router.pathname === item.href ||
                             (router.pathname.includes(item.href.split('/').pop() as string) &&
-                             item.href !== `/hosts/${hostId}`)
+                             item.href !== `/hosts/${hostId}` &&
+                             !item.href.includes('dashboard'))
                               ? 'bg-primary-50 text-primary-600 font-medium'
                               : 'text-gray-700 hover:bg-gray-50'
                           }`}

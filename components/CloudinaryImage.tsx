@@ -3,6 +3,7 @@ import { CloudinaryImageResource } from '@/lib/cloudinary/types';
 import { getSignedUrls, createCloudinaryImageConfig } from '@/lib/cloudinary/utils';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useQuery } from '@tanstack/react-query';
 
 interface CloudinaryImageProps {
   resource: CloudinaryImageResource;
@@ -42,7 +43,18 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
   const [loadError, setLoadError] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-  // 在組件掛載時或資源變更時獲取簽名URL
+  // 使用React Query緩存請求
+  const { data: signedUrls, isError } = useQuery({
+    queryKey: ['cloudinarySignedUrl', resource?.public_id, isPrivate],
+    queryFn: () => {
+      if (!resource?.public_id || !isPrivate) return null;
+      return getSignedUrls(resource.public_id);
+    },
+    enabled: !!resource?.public_id && isPrivate,
+    staleTime: 50 * 60 * 1000, // 50分鐘內不重新獲取（Cloudinary簽名URL一般有效時間為1小時）
+    gcTime: 60 * 60 * 1000, // 1小時後從緩存中移除
+  });
+
   useEffect(() => {
     if (!resource || !resource.public_id) {
       setLoadError(true);
@@ -77,12 +89,13 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
         setFullSizeImageUrl(resource.signedUrls.originalUrl || resource.signedUrls.previewUrl || '');
       }
       setIsLoading(false);
-    } else {
-      // 否則從API獲取簽名URL
-      getSignedUrls(resource.public_id)
-        .then(signedUrls => {
-          console.log('成功獲取簽名URL:', resource.public_id);
-          resource.signedUrls = signedUrls;
+      return;
+    }
+
+    // 使用React Query緩存的結果
+    if (signedUrls) {
+      console.log('使用React Query緩存的簽名URL:', resource.public_id);
+      resource.signedUrls = signedUrls; // 保存簽名URL到資源對象中
 
           // 優先使用私有下載URL
           if (signedUrls.privateDownload && signedUrls.privateDownload.previewUrl) {
@@ -95,16 +108,16 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
             setImageUrl(signedUrls.previewUrl || '');
             setFullSizeImageUrl(signedUrls.originalUrl || signedUrls.previewUrl || '');
           }
-        })
-        .catch(error => {
-          console.error('獲取簽名URL失敗:', error);
-          setLoadError(true);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
+      setIsLoading(false);
     }
-  }, [resource, isPrivate]);
+
+    // 查詢錯誤處理
+    if (isError) {
+      console.error('獲取簽名URL失敗');
+          setLoadError(true);
+          setIsLoading(false);
+    }
+  }, [resource, isPrivate, signedUrls, isError]);
 
   // 圖片載入錯誤處理
   const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {

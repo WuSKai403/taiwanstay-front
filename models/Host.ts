@@ -74,6 +74,8 @@ export interface IHost extends Document {
     isChildFriendly: boolean;
     isAccessible: boolean;
     other?: string[];
+    workExchangeDescription: string;
+    amenitiesNotes: string;
   };
 
   // 主辦方詳細資訊
@@ -196,7 +198,9 @@ const HostSchema: Schema = new Schema({
     isSmokingAllowed: { type: Boolean, default: false },
     isChildFriendly: { type: Boolean, default: false },
     isAccessible: { type: Boolean, default: false },
-    other: [{ type: String }]
+    other: [{ type: String }],
+    workExchangeDescription: { type: String }, // 工作交換概述，簡要說明提供的工作交換類型
+    amenitiesNotes: { type: String } // 設施與服務補充說明，說明設施使用方式、開放時間等
   },
 
   // 主辦方詳細資訊

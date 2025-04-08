@@ -86,7 +86,7 @@ export default function Header() {
                       我的申請
                     </Link>
                     <Link
-                      href={`/hosts/${session?.user?.hostId || 'register'}`}
+                      href="/hosts/dashboard"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       主人中心
@@ -228,7 +228,7 @@ export default function Header() {
                   我的申請
                 </Link>
                 <Link
-                  href={`/hosts/${session?.user?.hostId || 'register'}`}
+                  href="/hosts/dashboard"
                   className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                 >
                   主人中心
