@@ -2,41 +2,133 @@ import React, { useState } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import PhotoUploadStep from './PhotoUploadStep';
-import { hostPhotoSchema, HostPhotoData } from '@/lib/schemas/host';
+import BasicInfoStep from './BasicInfoStep';
+import ContactInfoStep from './ContactInfoStep';
+import { hostRegisterSchema, HostRegisterFormData } from '@/lib/schemas/host';
+import { apiClient } from '@/lib/apiClient';
+import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/router';
+import { CloudinaryImageResource } from '@/lib/cloudinary/types';
 
-// 完整註冊表單包括照片及其他資料
-interface HostRegistrationFormData extends HostPhotoData {
-  // 其他主機註冊表單資料可以在這裡添加
+interface PhotoWithCaption extends CloudinaryImageResource {
+  caption?: string;
 }
 
 const HostRegistrationForm: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 3; // 假設有三個步驟
+  const totalSteps = 3; // 基本資料、照片上傳、確認資料
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 設置表單
-  const methods = useForm<HostRegistrationFormData>({
+  const methods = useForm<HostRegisterFormData>({
     defaultValues: {
-      photos: [],
-      photoDescriptions: [],
-      videoIntroduction: '',
-      additionalNotes: '',
+      // 基本資訊
+      name: '',
+      description: '',
+      type: undefined,
+      category: '',
+
+      // 位置資訊
+      location: {
+        address: '',
+        city: '',
+        district: '',
+        zipCode: '',
+        country: '台灣',
+        coordinates: {
+          type: 'Point',
+          coordinates: [0, 0]
+        },
+        showExactLocation: true
+      },
+
+      // 聯絡資訊
+      email: '',
+      mobile: '',
+      contactInfo: {
+        email: '',
+        phone: '',
+        mobile: '',
+        website: '',
+        preferredContactMethod: 'email',
+        contactHours: '',
+        socialMedia: {
+          facebook: '',
+          instagram: '',
+          line: ''
+        }
+      },
+
+      // 媒體資訊
+      media: {
+        gallery: [],
+        videos: [],
+        additionalMedia: {
+          virtualTour: '',
+          presentation: undefined
+        }
+      },
+
+      // 設施與服務
+      amenities: {},
+
+      // 特點與描述
+      features: {
+        features: []
+      },
+
+      // 詳細資訊
+      details: {
+        languages: [],
+        rules: [],
+        providesAccommodation: true,
+        providesMeals: false
+      }
     },
-    resolver: zodResolver(hostPhotoSchema) // 使用 Zod 驗證器
+    resolver: zodResolver(hostRegisterSchema)
   });
 
-  const {
-    handleSubmit,
-    register,
-    control,
-    watch,
-    setValue,
-    formState: { errors, isSubmitting }
-  } = methods;
+  const { handleSubmit, formState: { errors } } = methods;
 
   // 處理表單提交
-  const onSubmit = async (data: HostRegistrationFormData) => {
-    console.log('提交的數據:', data);
-    // 這裡處理提交邏輯
+  const onSubmit = async (data: HostRegisterFormData) => {
+    try {
+      setIsSubmitting(true);
+
+      // 準備提交數據
+      const formData = {
+        ...data,
+        // 確保媒體資訊正確格式化
+        media: {
+          ...data.media,
+          gallery: (data.media.gallery as PhotoWithCaption[]).map(img => ({
+            publicId: img.public_id,
+            secureUrl: img.secure_url,
+            thumbnailUrl: img.thumbnailUrl,
+            previewUrl: img.previewUrl,
+            originalUrl: img.originalUrl || img.secure_url,
+            description: img.caption || ''
+          }))
+        }
+      };
+
+      // 發送API請求
+      const response = await apiClient.post('/api/hosts', formData);
+
+      if (response.data.success) {
+        toast.success('主人註冊申請提交成功！');
+        // 導向到成功頁面
+        router.push('/hosts/register-success');
+      } else {
+        toast.error(response.data.message || '提交失敗，請稍後再試');
+      }
+    } catch (error: any) {
+      console.error('提交主人註冊失敗:', error);
+      toast.error(error.response?.data?.message || '提交失敗，請稍後再試');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // 前往下一步
@@ -51,6 +143,19 @@ const HostRegistrationForm: React.FC = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  // 安全的 getValues 函數，支援嵌套路徑
+  const safeGetValue = (path: string) => {
+    const parts = path.split('.');
+    let value: any = methods.getValues();
+
+    for (const part of parts) {
+      if (value === undefined || value === null) return '';
+      value = value[part];
+    }
+
+    return value === undefined || value === null ? '' : value;
   };
 
   return (
@@ -102,55 +207,57 @@ const HostRegistrationForm: React.FC = () => {
             {currentStep === 1 && (
               <div>
                 <h3 className="text-xl font-medium mb-4">基本資料</h3>
-                {/* 這裡是基本資料表單欄位 */}
-                <p className="text-gray-600 italic">
-                  (基本資料表單欄位在此實現)
-                </p>
+                <BasicInfoStep />
+                <ContactInfoStep />
               </div>
             )}
 
             {currentStep === 2 && (
               <div>
                 <h3 className="text-xl font-medium mb-4">房源照片</h3>
-                <PhotoUploadStep
-                  register={register}
-                  control={control}
-                  watch={watch}
-                  setValue={setValue}
-                  errors={errors}
-                />
+                <PhotoUploadStep />
               </div>
             )}
 
             {currentStep === 3 && (
               <div>
                 <h3 className="text-xl font-medium mb-4">確認資料</h3>
-                {/* 這裡是資料預覽和確認頁面 */}
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="font-medium">房源照片：</p>
-                  <div className="grid grid-cols-3 gap-2 mt-2">
-                    {watch('photos').map((photo, index) => (
-                      <div key={index} className="relative h-24">
-                        <img
-                          src={photo.previewUrl}
-                          alt={`房源照片 ${index + 1}`}
-                          className="h-full w-full object-cover rounded"
-                        />
-                      </div>
-                    ))}
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-700">基本資料</h4>
+                    <p><span className="font-medium">名稱:</span> {safeGetValue('name')}</p>
+                    <p><span className="font-medium">類型:</span> {safeGetValue('type')}</p>
+                    <p><span className="font-medium">類別:</span> {safeGetValue('category')}</p>
                   </div>
 
-                  {watch('videoIntroduction') && (
-                    <div className="mt-4">
-                      <p className="font-medium">視頻連結：</p>
-                      <p className="text-blue-600">{watch('videoIntroduction')}</p>
-                    </div>
-                  )}
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-700">聯絡方式</h4>
+                    <p><span className="font-medium">Email:</span> {safeGetValue('email')}</p>
+                    <p><span className="font-medium">手機:</span> {safeGetValue('mobile')}</p>
+                    <p><span className="font-medium">地址:</span> {safeGetValue('location.address')}, {safeGetValue('location.district')}, {safeGetValue('location.city')}</p>
+                  </div>
 
-                  {watch('additionalNotes') && (
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-700">房源照片</h4>
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      {(safeGetValue('media.gallery') as PhotoWithCaption[]).map((photo, index) => (
+                        <div key={index} className="relative h-24">
+                          <img
+                            src={photo.previewUrl || photo.secure_url}
+                            alt={`房源照片 ${index + 1}`}
+                            className="h-full w-full object-cover rounded"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {safeGetValue('media.videos')?.length > 0 && (
                     <div className="mt-4">
-                      <p className="font-medium">附加備註：</p>
-                      <p className="text-gray-700">{watch('additionalNotes')}</p>
+                      <h4 className="font-medium text-gray-700">視頻連結</h4>
+                      {safeGetValue('media.videos').map((video: {url: string}, index: number) => (
+                        <p key={index} className="text-blue-600">{video.url}</p>
+                      ))}
                     </div>
                   )}
                 </div>

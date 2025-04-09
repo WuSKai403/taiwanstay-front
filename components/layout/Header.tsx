@@ -2,10 +2,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useState } from 'react';
+import { UserRole } from '@/models/enums/UserRole';
+import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function Header() {
   const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // 檢查是否為管理員
+  const isAdmin = session?.user?.role === UserRole.ADMIN || session?.user?.role === UserRole.SUPER_ADMIN;
 
   return (
     <header className="bg-white shadow-sm relative z-40">
@@ -39,6 +44,16 @@ export default function Header() {
               >
                 關於我們
               </Link>
+
+              {/* 管理員可見的導航選項 */}
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="border-transparent text-blue-600 hover:border-blue-500 hover:text-blue-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                >
+                  管理中心
+                </Link>
+              )}
             </nav>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
@@ -73,6 +88,16 @@ export default function Header() {
                 </div>
                 {isMenuOpen && (
                   <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    {/* 管理員菜單項 */}
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        className="block px-4 py-2 text-sm text-blue-600 hover:bg-gray-100 font-medium"
+                      >
+                        管理中心
+                      </Link>
+                    )}
+
                     <Link
                       href="/profile"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -85,12 +110,17 @@ export default function Header() {
                     >
                       我的申請
                     </Link>
-                    <Link
-                      href="/hosts/dashboard"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      主人中心
-                    </Link>
+
+                    {/* 對非管理員用戶顯示主人中心 */}
+                    {!isAdmin && (
+                      <Link
+                        href="/hosts/dashboard"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        主人中心
+                      </Link>
+                    )}
+
                     <Link
                       href="/profile/settings"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -129,36 +159,11 @@ export default function Header() {
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
             >
               <span className="sr-only">打開主選單</span>
-              <svg
-                className={`${isMenuOpen ? 'hidden' : 'block'} h-6 w-6`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-              <svg
-                className={`${isMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              {isMenuOpen ? (
+                <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+              ) : (
+                <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+              )}
             </button>
           </div>
         </div>
@@ -186,6 +191,16 @@ export default function Header() {
             >
               關於我們
             </Link>
+
+            {/* 管理員專用的導航項 */}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="border-transparent text-blue-600 hover:bg-gray-50 hover:border-blue-500 hover:text-blue-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
+              >
+                管理中心
+              </Link>
+            )}
           </div>
           {session ? (
             <div className="pt-4 pb-3 border-t border-gray-200">
@@ -215,6 +230,16 @@ export default function Header() {
                 </div>
               </div>
               <div className="mt-3 space-y-1">
+                {/* 移動端管理員選項 */}
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="block px-4 py-2 text-base font-medium text-blue-600 hover:text-blue-800 hover:bg-gray-100"
+                  >
+                    管理中心
+                  </Link>
+                )}
+
                 <Link
                   href="/profile"
                   className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
@@ -227,12 +252,17 @@ export default function Header() {
                 >
                   我的申請
                 </Link>
-                <Link
-                  href="/hosts/dashboard"
-                  className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
-                >
-                  主人中心
-                </Link>
+
+                {/* 對非管理員用戶顯示主人中心 */}
+                {!isAdmin && (
+                  <Link
+                    href="/hosts/dashboard"
+                    className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                  >
+                    主人中心
+                  </Link>
+                )}
+
                 <Link
                   href="/profile/settings"
                   className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
@@ -249,10 +279,10 @@ export default function Header() {
             </div>
           ) : (
             <div className="pt-4 pb-3 border-t border-gray-200">
-              <div className="space-y-1 px-4">
+              <div className="space-y-1">
                 <button
                   onClick={() => signIn()}
-                  className="w-full text-left block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                  className="w-full text-left block px-4 py-2 text-base font-medium text-primary-600 hover:text-primary-800 hover:bg-gray-100"
                 >
                   登入
                 </button>

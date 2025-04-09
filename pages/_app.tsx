@@ -2,9 +2,37 @@ import '@/styles/globals.css';
 import '../styles/components/TimeSlot.css';
 import 'leaflet/dist/leaflet.css';
 import { AppProps } from 'next/app';
-import { SessionProvider } from 'next-auth/react';
+import { SessionProvider, useSession } from 'next-auth/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { UserRole } from '@/models/enums/UserRole';
+
+// 定義 AuthRedirect 組件的 props 類型
+interface AuthRedirectProps {
+  Component: React.ComponentType<any>;
+  pageProps: any;
+}
+
+// 創建一個內部組件來處理重定向邏輯
+function AuthRedirect({ Component, pageProps }: AuthRedirectProps) {
+  const router = useRouter();
+
+  // 這裡可以安全使用 useSession，因為這個組件在 SessionProvider 內部
+  const { data: session, status } = useSession();
+
+  // 管理員自動轉導邏輯
+  useEffect(() => {
+    if (status === 'authenticated' &&
+        (session?.user?.role === UserRole.ADMIN ||
+         session?.user?.role === UserRole.SUPER_ADMIN) &&
+        router.pathname === '/') {
+      router.push('/admin');
+    }
+  }, [session, status, router]);
+
+  return <Component {...pageProps} />;
+}
 
 export default function App({
   Component,
@@ -34,7 +62,7 @@ export default function App({
   return (
     <SessionProvider session={session}>
       <QueryClientProvider client={queryClient}>
-        <Component {...pageProps} />
+        <AuthRedirect Component={Component} pageProps={pageProps} />
         {showDevtools && (
           <div suppressHydrationWarning>
             {typeof window !== 'undefined' && process.env.NODE_ENV !== 'production' && (

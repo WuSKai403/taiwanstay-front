@@ -188,7 +188,10 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
       contactInfo,
       amenities,
       details,
-      media
+      media,
+      features,
+      email,
+      mobile
     } = req.body;
 
     // 驗證必要字段並記錄
@@ -199,6 +202,8 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
     if (!category) missingFields.push('category');
     if (!location) missingFields.push('location');
     if (!contactInfo) missingFields.push('contactInfo');
+    if (!email) missingFields.push('email');
+    if (!mobile) missingFields.push('mobile');
 
     console.log('[API] 創建主人 - 必要字段檢查:', {
       name: !!name,
@@ -206,7 +211,9 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
       type: !!type,
       category: !!category,
       location: !!location,
-      contactInfo: !!contactInfo
+      contactInfo: !!contactInfo,
+      email: !!email,
+      mobile: !!mobile
     });
 
     if (missingFields.length > 0) {
@@ -233,6 +240,33 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
       console.log('[API] 創建主人 - 座標信息:', location.coordinates);
     }
 
+    // 處理聯絡資訊
+    if (!contactInfo.mobile && mobile) {
+      contactInfo.mobile = mobile;
+    }
+
+    if (!contactInfo.email && email) {
+      contactInfo.email = email;
+    }
+
+    // 處理媒體資訊
+    const processedMedia = media || {};
+    if (processedMedia.gallery && !Array.isArray(processedMedia.gallery)) {
+      processedMedia.gallery = [];
+    }
+
+    // 處理設施資訊
+    const processedAmenities = amenities || {
+      basics: {},
+      accommodation: {},
+      workExchange: {},
+      lifestyle: {},
+      activities: {},
+      customAmenities: [],
+      amenitiesNotes: '',
+      workExchangeDescription: ''
+    };
+
     // 創建新主人記錄
     try {
       const newHost = new Host({
@@ -244,11 +278,14 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
         category,
         status: HostStatus.PENDING,
         verified: false,
+        email: email || (contactInfo?.email || ''),
+        mobile: mobile || (contactInfo?.mobile || ''),
         location,
         contactInfo,
-        amenities: amenities || {},
+        amenities: processedAmenities,
         details: details || {},
-        media: media || {},
+        media: processedMedia,
+        features: features || {},
         ratings: {
           overall: 0,
           workEnvironment: 0,

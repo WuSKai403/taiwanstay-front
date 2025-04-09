@@ -13,12 +13,17 @@ export interface IHost extends Document {
   category: string;
   verified: boolean;
   verifiedAt?: Date;
+  email: string;  // 頂層通訊欄位(與前端映射)
+  mobile: string; // 頂層通訊欄位(與前端映射)
 
   // 聯絡資訊
   contactInfo: {
     email: string;
     phone?: string;
+    mobile: string;
     website?: string;
+    preferredContactMethod?: "email" | "phone" | "mobile" | "line";
+    contactHours?: string;
     socialMedia?: {
       facebook?: string;
       instagram?: string;
@@ -46,36 +51,80 @@ export interface IHost extends Document {
       type: string;
       coordinates: number[];
     };
+    showExactLocation?: boolean;
   };
 
   // 媒體資訊
   media: {
-    logo?: string;
-    coverImage?: string;
-    gallery?: string[];
-    videos?: string[];
+    gallery?: {
+      publicId: string;
+      secureUrl: string;
+      thumbnailUrl?: string;
+      previewUrl?: string;
+      originalUrl?: string;
+      description?: string;
+    }[];
+    videos?: {
+      url: string;
+      description?: string;
+    }[];
+    additionalMedia?: {
+      virtualTour?: string;
+      presentation?: {
+        publicId: string;
+        secureUrl: string;
+        thumbnailUrl?: string;
+        previewUrl?: string;
+        originalUrl?: string;
+      };
+    };
   };
 
   // 設施與服務
   amenities: {
-    hasWifi: boolean;
-    hasParking: boolean;
-    hasMeals: boolean;
-    hasPrivateRoom: boolean;
-    hasSharedRoom: boolean;
-    hasCamping: boolean;
-    hasKitchen: boolean;
-    hasShower: boolean;
-    hasHeating: boolean;
-    hasAirConditioning: boolean;
-    hasWashingMachine: boolean;
-    hasPets: boolean;
-    isSmokingAllowed: boolean;
-    isChildFriendly: boolean;
-    isAccessible: boolean;
-    other?: string[];
-    workExchangeDescription: string;
-    amenitiesNotes: string;
+    basics?: {
+      wifi?: boolean;
+      parking?: boolean;
+      elevator?: boolean;
+      airConditioner?: boolean;
+      heater?: boolean;
+      washingMachine?: boolean;
+    };
+    accommodation?: {
+      privateRoom?: boolean;
+      sharedRoom?: boolean;
+      camping?: boolean;
+      kitchen?: boolean;
+      bathroom?: boolean;
+      sharedBathroom?: boolean;
+    };
+    workExchange?: {
+      workingDesk?: boolean;
+      internetAccess?: boolean;
+      toolsProvided?: boolean;
+      trainingProvided?: boolean;
+      flexibleHours?: boolean;
+    };
+    lifestyle?: {
+      petFriendly?: boolean;
+      smokingAllowed?: boolean;
+      childFriendly?: boolean;
+      organic?: boolean;
+      vegetarian?: boolean;
+      ecoFriendly?: boolean;
+    };
+    activities?: {
+      yoga?: boolean;
+      meditation?: boolean;
+      freeDiving?: boolean;
+      scubaDiving?: boolean;
+      hiking?: boolean;
+      farmingActivities?: boolean;
+      culturalExchange?: boolean;
+    };
+    customAmenities?: string[];
+    amenitiesNotes?: string;
+    workExchangeDescription?: string;
   };
 
   // 主辦方詳細資訊
@@ -101,6 +150,18 @@ export interface IHost extends Document {
     };
     rules?: string[];
     expectations?: string[];
+  };
+
+  // 主人特點與描述
+  features?: {
+    features?: string[];
+    story?: string;
+    experience?: string;
+    environment?: {
+      surroundings?: string;
+      accessibility?: string;
+      nearbyAttractions?: string[];
+    };
   };
 
   // 評價與評分
@@ -138,12 +199,21 @@ const HostSchema: Schema = new Schema({
   category: { type: String, required: true },
   verified: { type: Boolean, default: false },
   verifiedAt: { type: Date },
+  email: { type: String, required: true }, // 頂層通訊欄位(與前端映射)
+  mobile: { type: String, required: true }, // 頂層通訊欄位(與前端映射)
 
   // 聯絡資訊
   contactInfo: {
     email: { type: String, required: true },
     phone: { type: String },
+    mobile: { type: String, required: true },
     website: { type: String },
+    preferredContactMethod: {
+      type: String,
+      enum: ["email", "phone", "mobile", "line"],
+      default: "email"
+    },
+    contactHours: { type: String },
     socialMedia: {
       facebook: { type: String },
       instagram: { type: String },
@@ -170,37 +240,81 @@ const HostSchema: Schema = new Schema({
     coordinates: {
       type: { type: String, default: 'Point' },
       coordinates: { type: [Number], required: true }
-    }
+    },
+    showExactLocation: { type: Boolean, default: true }
   },
 
   // 媒體資訊
   media: {
-    logo: { type: String },
-    coverImage: { type: String },
-    gallery: [{ type: String }],
-    videos: [{ type: String }]
+    gallery: [{
+      publicId: { type: String, required: true },
+      secureUrl: { type: String, required: true },
+      thumbnailUrl: { type: String },
+      previewUrl: { type: String },
+      originalUrl: { type: String },
+      description: { type: String }
+    }],
+    videos: [{
+      url: { type: String, required: true },
+      description: { type: String }
+    }],
+    additionalMedia: {
+      virtualTour: { type: String },
+      presentation: {
+        publicId: { type: String },
+        secureUrl: { type: String },
+        thumbnailUrl: { type: String },
+        previewUrl: { type: String },
+        originalUrl: { type: String }
+      }
+    }
   },
 
   // 設施與服務
   amenities: {
-    hasWifi: { type: Boolean, default: false },
-    hasParking: { type: Boolean, default: false },
-    hasMeals: { type: Boolean, default: false },
-    hasPrivateRoom: { type: Boolean, default: false },
-    hasSharedRoom: { type: Boolean, default: false },
-    hasCamping: { type: Boolean, default: false },
-    hasKitchen: { type: Boolean, default: false },
-    hasShower: { type: Boolean, default: false },
-    hasHeating: { type: Boolean, default: false },
-    hasAirConditioning: { type: Boolean, default: false },
-    hasWashingMachine: { type: Boolean, default: false },
-    hasPets: { type: Boolean, default: false },
-    isSmokingAllowed: { type: Boolean, default: false },
-    isChildFriendly: { type: Boolean, default: false },
-    isAccessible: { type: Boolean, default: false },
-    other: [{ type: String }],
-    workExchangeDescription: { type: String }, // 工作交換概述，簡要說明提供的工作交換類型
-    amenitiesNotes: { type: String } // 設施與服務補充說明，說明設施使用方式、開放時間等
+    basics: {
+      wifi: { type: Boolean, default: false },
+      parking: { type: Boolean, default: false },
+      elevator: { type: Boolean, default: false },
+      airConditioner: { type: Boolean, default: false },
+      heater: { type: Boolean, default: false },
+      washingMachine: { type: Boolean, default: false }
+    },
+    accommodation: {
+      privateRoom: { type: Boolean, default: false },
+      sharedRoom: { type: Boolean, default: false },
+      camping: { type: Boolean, default: false },
+      kitchen: { type: Boolean, default: false },
+      bathroom: { type: Boolean, default: false },
+      sharedBathroom: { type: Boolean, default: false }
+    },
+    workExchange: {
+      workingDesk: { type: Boolean, default: false },
+      internetAccess: { type: Boolean, default: false },
+      toolsProvided: { type: Boolean, default: false },
+      trainingProvided: { type: Boolean, default: false },
+      flexibleHours: { type: Boolean, default: false }
+    },
+    lifestyle: {
+      petFriendly: { type: Boolean, default: false },
+      smokingAllowed: { type: Boolean, default: false },
+      childFriendly: { type: Boolean, default: false },
+      organic: { type: Boolean, default: false },
+      vegetarian: { type: Boolean, default: false },
+      ecoFriendly: { type: Boolean, default: false }
+    },
+    activities: {
+      yoga: { type: Boolean, default: false },
+      meditation: { type: Boolean, default: false },
+      freeDiving: { type: Boolean, default: false },
+      scubaDiving: { type: Boolean, default: false },
+      hiking: { type: Boolean, default: false },
+      farmingActivities: { type: Boolean, default: false },
+      culturalExchange: { type: Boolean, default: false }
+    },
+    customAmenities: [{ type: String }],
+    amenitiesNotes: { type: String },
+    workExchangeDescription: { type: String }
   },
 
   // 主辦方詳細資訊
@@ -226,6 +340,18 @@ const HostSchema: Schema = new Schema({
     },
     rules: [{ type: String }],
     expectations: [{ type: String }]
+  },
+
+  // 主人特點與描述
+  features: {
+    features: [{ type: String }],
+    story: { type: String },
+    experience: { type: String },
+    environment: {
+      surroundings: { type: String },
+      accessibility: { type: String },
+      nearbyAttractions: [{ type: String }]
+    }
   },
 
   // 評價與評分

@@ -1,12 +1,26 @@
 import { GetStaticProps } from 'next';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { SearchIcon } from '../components/icons';
 import Layout from '../components/layout/Layout';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/router';
+import { UserRole } from '@/models/enums/UserRole';
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // 添加自動轉導邏輯 - 管理員直接進入管理中心
+  useEffect(() => {
+    if (status === 'authenticated' &&
+        (session?.user?.role === UserRole.ADMIN ||
+         session?.user?.role === UserRole.SUPER_ADMIN)) {
+      router.push('/admin');
+    }
+  }, [session, status, router]);
 
   return (
     <Layout>
