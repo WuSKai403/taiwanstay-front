@@ -10,76 +10,8 @@ import { HostRegisterProvider } from '@/components/host/context/HostRegisterCont
 import HostRegisterWizard from '@/components/host/HostRegisterWizard';
 import AuthGuard from '@/components/auth/AuthGuard';
 import { toast } from 'react-hot-toast';
-
-// 主人註冊表單數據類型
-interface HostRegisterFormData {
-  name: string;
-  description: string;
-  type: HostType;
-  category: string;
-  location: {
-    address: string;
-    city: string;
-    district?: string;
-    zipCode?: string;
-    country: string;
-    coordinates?: {
-      type: string;
-      coordinates: number[];
-    };
-  };
-  contactInfo: {
-    email: string;
-    phone?: string;
-    website?: string;
-    socialMedia?: {
-      facebook?: string;
-      instagram?: string;
-      line?: string;
-    };
-  };
-  amenities: {
-    hasWifi?: boolean;
-    hasParking?: boolean;
-    hasMeals?: boolean;
-    hasPrivateRoom?: boolean;
-    hasSharedRoom?: boolean;
-    hasCamping?: boolean;
-    hasKitchen?: boolean;
-    hasShower?: boolean;
-    hasHeating?: boolean;
-    hasAirConditioning?: boolean;
-    hasWashingMachine?: boolean;
-    hasPets?: boolean;
-    isSmokingAllowed?: boolean;
-    isChildFriendly?: boolean;
-    isAccessible?: boolean;
-    other?: string[];
-  };
-  details?: {
-    foundedYear?: number;
-    teamSize?: number;
-    languages?: string[];
-    acceptsChildren?: boolean;
-    acceptsPets?: boolean;
-    acceptsCouples?: boolean;
-    minStayDuration?: number;
-    maxStayDuration?: number;
-    workHoursPerWeek?: number;
-    workDaysPerWeek?: number;
-    providesAccommodation?: boolean;
-    providesMeals?: boolean;
-    dietaryOptions?: string[];
-    seasonalAvailability?: {
-      spring?: boolean;
-      summer?: boolean;
-      autumn?: boolean;
-      winter?: boolean;
-    };
-    rules?: string[];
-    expectations?: string[];
-  };
-}
+import { HostRegisterFormData } from '@/lib/schemas/host';
+import { HostStatus } from '@/models/enums/HostStatus';
 
 export default function HostRegister() {
   const router = useRouter();
@@ -151,7 +83,7 @@ export default function HostRegister() {
     if (!isLoading && hasHostId && hostStatus) {
       // 根據主人狀態進行不同處理
       switch (hostStatus) {
-        case 'PENDING':
+        case HostStatus.PENDING:
           toast.custom((t) => (
             <div className="bg-blue-50 px-6 py-4 rounded-lg shadow-md border-l-4 border-blue-400">
               <div className="flex">
@@ -168,16 +100,20 @@ export default function HostRegister() {
           ));
           router.replace('/hosts/dashboard');
           break;
-        case 'ACTIVE':
+        case HostStatus.ACTIVE:
           toast.success('您已經是註冊主人');
           router.replace('/hosts/dashboard');
           break;
-        case 'REJECTED':
+        case HostStatus.EDITING:
+          // 重新申請中，允許進入編輯流程，不進行跳轉
+          toast.success('請繼續完成您的主人申請資料');
+          break; // 不跳轉，允許進入編輯流程
+        case HostStatus.REJECTED:
           toast.error('您的主人申請已被拒絕，請聯繫客服瞭解詳情');
           router.replace('/hosts/dashboard');
           break;
-        case 'INACTIVE':
-        case 'SUSPENDED':
+        case HostStatus.INACTIVE:
+        case HostStatus.SUSPENDED:
           toast.error('您的主人帳號已被暫停');
           router.replace('/hosts/dashboard');
           break;
@@ -197,8 +133,8 @@ export default function HostRegister() {
     );
   }
 
-  // 如果用戶已有主人ID，返回空，等待重定向
-  if (hasHostId) {
+  // 如果用戶已有主人ID但不是處於EDITING狀態，返回空，等待重定向
+  if (hasHostId && hostStatus && hostStatus !== HostStatus.EDITING) {
     return null;
   }
 

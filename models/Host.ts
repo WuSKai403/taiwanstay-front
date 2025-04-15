@@ -9,21 +9,27 @@ export interface IHost extends Document {
   description: string;
   status: HostStatus;
   statusNote?: string;
+  statusHistory: {
+    status: HostStatus;
+    statusNote?: string;
+    updatedBy?: mongoose.Types.ObjectId;
+    updatedAt: Date;
+  }[];
   type: HostType;
   category: string;
   verified: boolean;
   verifiedAt?: Date;
-  email: string;  // 頂層通訊欄位(與前端映射)
-  mobile: string; // 頂層通訊欄位(與前端映射)
+  email: string;  // 頂層通訊欄位(註冊登入用)
+  mobile: string; // 頂層通訊欄位(註冊登入用)
 
   // 聯絡資訊
   contactInfo: {
-    email: string;
+    contactEmail: string;
     phone?: string;
-    mobile: string;
+    contactMobile: string;
     website?: string;
-    preferredContactMethod?: "email" | "phone" | "mobile" | "line";
     contactHours?: string;
+    notes?: string;
     socialMedia?: {
       facebook?: string;
       instagram?: string;
@@ -54,29 +60,27 @@ export interface IHost extends Document {
     showExactLocation?: boolean;
   };
 
-  // 媒體資訊
-  media: {
-    gallery?: {
+  // 照片與影片資訊 (MediaUploadStep 結構)
+  photos?: {
+    publicId: string;
+    secureUrl: string;
+    thumbnailUrl?: string;
+    previewUrl?: string;
+    originalUrl?: string;
+  }[];
+  photoDescriptions?: string[];
+  videoIntroduction?: {
+    url: string;
+    description?: string;
+  };
+  additionalMedia?: {
+    virtualTour?: string;
+    presentation?: {
       publicId: string;
       secureUrl: string;
       thumbnailUrl?: string;
       previewUrl?: string;
       originalUrl?: string;
-      description?: string;
-    }[];
-    videos?: {
-      url: string;
-      description?: string;
-    }[];
-    additionalMedia?: {
-      virtualTour?: string;
-      presentation?: {
-        publicId: string;
-        secureUrl: string;
-        thumbnailUrl?: string;
-        previewUrl?: string;
-        originalUrl?: string;
-      };
     };
   };
 
@@ -129,7 +133,7 @@ export interface IHost extends Document {
 
   // 主辦方詳細資訊
   details: {
-    foundedYear?: number;
+    foundingYear?: number;
     teamSize?: number;
     languages?: string[];
     acceptsChildren?: boolean;
@@ -191,6 +195,15 @@ const HostSchema: Schema = new Schema({
     default: HostStatus.PENDING
   },
   statusNote: { type: String },
+  statusHistory: [{
+    status: {
+      type: String,
+      enum: Object.values(HostStatus)
+    },
+    statusNote: { type: String },
+    updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    updatedAt: { type: Date, default: Date.now }
+  }],
   type: {
     type: String,
     enum: Object.values(HostType),
@@ -199,21 +212,17 @@ const HostSchema: Schema = new Schema({
   category: { type: String, required: true },
   verified: { type: Boolean, default: false },
   verifiedAt: { type: Date },
-  email: { type: String, required: true }, // 頂層通訊欄位(與前端映射)
-  mobile: { type: String, required: true }, // 頂層通訊欄位(與前端映射)
+  email: { type: String, required: true }, // 頂層通訊欄位(註冊登入用)
+  mobile: { type: String, required: true }, // 頂層通訊欄位(註冊登入用)
 
   // 聯絡資訊
   contactInfo: {
-    email: { type: String, required: true },
+    contactEmail: { type: String, required: true },
     phone: { type: String },
-    mobile: { type: String, required: true },
+    contactMobile: { type: String, required: true },
     website: { type: String },
-    preferredContactMethod: {
-      type: String,
-      enum: ["email", "phone", "mobile", "line"],
-      default: "email"
-    },
     contactHours: { type: String },
+    notes: { type: String },
     socialMedia: {
       facebook: { type: String },
       instagram: { type: String },
@@ -244,29 +253,27 @@ const HostSchema: Schema = new Schema({
     showExactLocation: { type: Boolean, default: true }
   },
 
-  // 媒體資訊
-  media: {
-    gallery: [{
-      publicId: { type: String, required: true },
-      secureUrl: { type: String, required: true },
+  // 媒體資訊 (根據 MediaUploadStep 結構調整)
+  photos: [{
+    publicId: { type: String, required: true },
+    secureUrl: { type: String, required: true },
+    thumbnailUrl: { type: String },
+    previewUrl: { type: String },
+    originalUrl: { type: String }
+  }],
+  photoDescriptions: [{ type: String }],
+  videoIntroduction: {
+    url: { type: String },
+    description: { type: String }
+  },
+  additionalMedia: {
+    virtualTour: { type: String },
+    presentation: {
+      publicId: { type: String },
+      secureUrl: { type: String },
       thumbnailUrl: { type: String },
       previewUrl: { type: String },
-      originalUrl: { type: String },
-      description: { type: String }
-    }],
-    videos: [{
-      url: { type: String, required: true },
-      description: { type: String }
-    }],
-    additionalMedia: {
-      virtualTour: { type: String },
-      presentation: {
-        publicId: { type: String },
-        secureUrl: { type: String },
-        thumbnailUrl: { type: String },
-        previewUrl: { type: String },
-        originalUrl: { type: String }
-      }
+      originalUrl: { type: String }
     }
   },
 
@@ -319,7 +326,7 @@ const HostSchema: Schema = new Schema({
 
   // 主辦方詳細資訊
   details: {
-    foundedYear: { type: Number },
+    foundingYear: { type: Number },
     teamSize: { type: Number },
     languages: [{ type: String }],
     acceptsChildren: { type: Boolean, default: false },

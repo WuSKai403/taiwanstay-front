@@ -11,12 +11,12 @@ export const hostBasicInfoSchema = z.object({
   category: z.string().min(1, "請選擇類別"),
   foundedYear: z.number().int("請輸入有效年份").min(1900, "年份不能早於1900年").max(new Date().getFullYear(), "年份不能超過當前年份").optional().nullable(),
   teamSize: z.number().int("請輸入整數").min(1, "團隊人數至少為1").max(1000, "團隊人數不能超過1000").optional().nullable(),
-  languages: z.array(z.string()).min(1, "請至少選擇一種語言"),
+  languages: z.array(z.string()).optional().default([]),
 });
 
 // 步驟2：位置資訊驗證模型
 export const hostLocationSchema = z.object({
-  country: z.string().min(1, "請選擇國家"),
+  country: z.literal('TW', { invalid_type_error: "只接受台灣地區註冊", required_error: "請選擇國家" }),
   city: z.string().min(1, "請選擇城市"),
   district: z.string().min(1, "請選擇區域"),
   zipCode: z.string().optional().nullable(),
@@ -36,7 +36,7 @@ export const hostMediaSchema = z.object({
   photos: z.array(cloudinaryImageResourceSchema)
     .min(1, "至少需要上傳一張照片")
     .max(5, "最多只能上傳5張照片"),
-  photoDescriptions: z.array(z.string().max(200, "照片描述不能超過200個字")).max(5),
+  photoDescriptions: z.array(z.string().max(200, "照片描述不能超過200個字")).max(5).default([]),
   videoIntroduction: z.object({
     url: z.string().url("請輸入有效的視頻連結").optional().nullable(),
     description: z.string().max(200, "視頻描述不能超過200個字").optional().nullable(),
@@ -49,19 +49,16 @@ export const hostMediaSchema = z.object({
 
 // 步驟4：聯絡資訊驗證模型
 export const hostContactInfoSchema = z.object({
-  email: z.string().email("請輸入有效的電子郵件地址"),
+  contactEmail: z.string().email("請輸入有效的電子郵件地址"),
   phone: z.string().regex(/^(\+?886\-?|\(0\))?[0-9]{2,3}\-?[0-9]{3,4}\-?[0-9]{4}$/, "請輸入有效的台灣市話格式").optional().nullable(),
-  mobile: z.string().regex(/^(\+?886|\(0\))?9\d{8}$/, "請輸入有效的台灣手機號碼格式"),
-  website: z.string().url("請輸入有效的網站連結").optional().nullable(),
+  contactMobile: z.string().regex(/^(\+?886(0)?|\(0\))?9\d{8}$/, "請輸入有效的台灣手機號碼格式"),
+  website: z.string().optional().nullable(),
   socialMedia: z.object({
-    facebook: z.string().url("請輸入有效的Facebook連結").optional().nullable(),
-    instagram: z.string().url("請輸入有效的Instagram連結").optional().nullable(),
-    threads: z.string().url("請輸入有效的Threads連結").optional().nullable(),
+    facebook: z.string().optional().nullable(),
+    instagram: z.string().optional().nullable(),
+    threads: z.string().optional().nullable(),
     line: z.string().optional().nullable(),
   }).optional().nullable(),
-  preferredContactMethod: z.enum(["email", "phone", "mobile", "line"], {
-    errorMap: () => ({ message: "請選擇偏好的聯絡方式" })
-  }),
   contactHours: z.string().max(100, "聯絡時間描述不能超過100個字").optional(),
 });
 
@@ -125,8 +122,8 @@ export const amenitiesSchema = z.object({
 });
 
 // 頂層通訊欄位(與後端映射)
-export const emailSchema = z.string().email("請輸入有效的電子郵件地址");
-export const mobileSchema = z.string().min(1, "請輸入聯絡電話");
+export const emailSchema = z.string().email("請輸入有效的電子郵件地址").optional();
+export const mobileSchema = z.string().min(1, "請輸入聯絡電話").optional();
 
 // 完整主人註冊表單驗證模型
 export const hostRegisterSchema = z.object({
@@ -138,7 +135,7 @@ export const hostRegisterSchema = z.object({
 
   // 位置資訊
   location: z.object({
-    country: z.string().min(1, "請選擇國家").default("台灣"),
+    country: z.literal('TW', { invalid_type_error: "只接受台灣地區註冊", required_error: "請選擇國家" }),
     city: z.string().min(1, "請選擇城市"),
     district: z.string().min(1, "請選擇區域"),
     zipCode: z.string().optional().nullable(),
@@ -153,51 +150,37 @@ export const hostRegisterSchema = z.object({
     showExactLocation: z.boolean().default(true),
   }),
 
-  // 媒體資訊
-  media: z.object({
-    gallery: z.array(cloudinaryImageResourceSchema)
-      .min(1, "至少需要上傳一張照片")
-      .max(5, "最多只能上傳5張照片")
-      .default([]),
-    videos: z.array(
-      z.object({
-        url: z.string().url("請輸入有效的視頻連結"),
-        description: z.string().max(200, "視頻描述不能超過200個字").optional()
-      })
-    ).optional().default([]),
-    additionalMedia: z.object({
-      virtualTour: z.string().url("請輸入有效的虛擬導覽連結").optional().nullable().or(z.literal('')),
-      presentation: cloudinaryImageResourceSchema.optional().nullable(),
-    }).optional().nullable(),
-  }).default({
-    gallery: [],
-    videos: [],
-    additionalMedia: { virtualTour: '' }
-  }),
+  // 媒體資訊 - 修改為與 MediaUploadStep 一致的欄位結構
+  photos: z.array(cloudinaryImageResourceSchema)
+    .min(1, "至少需要上傳一張照片")
+    .max(5, "最多只能上傳5張照片")
+    .default([]),
+  photoDescriptions: z.array(z.string().max(200, "照片描述不能超過200個字")).max(5).default([]),
+  videoIntroduction: z.object({
+    url: z.string().url("請輸入有效的視頻連結").optional().nullable(),
+    description: z.string().max(200, "視頻描述不能超過200個字").optional().nullable(),
+  }).optional().nullable().default({}),
+  additionalMedia: z.object({
+    virtualTour: z.string().url("請輸入有效的虛擬導覽連結").optional().nullable().or(z.literal('')),
+    presentation: cloudinaryImageResourceSchema.optional().nullable(),
+  }).optional().nullable().default({ virtualTour: '' }),
 
   // 聯絡資訊
-  email: z.string().email("請輸入有效的電子郵件地址"),
-  mobile: z.string().min(1, "請輸入聯絡電話"),
+  email: z.string().email("請輸入有效的電子郵件地址").optional().nullable(),
+  mobile: z.string().min(1, "請輸入聯絡電話").optional().nullable(),
   contactInfo: z.object({
-    email: z.string().email("請輸入有效的電子郵件地址"),
+    contactEmail: z.string().email("請輸入有效的電子郵件地址"),
     phone: z.string().regex(/^(\+?886\-?|\(0\))?[0-9]{2,3}\-?[0-9]{3,4}\-?[0-9]{4}$/, "請輸入有效的台灣市話格式").optional().nullable(),
-    mobile: z.string().regex(/^(\+?886|\(0\))?9\d{8}$/, "請輸入有效的台灣手機號碼格式"),
-    website: z.string().url("請輸入有效的網站連結").optional().nullable(),
+    contactMobile: z.string().regex(/^(\+?886(0)?|\(0\))?9\d{8}$/, "請輸入有效的台灣手機號碼格式"),
+    website: z.string().optional().nullable(),
     socialMedia: z.object({
-      facebook: z.string().url("請輸入有效的Facebook連結").optional().nullable(),
-      instagram: z.string().url("請輸入有效的Instagram連結").optional().nullable(),
-      threads: z.string().url("請輸入有效的Threads連結").optional().nullable(),
+      facebook: z.string().optional().nullable(),
+      instagram: z.string().optional().nullable(),
+      threads: z.string().optional().nullable(),
       line: z.string().optional().nullable(),
     }).optional().nullable().default({}),
-    preferredContactMethod: z.enum(["email", "phone", "mobile", "line"], {
-      errorMap: () => ({ message: "請選擇偏好的聯絡方式" })
-    }).default("email"),
     contactHours: z.string().max(100, "聯絡時間描述不能超過100個字").optional(),
-  }).default({
-    email: '',
-    mobile: '',
-    preferredContactMethod: 'email'
-  }),
+  }).default({ contactEmail: '', contactMobile: '', socialMedia: {} }),
 
   // 主人特點與描述
   features: z.object({
@@ -264,7 +247,7 @@ export const hostRegisterSchema = z.object({
   details: z.object({
     foundedYear: z.number().int("請輸入有效年份").min(1900, "年份不能早於1900年").max(new Date().getFullYear(), "年份不能超過當前年份").optional().nullable(),
     teamSize: z.number().int("請輸入整數").min(1, "團隊人數至少為1").max(1000, "團隊人數不能超過1000").optional().nullable(),
-    languages: z.array(z.string()).min(1, "請至少選擇一種語言").optional().default([]),
+    languages: z.array(z.string()).optional().default([]),
     rules: z.array(z.string()).optional().default([]),
     providesAccommodation: z.boolean().default(true),
     providesMeals: z.boolean().default(false)

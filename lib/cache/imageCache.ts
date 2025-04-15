@@ -353,8 +353,10 @@ if (typeof window !== 'undefined') {
 }
 
 // 導出接口以供使用
-export default {
+const ImageCache = {
   cacheImage,
   getCachedImage,
   cleanExpiredCache
 };
+
+export default ImageCache;

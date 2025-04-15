@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 // 組件屬性定義
 interface LocationPickerProps {
@@ -174,8 +174,42 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     }
   };
 
-  // 地理編碼函數 - 避免在 useEffect 中定義
-  const geocodeCityAndDistrict = async (mapInstance: any, markerInstance: any) => {
+  // 如果找不到區域，嘗試搜索城市
+  const fallbackToCity = useCallback(async (mapInstance: any, markerInstance: any) => {
+    console.log('找不到對應區域中心，嘗試搜索城市');
+
+    try {
+      const cityOnlyResponse = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city || '')}&countrycodes=tw&limit=1`
+      );
+
+      const cityData = await cityOnlyResponse.json();
+
+      if (cityData && cityData.length > 0) {
+        const { lat, lon } = cityData[0];
+        const cityPosition: [number, number] = [parseFloat(lat), parseFloat(lon)];
+
+        // 更新標記位置
+        markerInstance.setLatLng(cityPosition);
+        updatePopupContent(markerInstance);
+
+        // 更新地圖視圖
+        mapInstance.setView(cityPosition, 12);
+
+        // 更新狀態
+        setMarkerPosition(cityPosition);
+        onPositionChange(cityPosition[0], cityPosition[1]);
+        console.log('找到城市中心:', cityPosition);
+      } else {
+        console.log('無法找到對應城市位置，使用默認位置');
+      }
+    } catch (error) {
+      console.error('城市地理編碼錯誤:', error);
+    }
+  }, [city, onPositionChange, updatePopupContent]);
+
+  // 地理編碼函數 - 使用 useCallback 避免每次渲染都重新創建
+  const geocodeCityAndDistrict = useCallback(async (mapInstance: any, markerInstance: any) => {
     if (!city || isSearching) return;
 
     setIsSearching(true);
@@ -216,48 +250,14 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     } finally {
       setIsSearching(false);
     }
-  };
-
-  // 如果找不到區域，嘗試搜索城市
-  const fallbackToCity = async (mapInstance: any, markerInstance: any) => {
-    console.log('找不到對應區域中心，嘗試搜索城市');
-
-    try {
-      const cityOnlyResponse = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city || '')}&countrycodes=tw&limit=1`
-      );
-
-      const cityData = await cityOnlyResponse.json();
-
-      if (cityData && cityData.length > 0) {
-        const { lat, lon } = cityData[0];
-        const cityPosition: [number, number] = [parseFloat(lat), parseFloat(lon)];
-
-        // 更新標記位置
-        markerInstance.setLatLng(cityPosition);
-        updatePopupContent(markerInstance);
-
-        // 更新地圖視圖
-        mapInstance.setView(cityPosition, 12);
-
-        // 更新狀態
-        setMarkerPosition(cityPosition);
-        onPositionChange(cityPosition[0], cityPosition[1]);
-        console.log('找到城市中心:', cityPosition);
-      } else {
-        console.log('無法找到對應城市位置，使用默認位置');
-      }
-    } catch (error) {
-      console.error('城市地理編碼錯誤:', error);
-    }
-  };
+  }, [city, district, fallbackToCity, isSearching, onPositionChange, updatePopupContent]);
 
   // 當地址、城市或區域改變時，更新彈出窗口
   useEffect(() => {
     if (marker && mapInstance) {
       updatePopupContent(marker);
     }
-  }, [city, district, address, marker, mapInstance]);
+  }, [city, district, address, marker, mapInstance, updatePopupContent]);
 
   // 監聽城市和區域變化，更新地圖位置
   useEffect(() => {
@@ -268,7 +268,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
       return () => clearTimeout(timer);
     }
-  }, [city, district]);
+  }, [city, district, mapInstance, marker, isSearching, geocodeCityAndDistrict]);
 
   // 確保只在客戶端渲染地圖
   if (!isClient) {

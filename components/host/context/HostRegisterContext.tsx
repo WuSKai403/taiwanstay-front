@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   hostRegisterSchema,
@@ -8,11 +8,15 @@ import {
   hostMediaSchema,
   hostContactInfoSchema,
   hostFeaturesSchema,
+  amenitiesSchema,
   HostRegisterFormData
 } from '@/lib/schemas/host';
 import { handleFormValidationError, createStepValidator, createFormSubmitter } from '@/lib/utils/formValidation';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
+import { HostStatus } from '@/models/enums/HostStatus';
+import { z } from 'zod';
 
 // 定義每個步驟的名稱
 export const HOST_REGISTER_STEPS = {
@@ -37,7 +41,9 @@ export const STEP_CONFIG = [
   {
     title: '位置資訊',
     description: '請提供您的位置資訊，幫助旅行者找到您。',
-    schema: hostLocationSchema
+    schema: z.object({
+      location: hostLocationSchema
+    })
   },
   {
     title: '媒體上傳',
@@ -47,17 +53,23 @@ export const STEP_CONFIG = [
   {
     title: '聯絡資訊',
     description: '提供您的聯絡方式，讓旅行者能與您取得聯繫。',
-    schema: hostContactInfoSchema
+    schema: z.object({
+      contactInfo: hostContactInfoSchema
+    })
   },
   {
     title: '特色與描述',
     description: '描述您的場所特色和環境，幫助申請者更深入了解您提供的體驗。',
-    schema: hostFeaturesSchema
+    schema: z.object({
+      features: hostFeaturesSchema
+    })
   },
   {
     title: '設施與服務',
     description: '描述您提供的設施與服務，幫助旅行者了解您的環境與條件。',
-    schema: hostFeaturesSchema
+    schema: z.object({
+      amenities: amenitiesSchema
+    })
   },
   {
     title: '預覽與提交',
@@ -112,32 +124,190 @@ const DRAFT_STORAGE_KEY = 'hostRegisterDraft';
 
 // Provider 組件
 export const HostRegisterProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const router = useRouter();
+  const { data: session, status: sessionStatus } = useSession();
   const [currentStep, setCurrentStep] = useState(HOST_REGISTER_STEPS.BASIC_INFO);
+  const [completedSteps, setCompletedSteps] = useState<boolean[]>(Array(TOTAL_STEPS).fill(false));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const router = useRouter();
+  const [isExistingHost, setIsExistingHost] = useState(false);
 
-  // 使用 react-hook-form
+  // 使用 React Hook Form
   const methods = useForm<HostRegisterFormData>({
     resolver: zodResolver(hostRegisterSchema),
     mode: 'onChange',
     defaultValues: {
-      status: 'draft',
-      country: '台灣',
-      showExactLocation: true,
-      preferredContactMethod: 'email',
+      name: "",
+      description: "",
+      type: undefined,
+      category: "",
+      location: {
+        country: "TW",
+        city: "",
+        district: "",
+        zipCode: "",
+        address: "",
+        coordinates: {
+          type: "Point",
+          coordinates: [121.5, 25.0] // 默認台北座標
+        },
+        showExactLocation: true
+      },
       photos: [],
       photoDescriptions: [],
-      features: [],
-      languages: [], // 確保必填欄位有默認值
-      coordinates: {
-        type: 'Point',
-        coordinates: [121.5, 25.0] // 默認台北座標
+      videoIntroduction: {
+        url: "",
+        description: ""
+      },
+      additionalMedia: {
+        virtualTour: ""
+      },
+      email: "",
+      mobile: "",
+      contactInfo: {
+        contactEmail: "",
+        contactMobile: "",
+        socialMedia: {}
+      },
+      features: {
+        features: [],
+        story: "",
+        experience: "",
+        environment: {
+          surroundings: "",
+          accessibility: "",
+          nearbyAttractions: []
+        }
+      },
+      amenities: {
+        basics: {},
+        accommodation: {},
+        workExchange: {},
+        lifestyle: {},
+        activities: {},
+        customAmenities: [],
+        amenitiesNotes: "",
+        workExchangeDescription: ""
+      },
+      details: {
+        languages: [],
+        rules: [],
+        providesAccommodation: true,
+        providesMeals: false
       }
     }
   });
 
-  const { reset, getValues, setValue } = methods;
+  const { getValues, setValue, reset, formState: { errors } } = methods;
+
+  // 檢查用戶是否處於編輯模式 (EDITING 狀態)，並加載現有數據
+  useEffect(() => {
+    const fetchExistingHostData = async () => {
+      if (sessionStatus === 'authenticated' && session?.user?.hostId) {
+        try {
+          const response = await fetch('/api/hosts/me');
+
+          if (response.ok) {
+            const data = await response.json();
+
+            if (data.success && data.host && data.host.status === HostStatus.EDITING) {
+              setIsExistingHost(true);
+              console.log('載入現有主人資料:', data.host);
+
+              // 預處理資料以符合表單結構
+              const hostData = data.host;
+
+              // 填充基本資料
+              setValue('name', hostData.name);
+              setValue('description', hostData.description);
+              setValue('type', hostData.type);
+              setValue('category', hostData.category);
+
+              // 填充位置資訊
+              if (hostData.location) {
+                setValue('location', {
+                  address: hostData.location.address || '',
+                  city: hostData.location.city || '',
+                  district: hostData.location.district || '',
+                  zipCode: hostData.location.zipCode || '',
+                  country: 'TW',
+                  coordinates: hostData.location.coordinates || {
+                    type: 'Point',
+                    coordinates: [0, 0]
+                  },
+                  showExactLocation: hostData.location.showExactLocation ?? true
+                });
+              }
+
+              // 填充聯絡資訊
+              setValue('email', hostData.email || '');
+              setValue('mobile', hostData.mobile || '');
+
+              if (hostData.contactInfo) {
+                setValue('contactInfo', {
+                  contactEmail: hostData.contactInfo.contactEmail || hostData.contactInfo.email || hostData.email || '',
+                  phone: hostData.contactInfo.phone || '',
+                  contactMobile: hostData.contactInfo.contactMobile || hostData.contactInfo.mobile || hostData.mobile || '',
+                  website: hostData.contactInfo.website || '',
+                  contactHours: hostData.contactInfo.contactHours || '',
+                  socialMedia: hostData.contactInfo.socialMedia || {
+                    facebook: '',
+                    instagram: '',
+                    line: ''
+                  }
+                });
+              }
+
+              // 填充媒體資訊
+              if (hostData.photos) {
+                // 使用新結構
+                setValue('photos', hostData.photos);
+                setValue('photoDescriptions', hostData.photoDescriptions || []);
+                setValue('videoIntroduction', hostData.videoIntroduction || { url: '', description: '' });
+                setValue('additionalMedia', hostData.additionalMedia || { virtualTour: '' });
+              } else {
+                // 默認空值
+                setValue('photos', []);
+                setValue('photoDescriptions', []);
+                setValue('videoIntroduction', { url: '', description: '' });
+                setValue('additionalMedia', { virtualTour: '' });
+              }
+
+              // 填充設施與服務
+              if (hostData.amenities) {
+                setValue('amenities', hostData.amenities);
+              }
+
+              // 填充特點與描述
+              if (hostData.features) {
+                setValue('features', {
+                  features: hostData.features.features || [],
+                  story: hostData.features.story || '',
+                  experience: hostData.features.experience || '',
+                  environment: hostData.features.environment || {
+                    surroundings: '',
+                    accessibility: '',
+                    nearbyAttractions: []
+                  }
+                });
+              }
+
+              // 填充詳細資訊
+              if (hostData.details) {
+                setValue('details', hostData.details);
+              }
+
+              toast.success('已載入您先前的主人申請資料，請繼續完成編輯');
+            }
+          }
+        } catch (error) {
+          console.error('獲取現有主人資料失敗:', error);
+        }
+      }
+    };
+
+    fetchExistingHostData();
+  }, [sessionStatus, session, setValue]);
 
   // 載入本地存儲的草稿
   useEffect(() => {
@@ -233,6 +403,15 @@ export const HostRegisterProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
 
     try {
+      // 獲取目前表單數據並輸出以便偵錯
+      const formValues = getValues();
+      console.log('驗證步驟前的表單數據:', {
+        step: currentStep,
+        title: STEP_CONFIG[currentStep].title,
+        'contactInfo.contactEmail': formValues.contactInfo?.contactEmail,
+        'contactInfo.contactMobile': formValues.contactInfo?.contactMobile
+      });
+
       // 使用通用步驟驗證器驗證當前步驟
       const isValid = await validateStep(stepSchema, async () => {
         // 驗證通過，保存草稿並前進
@@ -258,8 +437,11 @@ export const HostRegisterProvider: React.FC<{ children: ReactNode }> = ({ childr
     setSubmitError(null);
 
     try {
-      // 檢查當前步驟是否有效
-      const isValid = await validateStep(currentStep);
+      // 檢查表單是否有效 - 使用完整的 hostRegisterSchema 進行最終驗證
+      const isValid = await validateStep(hostRegisterSchema, async () => {
+        console.log('表單驗證成功，即將提交');
+      });
+
       if (!isValid) {
         setIsSubmitting(false);
         return false;
@@ -268,17 +450,130 @@ export const HostRegisterProvider: React.FC<{ children: ReactNode }> = ({ childr
       // 準備提交資料
       const formData = getValues() as any;
 
-      // 處理聯絡資訊的 email 和 mobile 欄位
-      if (formData.contactInfo?.email && !formData.email) {
-        formData.email = formData.contactInfo.email;
+      // 詳細記錄表單數據
+      console.log('[前端] 提交表單數據:', {
+        name: formData.name,
+        type: formData.type,
+        photos: formData.photos,
+        photoDescriptions: formData.photoDescriptions,
+        photosLength: formData.photos?.length,
+        photosType: typeof formData.photos,
+        firstPhoto: formData.photos?.[0],
+      });
+
+      // 檢查是否存在舊格式的媒體欄位，如果存在則移除它
+      if (formData.media) {
+        console.log('[前端] 發現舊的 media 欄位，將移除此欄位');
+        delete formData.media;
       }
-      if (formData.contactInfo?.phone && !formData.mobile) {
-        formData.mobile = formData.contactInfo.phone;
+
+      // 轉換照片欄位格式: public_id -> publicId, secure_url -> secureUrl
+      if (formData.photos && Array.isArray(formData.photos) && formData.photos.length > 0) {
+        formData.photos = formData.photos.map((photo: any) => {
+          if (!photo) return null;
+
+          // 創建一個新對象，保留所有現有屬性
+          const newPhoto: any = { ...photo };
+
+          // 轉換字段名稱
+          if (photo.public_id && !photo.publicId) {
+            newPhoto.publicId = photo.public_id;
+            delete newPhoto.public_id;
+          }
+
+          if (photo.secure_url && !photo.secureUrl) {
+            newPhoto.secureUrl = photo.secure_url;
+            delete newPhoto.secure_url;
+          }
+
+          // 確保所有必要欄位存在
+          if (!newPhoto.publicId || !newPhoto.secureUrl) {
+            console.error('[前端] 照片缺少必要欄位:', newPhoto);
+            return null;
+          }
+
+          return newPhoto;
+        }).filter(Boolean); // 過濾掉空值
+
+        console.log('[前端] 格式轉換後的照片:', formData.photos);
+      }
+
+      // 自動生成 slug 欄位（如果沒有的話）
+      if (formData.name && (!formData.slug || formData.slug.trim() === '')) {
+        // 將名稱轉換為 slug 格式
+        // 第一步：處理名稱
+        const nameBase = formData.name
+          .toLowerCase()
+          .replace(/[^\w\s-]/g, '') // 移除特殊字符
+          .replace(/\s+/g, '-') // 將空格替換為連字符
+          .replace(/--+/g, '-') // 替換多個連字符為一個
+          .trim(); // 移除首尾空格
+
+        // 第二步：處理中文字符的情況（保留英文和數字，移除純中文或其他非英文字符）
+        let slugBase = nameBase;
+
+        // 如果 slug 主要是中文（沒有多少英文字符）
+        if (slugBase.length < 2 || slugBase.replace(/[a-z0-9-]/g, '').length > slugBase.length * 0.5) {
+          // 使用類別作為前綴，提高 SEO 相關性
+          if (formData.type) {
+            const typePrefix = formData.type.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+            slugBase = typePrefix + '-' + slugBase;
+          }
+
+          if (formData.category) {
+            const categoryPart = formData.category.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+            if (categoryPart && categoryPart.length > 0) {
+              slugBase = slugBase + '-' + categoryPart;
+            }
+          }
+        }
+
+        // 第三步：添加位置信息以增強 SEO 相關性
+        if (formData.location && formData.location.city) {
+          const cityPart = formData.location.city
+            .toLowerCase()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s+/g, '-');
+
+          if (cityPart && cityPart.length > 0 && !slugBase.includes(cityPart)) {
+            slugBase = slugBase + '-' + cityPart;
+          }
+        }
+
+        // 第四步：確保 slug 長度適中（不要太長）
+        if (slugBase.length > 50) {
+          slugBase = slugBase.substring(0, 50);
+          // 確保不會在單詞中間切斷
+          if (slugBase.lastIndexOf('-') > 0) {
+            slugBase = slugBase.substring(0, slugBase.lastIndexOf('-'));
+          }
+        }
+
+        // 第五步：添加短隨機字串確保唯一性（使用時間戳的一部分 + 隨機字符）
+        const uniqueSuffix = Date.now().toString().slice(-4) +
+                             Math.random().toString(36).substring(2, 5);
+
+        // 組合最終的 slug
+        const finalSlug = `${slugBase}-${uniqueSuffix}`;
+
+        // 最後確保沒有開頭或結尾的連字符
+        formData.slug = finalSlug.replace(/^-+|-+$/g, '');
+        console.log('自動生成 SEO 友善的 slug:', formData.slug);
+      }
+
+      // 選擇正確的API路徑和方法
+      let apiUrl = '/api/hosts';
+      let method = 'POST';
+
+      // 如果是現有主人編輯資料，使用PUT方法
+      if (isExistingHost && session?.user?.hostId) {
+        apiUrl = `/api/hosts/${session.user.hostId}`;
+        method = 'PUT';
       }
 
       // 提交表單資料到 API
-      const response = await fetch('/api/hosts', {
-        method: 'POST',
+      const response = await fetch(apiUrl, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
         },

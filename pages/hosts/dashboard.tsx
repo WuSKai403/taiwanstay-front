@@ -59,7 +59,38 @@ export default function HostDashboard() {
   };
 
   // 開始申請流程
-  const handleStartApplication = () => {
+  const handleStartApplication = async () => {
+    // 如果是被拒絕的主人，需要先調用 reapply API
+    if (hostInfo && hostInfo.status === HostStatus.REJECTED) {
+      try {
+        const response = await fetch('/api/hosts/reapply', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || '重新申請失敗');
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          toast.success('已將狀態更新為編輯中，可以重新提交申請');
+          // 更新本地狀態
+          setHostInfo(prev => prev ? { ...prev, status: HostStatus.EDITING } : null);
+        } else {
+          throw new Error(data.message || '重新申請失敗');
+        }
+      } catch (error) {
+        console.error('重新申請失敗:', error);
+        toast.error((error as Error).message || '重新申請失敗，請稍後再試');
+        return; // 發生錯誤時不進行跳轉
+      }
+    }
+
+    // 跳轉到註冊頁面
     router.push('/hosts/register');
   };
 

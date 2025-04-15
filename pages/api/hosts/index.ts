@@ -126,7 +126,7 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
       return res.status(401).json({ success: false, message: '未授權' });
     }
 
-    // 檢查用戶是否已經是主人
+    // 獲取用戶資料以獲取email和mobile
     const user = await User.findById(session.user.id);
     console.log('[API] 創建主人 - 資料庫用戶檢查:', user ? '找到用戶' : '未找到用戶');
 
@@ -135,128 +135,127 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
       return res.status(404).json({ success: false, message: '用戶不存在' });
     }
 
-    // 檢查是否已有主人申請記錄或已是主人
-    if (user.hostId) {
-      // 查詢主人記錄以檢查狀態
-      const existingHost = await Host.findById(user.hostId);
-      console.log('[API] 創建主人 - 已有主人記錄, 狀態:', existingHost?.status);
+    // 檢查用戶是否已是主人
+    const existingHost = await Host.findOne({ userId: user._id });
+    console.log('[API] 創建主人 - 已有主人記錄, 狀態:', existingHost?.status);
 
-      if (existingHost) {
-        if (existingHost.status === HostStatus.PENDING) {
-          // 已提交申請但尚未審核
-          return res.status(400).json({
-            success: false,
-            message: '您已提交主人申請，正在審核中',
-            status: 'pending',
-            hostId: existingHost._id
-          });
-        } else if (existingHost.status === HostStatus.ACTIVE) {
-          // 已是正式主人
-          return res.status(400).json({
-            success: false,
-            message: '您已經是註冊主人，無法重複申請',
-            status: 'active',
-            hostId: existingHost._id
-          });
-        } else if (existingHost.status === HostStatus.REJECTED) {
-          // 申請被拒絕，可以考慮允許重新申請或提示聯繫客服
-          return res.status(400).json({
-            success: false,
-            message: '您的主人申請已被拒絕，請聯繫客服瞭解詳情',
-            status: 'rejected',
-            hostId: existingHost._id
-          });
-        }
-      } else {
-        // 用戶有hostId但找不到對應記錄，可能數據不一致
-        console.log('[API] 創建主人 - 錯誤: 用戶有hostId但找不到對應記錄', { hostId: user.hostId });
+    if (existingHost) {
+      if (existingHost.status === HostStatus.PENDING) {
+        // 已提交申請但尚未審核
         return res.status(400).json({
           success: false,
-          message: '系統記錄不一致，請聯繫客服處理',
-          status: 'data_inconsistency'
+          message: '您已提交主人申請，正在審核中',
+          status: 'pending',
+          hostId: existingHost._id
+        });
+      } else if (existingHost.status === HostStatus.ACTIVE) {
+        // 已是正式主人
+        return res.status(400).json({
+          success: false,
+          message: '您已經是註冊主人，無法重複申請',
+          status: 'active',
+          hostId: existingHost._id
+        });
+      } else if (existingHost.status === HostStatus.REJECTED) {
+        // 申請被拒絕，可以考慮允許重新申請或提示聯繫客服
+        return res.status(400).json({
+          success: false,
+          message: '您的主人申請已被拒絕，請聯繫客服瞭解詳情',
+          status: 'rejected',
+          hostId: existingHost._id
         });
       }
     }
 
-    // 解析請求體
-    const {
-      name,
-      description,
-      type,
-      category,
-      location,
-      contactInfo,
-      amenities,
-      details,
-      media,
-      features,
-      email,
-      mobile
-    } = req.body;
+    // 處理表單數據
+    const formData = req.body;
 
-    // 驗證必要字段並記錄
-    const missingFields = [];
-    if (!name) missingFields.push('name');
-    if (!description) missingFields.push('description');
-    if (!type) missingFields.push('type');
-    if (!category) missingFields.push('category');
-    if (!location) missingFields.push('location');
-    if (!contactInfo) missingFields.push('contactInfo');
-    if (!email) missingFields.push('email');
-    if (!mobile) missingFields.push('mobile');
-
-    console.log('[API] 創建主人 - 必要字段檢查:', {
-      name: !!name,
-      description: !!description,
-      type: !!type,
-      category: !!category,
-      location: !!location,
-      contactInfo: !!contactInfo,
-      email: !!email,
-      mobile: !!mobile
-    });
-
-    if (missingFields.length > 0) {
-      console.log('[API] 創建主人 - 錯誤: 缺少必要字段', { missingFields });
-      return res.status(400).json({
-        success: false,
-        message: '請提供所有必要的資訊',
-        missingFields
-      });
+    // 明確移除舊的 media 欄位
+    if (formData.media) {
+      console.log('[API] 發現舊的媒體欄位，將其移除');
+      delete formData.media;
     }
 
+    // 轉換照片欄位格式
+    let processedPhotos: Array<{
+      publicId: string;
+      secureUrl: string;
+      thumbnailUrl?: string;
+      previewUrl?: string;
+      originalUrl?: string;
+    }> = [];
+    if (formData.photos && Array.isArray(formData.photos) && formData.photos.length > 0) {
+      processedPhotos = formData.photos.map((photo: any) => {
+        if (!photo) return null;
+
+        return {
+          publicId: photo.publicId || photo.public_id,
+          secureUrl: photo.secureUrl || photo.secure_url,
+          thumbnailUrl: photo.thumbnailUrl,
+          previewUrl: photo.previewUrl,
+          originalUrl: photo.originalUrl || photo.secureUrl || photo.secure_url
+        };
+      }).filter(Boolean);
+
+      console.log('[API] 處理後的照片數據:', processedPhotos);
+    }
+
+    // 使用用戶的email和mobile，確保這些都存在
+    if (!user.email) {
+      return res.status(400).json({ success: false, message: "用戶缺少電子郵件" });
+    }
+
+    const contactEmail = formData.contactInfo?.contactEmail;
+    const contactMobile = formData.contactInfo?.contactMobile;
+
+    // 創建新的主人資料
+    const host = new Host({
+      userId: user._id,
+      name: formData.name,
+      description: formData.description,
+      type: formData.type,
+      category: formData.category,
+      location: formData.location,
+      // 使用新的媒體欄位結構
+      photos: processedPhotos,
+      photoDescriptions: formData.photoDescriptions || [],
+      videoIntroduction: formData.videoIntroduction || { url: '', description: '' },
+      additionalMedia: formData.additionalMedia || { virtualTour: '' },
+      contactInfo: {
+        ...formData.contactInfo,
+        // 確保聯絡資訊中有email和mobile
+        contactEmail: contactEmail || user.email,
+        contactMobile: contactMobile || user.mobile
+      },
+      features: formData.features,
+      amenities: formData.amenities,
+      details: formData.details,
+      // 使用用戶資料中的email和mobile
+      email: user.email,
+      mobile: user.mobile || contactMobile,
+      status: HostStatus.PENDING,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
     // 生成slug
-    const slug = await generateSlug(name);
+    const slug = await generateSlug(formData.name);
     console.log('[API] 創建主人 - 生成的slug:', slug);
+    host.slug = slug;
 
     // 處理地理座標
-    if (!location.coordinates) {
+    if (!formData.location.coordinates) {
       console.log('[API] 創建主人 - 未找到座標，使用默認座標');
-      location.coordinates = {
+      formData.location.coordinates = {
         type: 'Point',
         coordinates: [121.5, 25.0] // 台灣默認座標（台北市中心附近）
       };
     } else {
-      console.log('[API] 創建主人 - 座標信息:', location.coordinates);
-    }
-
-    // 處理聯絡資訊
-    if (!contactInfo.mobile && mobile) {
-      contactInfo.mobile = mobile;
-    }
-
-    if (!contactInfo.email && email) {
-      contactInfo.email = email;
-    }
-
-    // 處理媒體資訊
-    const processedMedia = media || {};
-    if (processedMedia.gallery && !Array.isArray(processedMedia.gallery)) {
-      processedMedia.gallery = [];
+      console.log('[API] 創建主人 - 座標信息:', formData.location.coordinates);
     }
 
     // 處理設施資訊
-    const processedAmenities = amenities || {
+    const processedAmenities = formData.amenities || {
       basics: {},
       accommodation: {},
       workExchange: {},
@@ -269,45 +268,7 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
 
     // 創建新主人記錄
     try {
-      const newHost = new Host({
-        userId: user._id,
-        name,
-        slug,
-        description,
-        type,
-        category,
-        status: HostStatus.PENDING,
-        verified: false,
-        email: email || (contactInfo?.email || ''),
-        mobile: mobile || (contactInfo?.mobile || ''),
-        location,
-        contactInfo,
-        amenities: processedAmenities,
-        details: details || {},
-        media: processedMedia,
-        features: features || {},
-        ratings: {
-          overall: 0,
-          workEnvironment: 0,
-          accommodation: 0,
-          food: 0,
-          hostHospitality: 0,
-          learningOpportunities: 0,
-          reviewCount: 0
-        }
-      });
-
-      console.log('[API] 創建主人 - 準備保存的主人記錄:', {
-        userId: user._id.toString(),
-        name,
-        slug,
-        type,
-        category,
-        status: HostStatus.PENDING
-      });
-
-      // 保存新主人記錄
-      const savedHost = await newHost.save();
+      const savedHost = await host.save();
       console.log('[API] 創建主人 - 保存成功:', { hostId: savedHost._id.toString() });
 
       // 更新用戶的主人ID

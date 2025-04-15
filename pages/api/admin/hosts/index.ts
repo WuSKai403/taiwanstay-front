@@ -45,7 +45,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const searchRegex = new RegExp(search.trim(), 'i');
       query.$or = [
         { name: searchRegex },
-        { 'contactInfo.email': searchRegex }
+        { email: searchRegex },
+        { 'contactInfo.contactEmail': searchRegex },
+        { 'location.city': searchRegex },
+        { 'location.district': searchRegex },
+        { slug: searchRegex }
       ];
     }
 

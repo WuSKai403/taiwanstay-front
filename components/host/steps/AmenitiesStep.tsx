@@ -78,21 +78,41 @@ const AmenitiesStep: React.FC = () => {
 
   // 處理新增自定義設施
   const [customAmenity, setCustomAmenity] = React.useState('');
-  const customAmenities = watch('customAmenities') || [];
+  const customAmenities = watch('amenities.customAmenities') || [];
 
   const handleAddCustomAmenity = () => {
     if (customAmenity.trim() && !customAmenities.includes(customAmenity.trim())) {
-      setValue('customAmenities', [...customAmenities, customAmenity.trim()], { shouldValidate: true });
+      setValue('amenities.customAmenities', [...customAmenities, customAmenity.trim()], { shouldValidate: true });
       setCustomAmenity('');
     }
   };
 
   const handleRemoveCustomAmenity = (amenity: string) => {
     setValue(
-      'customAmenities',
+      'amenities.customAmenities',
       customAmenities.filter((item: string) => item !== amenity),
       { shouldValidate: true }
     );
+  };
+
+  // 安全獲取錯誤訊息
+  const getErrorMessage = (path: string): string | undefined => {
+    try {
+      const keys = path.split('.');
+      let current: any = errors;
+
+      for (const key of keys) {
+        if (current && current[key]) {
+          current = current[key];
+        } else {
+          return undefined;
+        }
+      }
+
+      return current.message ? String(current.message) : undefined;
+    } catch (e) {
+      return undefined;
+    }
   };
 
   return (
@@ -193,14 +213,15 @@ const AmenitiesStep: React.FC = () => {
           簡要說明您提供的工作交換類型，具體細節將在機會描述中詳細說明。
         </p>
         <textarea
-          id="workExchangeDescription"
-          {...register('workExchangeDescription')}
+          id="amenities.workExchangeDescription"
+          data-error-path="amenities.workExchangeDescription"
+          {...register('amenities.workExchangeDescription')}
           rows={4}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           placeholder="例如：我們主要提供農場工作、廚房協助、接待服務等工作交換機會..."
         />
-        {errors.workExchangeDescription && (
-          <p className="mt-1 text-sm text-red-600">{errors.workExchangeDescription.message as string}</p>
+        {getErrorMessage('amenities.workExchangeDescription') && (
+          <p className="mt-1 text-sm text-red-600">{getErrorMessage('amenities.workExchangeDescription')}</p>
         )}
       </div>
 
@@ -213,14 +234,15 @@ const AmenitiesStep: React.FC = () => {
           補充說明您的設施使用方式、開放時間或特殊規定等
         </p>
         <textarea
-          id="amenitiesNotes"
-          {...register('amenitiesNotes')}
+          id="amenities.amenitiesNotes"
+          data-error-path="amenities.amenitiesNotes"
+          {...register('amenities.amenitiesNotes')}
           rows={4}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           placeholder="例如：Wi-Fi密碼會在入住時提供、廚房開放時間為上午8點至晚上9點..."
         />
-        {errors.amenitiesNotes && (
-          <p className="mt-1 text-sm text-red-600">{errors.amenitiesNotes.message as string}</p>
+        {getErrorMessage('amenities.amenitiesNotes') && (
+          <p className="mt-1 text-sm text-red-600">{getErrorMessage('amenities.amenitiesNotes')}</p>
         )}
       </div>
     </div>

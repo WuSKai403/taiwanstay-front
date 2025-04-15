@@ -28,6 +28,9 @@ import {
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import mongoose from 'mongoose';
+import CloudinaryImage from '@/components/CloudinaryImage';
+import { CloudinaryImageResource } from '@/lib/cloudinary/types';
+import HostDetailView from '@/components/admin/HostDetailView';
 
 // 定義主辦方資料介面
 interface IHost {
@@ -46,11 +49,10 @@ interface IHost {
   verified: boolean;
   verifiedAt?: Date;
   contactInfo: {
-    email: string;
+    contactEmail: string;
+    contactMobile: string;
     phone?: string;
-    mobile: string;
     website?: string;
-    preferredContactMethod: 'email' | 'phone' | 'mobile' | 'line';
     contactHours?: string;
     socialMedia?: {
       facebook?: string;
@@ -72,18 +74,27 @@ interface IHost {
     };
     showExactLocation: boolean;
   };
-  media?: {
-    logo?: string;
-    coverImage?: string;
-    gallery?: string[];
-    photoDescriptions?: string[];
-    videoIntroduction?: {
-      url?: string;
-      description?: string;
-    };
-    additionalMedia?: {
-      virtualTour?: string;
-      presentation?: string;
+  photos?: Array<{
+    publicId: string;
+    secureUrl: string;
+    thumbnailUrl?: string;
+    previewUrl?: string;
+    originalUrl?: string;
+    [key: string]: any;
+  }>;
+  photoDescriptions?: string[];
+  videoIntroduction?: {
+    url?: string;
+    description?: string;
+  };
+  additionalMedia?: {
+    virtualTour?: string;
+    presentation?: string | {
+      publicId: string;
+      secureUrl: string;
+      thumbnailUrl?: string;
+      previewUrl?: string;
+      originalUrl?: string;
     };
   };
   features?: string[];
@@ -149,77 +160,6 @@ interface IHost {
   updatedAt: Date;
   [key: string]: any;
 }
-
-// 狀態處理按鈕組件介面定義
-interface StatusActionButtonProps {
-  status: HostStatus;
-  onStatusChange: (status: HostStatus) => void;
-  targetStatus: HostStatus;
-  icon: React.ReactNode;
-  color: string;
-  hoverColor: string;
-  label: string;
-}
-
-// 狀態處理按鈕組件
-const StatusActionButton = ({
-  status,
-  onStatusChange,
-  targetStatus,
-  icon,
-  color,
-  hoverColor,
-  label
-}: StatusActionButtonProps) => {
-  if (!shouldShowButton(status, targetStatus)) {
-    return null;
-  }
-
-  return (
-    <button
-      onClick={() => onStatusChange(targetStatus)}
-      className={`flex items-center px-4 py-2 rounded-md font-medium ${color} ${hoverColor} transition-colors`}
-    >
-      {icon}
-      <span className="ml-2">{label}</span>
-    </button>
-  );
-};
-
-// 判斷是否應該顯示特定狀態按鈕
-const shouldShowButton = (currentStatus: HostStatus, targetStatus: HostStatus): boolean => {
-  switch (targetStatus) {
-    case HostStatus.ACTIVE:
-      return currentStatus === HostStatus.PENDING || currentStatus === HostStatus.INACTIVE;
-    case HostStatus.REJECTED:
-      return currentStatus === HostStatus.PENDING;
-    case HostStatus.INACTIVE:
-      return currentStatus === HostStatus.ACTIVE;
-    case HostStatus.SUSPENDED:
-      return currentStatus === HostStatus.ACTIVE || currentStatus === HostStatus.INACTIVE;
-    default:
-      return false;
-  }
-};
-
-// 狀態標籤組件
-const StatusBadge = ({ status }: { status: HostStatus }) => {
-  const statusConfig = {
-    [HostStatus.PENDING]: { text: '待審核', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
-    [HostStatus.ACTIVE]: { text: '活躍中', bgColor: 'bg-green-100', textColor: 'text-green-800' },
-    [HostStatus.INACTIVE]: { text: '暫停中', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
-    [HostStatus.REJECTED]: { text: '已拒絕', bgColor: 'bg-red-100', textColor: 'text-red-800' },
-    [HostStatus.SUSPENDED]: { text: '已暫停', bgColor: 'bg-purple-100', textColor: 'text-purple-800' }
-  };
-
-  const config = statusConfig[status] || { text: '未知', bgColor: 'bg-gray-100', textColor: 'text-gray-800' };
-
-  return (
-    <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.bgColor} ${config.textColor}`}>
-      {config.text}
-    </span>
-  );
-};
 
 // 主頁面組件
 function HostDetail() {
@@ -345,14 +285,15 @@ function HostDetail() {
         <div className="bg-white shadow rounded-lg overflow-hidden mb-8">
           {/* 封面照片 */}
           <div className="h-48 w-full relative bg-gray-200">
-            {host.media?.coverImage ? (
-              <Image
-                src={host.media.coverImage}
+            {host.photos && host.photos.length > 0 ? (
+              <CloudinaryImage
+                resource={HostDetailView.convertToCloudinaryResource(host.photos[0])}
                 alt={host.name}
-                fill
-                sizes="100vw"
-                style={{ objectFit: 'cover' }}
-                priority
+                className="w-full h-full"
+                containerClassName="h-full w-full"
+                objectFit="cover"
+                isPrivate={false}
+                index={0}
               />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-gray-400">
@@ -366,15 +307,15 @@ function HostDetail() {
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
               <div className="flex items-center mb-4 md:mb-0">
                 <div className="mr-4 h-16 w-16 flex-shrink-0 relative">
-                  {host.media?.logo ? (
-                    <Image
-                      src={host.media.logo}
+                  {host.photos && host.photos.length > 0 ? (
+                    <CloudinaryImage
+                      resource={HostDetailView.convertToCloudinaryResource(host.photos[0])}
                       alt={host.name}
-                      fill
-                      sizes="64px"
-                      style={{ objectFit: 'cover' }}
-                      className="rounded-full"
-                      priority
+                      className="rounded-full w-full h-full"
+                      containerClassName="h-full w-full"
+                      objectFit="cover"
+                      isPrivate={false}
+                      index={0}
                     />
                   ) : (
                     <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xl">
@@ -391,7 +332,7 @@ function HostDetail() {
                 </div>
               </div>
               <div className="flex flex-col md:items-end">
-                <StatusBadge status={host.status} />
+                <HostDetailView.StatusBadge status={host.status} />
                 {host.statusNote && (
                   <p className="mt-2 text-sm text-gray-500">
                     狀態備註: {host.statusNote}
@@ -424,18 +365,18 @@ function HostDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center">
                   <EnvelopeIcon className="h-5 w-5 text-gray-400 mr-2" />
-                  <span className="text-gray-700">{host.contactInfo.email}</span>
+                  <span className="text-gray-700">{host.contactInfo.contactEmail}</span>
                 </div>
+                {host.contactInfo.contactMobile && (
+                  <div className="flex items-center">
+                    <PhoneIcon className="h-5 w-5 text-gray-400 mr-2" />
+                    <span className="text-gray-700">{host.contactInfo.contactMobile} (手機)</span>
+                  </div>
+                )}
                 {host.contactInfo.phone && (
                   <div className="flex items-center">
                     <PhoneIcon className="h-5 w-5 text-gray-400 mr-2" />
                     <span className="text-gray-700">{host.contactInfo.phone}</span>
-                  </div>
-                )}
-                {host.contactInfo.mobile && (
-                  <div className="flex items-center">
-                    <PhoneIcon className="h-5 w-5 text-gray-400 mr-2" />
-                    <span className="text-gray-700">{host.contactInfo.mobile} (手機)</span>
                   </div>
                 )}
                 {host.contactInfo.website && (
@@ -472,12 +413,6 @@ function HostDetail() {
                   </div>
                 </div>
               )}
-              <div className="mt-4">
-                <p className="text-sm text-gray-600">
-                  偏好聯絡方式: {host.contactInfo.preferredContactMethod}
-                  {host.contactInfo.contactHours && ` (聯絡時間: ${host.contactInfo.contactHours})`}
-                </p>
-              </div>
             </div>
 
             {/* 地址資訊 */}
@@ -685,71 +620,21 @@ function HostDetail() {
             )}
 
             {/* 照片集 */}
-            {host.media?.gallery && host.media.gallery.length > 0 && (
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-2">照片集</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {host.media.gallery.map((image, index) => (
-                    <div key={index} className="relative h-40 rounded-lg overflow-hidden">
-                      <Image
-                        src={image}
-                        alt={`${host.name} 照片 ${index + 1}`}
-                        fill
-                        sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
-                        style={{ objectFit: 'cover' }}
-                      />
-                      {host.media?.photoDescriptions?.[index] && (
-                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 text-sm">
-                          {host.media.photoDescriptions[index]}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 影片介紹 */}
-            {host.media?.videoIntroduction?.url && (
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-2">影片介紹</h2>
-                <div className="aspect-w-16 aspect-h-9">
-                  <iframe
-                    src={host.media.videoIntroduction.url}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="w-full h-full rounded-lg"
-                  ></iframe>
-                </div>
-                {host.media.videoIntroduction.description && (
-                  <p className="mt-2 text-sm text-gray-600">{host.media.videoIntroduction.description}</p>
-                )}
-              </div>
+            {host.photos && host.photos.length > 0 && (
+              <HostDetailView.PhotoGallery photos={host.photos} photoDescriptions={host.photoDescriptions} hostName={host.name} />
             )}
 
             {/* 額外媒體 */}
-            {host.media?.additionalMedia && (
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-2">額外媒體</h2>
-                <div className="space-y-4">
-                  {host.media.additionalMedia.virtualTour && (
-                    <div>
-                      <h3 className="text-md font-medium text-gray-900 mb-1">虛擬導覽</h3>
-                      <a href={host.media.additionalMedia.virtualTour} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        查看虛擬導覽
-                      </a>
-                    </div>
-                  )}
-                  {host.media.additionalMedia.presentation && (
-                    <div>
-                      <h3 className="text-md font-medium text-gray-900 mb-1">簡報資料</h3>
-                      <a href={host.media.additionalMedia.presentation} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        查看簡報
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
+            {host.additionalMedia && (host.additionalMedia.virtualTour || host.additionalMedia.presentation) && (
+              <HostDetailView.AdditionalMedia additionalMedia={host.additionalMedia} />
+            )}
+
+            {/* 影片介紹 */}
+            {host.videoIntroduction?.url && (
+              <HostDetailView.VideoPreview
+                url={host.videoIntroduction.url}
+                description={host.videoIntroduction.description}
+              />
             )}
 
             {/* 申請日期 */}
@@ -768,7 +653,7 @@ function HostDetail() {
 
         {/* 狀態管理按鈕 */}
         <div className="flex flex-wrap gap-4 mb-8">
-          <StatusActionButton
+          <HostDetailView.StatusActionButton
             status={host.status}
             onStatusChange={handleStatusChange}
             targetStatus={HostStatus.ACTIVE}
@@ -777,7 +662,7 @@ function HostDetail() {
             hoverColor="hover:bg-green-700"
             label="核准申請"
           />
-          <StatusActionButton
+          <HostDetailView.StatusActionButton
             status={host.status}
             onStatusChange={handleStatusChange}
             targetStatus={HostStatus.REJECTED}
@@ -786,7 +671,7 @@ function HostDetail() {
             hoverColor="hover:bg-red-700"
             label="拒絕申請"
           />
-          <StatusActionButton
+          <HostDetailView.StatusActionButton
             status={host.status}
             onStatusChange={handleStatusChange}
             targetStatus={HostStatus.INACTIVE}
@@ -795,7 +680,7 @@ function HostDetail() {
             hoverColor="hover:bg-yellow-700"
             label="暫停帳號"
           />
-          <StatusActionButton
+          <HostDetailView.StatusActionButton
             status={host.status}
             onStatusChange={handleStatusChange}
             targetStatus={HostStatus.SUSPENDED}
@@ -832,7 +717,7 @@ function HostDetail() {
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h2 className="text-xl font-bold mb-4">變更主辦方狀態</h2>
             <p className="mb-4">
-              確定要將主辦方 "{host.name}" 的狀態變更為
+              確定要將主辦方 &quot;{host.name}&quot; 的狀態變更為
               {pendingStatus === HostStatus.ACTIVE && " 活躍"}
               {pendingStatus === HostStatus.REJECTED && " 拒絕"}
               {pendingStatus === HostStatus.INACTIVE && " 暫停"}

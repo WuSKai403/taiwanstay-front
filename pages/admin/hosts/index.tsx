@@ -41,6 +41,7 @@ interface IHost {
       line?: string;
       [key: string]: string | undefined;
     };
+    contactEmail: string;
   };
   location: {
     address: string;
@@ -70,7 +71,8 @@ const StatusBadge = ({ status }: { status: HostStatus }) => {
     [HostStatus.ACTIVE]: { text: '活躍中', bgColor: 'bg-green-100', textColor: 'text-green-800' },
     [HostStatus.INACTIVE]: { text: '暫停中', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
     [HostStatus.REJECTED]: { text: '已拒絕', bgColor: 'bg-red-100', textColor: 'text-red-800' },
-    [HostStatus.SUSPENDED]: { text: '已暫停', bgColor: 'bg-purple-100', textColor: 'text-purple-800' }
+    [HostStatus.SUSPENDED]: { text: '已暫停', bgColor: 'bg-purple-100', textColor: 'text-purple-800' },
+    [HostStatus.EDITING]: { text: '編輯中', bgColor: 'bg-blue-100', textColor: 'text-blue-800' }
   };
 
   const config = statusConfig[status] || { text: '未知', bgColor: 'bg-gray-100', textColor: 'text-gray-800' };
@@ -295,7 +297,7 @@ export default function AdminHosts() {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{host.name}</div>
-                            <div className="text-sm text-gray-500">{host.contactInfo.email}</div>
+                            <div className="text-sm text-gray-500">{host.contactInfo.contactEmail}</div>
                           </div>
                         </div>
                       </td>

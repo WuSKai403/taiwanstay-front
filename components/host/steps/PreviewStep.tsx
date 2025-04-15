@@ -9,6 +9,20 @@ const TYPE_NAMES: Record<HostType, string> = {
   [HostType.COWORKING_SPACE]: '共享工作空間',
   [HostType.CULTURAL_VENUE]: '文化場所',
   [HostType.COMMUNITY_CENTER]: '社區中心',
+  [HostType.FARM]: '農場',
+  [HostType.HOSTEL]: '青年旅館',
+  [HostType.HOMESTAY]: '民宿',
+  [HostType.ECO_VILLAGE]: '生態村',
+  [HostType.RETREAT_CENTER]: '靜修中心',
+  [HostType.COMMUNITY]: '社區',
+  [HostType.NGO]: '非政府組織',
+  [HostType.SCHOOL]: '學校',
+  [HostType.CAFE]: '咖啡廳',
+  [HostType.RESTAURANT]: '餐廳',
+  [HostType.ART_CENTER]: '藝術中心',
+  [HostType.ANIMAL_SHELTER]: '動物收容所',
+  [HostType.OUTDOOR_ACTIVITY]: '戶外活動',
+  [HostType.OTHER]: '其他'
 };
 
 const PreviewStep: React.FC = () => {
@@ -31,17 +45,25 @@ const PreviewStep: React.FC = () => {
   const fullAddress = `${location.country || '台灣'} ${location.city || ''} ${location.district || ''} ${location.zipCode || ''} ${location.address || ''}`;
 
   // 聯絡信息
-  const contact = formData.contact || {};
+  const contactInfo = formData.contactInfo || {};
 
-  // 照片與視頻
+  // 照片與視頻 - 修改為與 MediaUploadStep 一致的欄位結構
   const photos = formData.photos || [];
   const photoDescriptions = formData.photoDescriptions || [];
   const videoIntroduction = formData.videoIntroduction || {};
+  const additionalMedia = formData.additionalMedia || {};
+
+  // 特色與描述
+  const features = formData.features?.features || [];
+  const story = formData.features?.story || '';
+  const experience = formData.features?.experience || '';
+  const environment = formData.features?.environment || {};
 
   // 設施與服務
   const amenities = formData.amenities || {};
-  const customAmenities = formData.customAmenities || [];
-  const amenitiesNotes = formData.amenitiesNotes || '';
+  const customAmenities = formData.amenities?.customAmenities || [];
+  const amenitiesNotes = formData.amenities?.amenitiesNotes || '';
+  const workExchangeDescription = formData.amenities?.workExchangeDescription || '';
 
   // 渲染設施列表
   const renderAmenities = () => {
@@ -88,60 +110,63 @@ const PreviewStep: React.FC = () => {
   // AMENITIES_CATEGORIES
   const AMENITIES_CATEGORIES = [
     {
-      id: 'accessibility',
-      name: '無障礙設施',
-      options: [
-        { id: 'wheelchair', label: '輪椅通道' },
-        { id: 'elevator', label: '電梯' },
-        { id: 'accessibleToilet', label: '無障礙廁所' },
-        { id: 'accessibleParking', label: '無障礙停車位' },
-        { id: 'brailleSignage', label: '點字標示' }
-      ]
-    },
-    {
-      id: 'facilities',
+      id: 'basics',
       name: '基本設施',
       options: [
         { id: 'wifi', label: '免費 Wi-Fi' },
         { id: 'parking', label: '停車場' },
+        { id: 'elevator', label: '電梯' },
         { id: 'airConditioner', label: '空調' },
         { id: 'heater', label: '暖氣' },
-        { id: 'restroom', label: '洗手間' },
-        { id: 'lockers', label: '置物櫃' }
+        { id: 'washingMachine', label: '洗衣機' }
       ]
     },
     {
-      id: 'equipment',
-      name: '設備',
+      id: 'accommodation',
+      name: '住宿設施',
       options: [
-        { id: 'projector', label: '投影機' },
-        { id: 'soundSystem', label: '音響系統' },
-        { id: 'microphone', label: '麥克風' },
-        { id: 'computer', label: '電腦' },
-        { id: 'printer', label: '印表機' },
-        { id: 'whiteboard', label: '白板' }
+        { id: 'privateRoom', label: '私人房間' },
+        { id: 'sharedRoom', label: '共享房間' },
+        { id: 'camping', label: '露營區' },
+        { id: 'kitchen', label: '廚房設施' },
+        { id: 'bathroom', label: '獨立衛浴' },
+        { id: 'sharedBathroom', label: '共享衛浴' }
       ]
     },
     {
-      id: 'services',
-      name: '服務',
+      id: 'workExchange',
+      name: '工作交換',
       options: [
-        { id: 'reception', label: '接待服務' },
-        { id: 'cleaning', label: '清潔服務' },
-        { id: 'guide', label: '導覽服務' },
-        { id: 'translation', label: '翻譯服務' },
-        { id: 'catering', label: '餐飲服務' },
-        { id: 'livestream', label: '直播設備' }
+        { id: 'workingDesk', label: '工作桌' },
+        { id: 'internetAccess', label: '高速網路' },
+        { id: 'toolsProvided', label: '提供工具' },
+        { id: 'trainingProvided', label: '提供培訓' },
+        { id: 'flexibleHours', label: '彈性工作時間' }
       ]
     },
     {
-      id: 'special',
-      name: '特色服務',
+      id: 'lifestyle',
+      name: '生活風格',
       options: [
-        { id: 'workshop', label: '工作坊' },
-        { id: 'exhibition', label: '展覽空間' },
-        { id: 'childCare', label: '兒童照顧' },
-        { id: 'petFriendly', label: '寵物友善' }
+        { id: 'petFriendly', label: '寵物友善' },
+        { id: 'smokingAllowed', label: '允許吸菸' },
+        { id: 'childFriendly', label: '適合兒童' },
+        { id: 'organic', label: '有機耕作' },
+        { id: 'vegetarian', label: '提供素食' },
+        { id: 'ecoFriendly', label: '環保設施' }
+      ]
+    },
+    {
+      id: 'activities',
+      name: '休閒活動',
+      options: [
+        { id: 'yoga', label: '瑜珈' },
+        { id: 'meditation', label: '冥想空間' },
+        { id: 'freeDiving', label: '自由潛水' },
+        { id: 'scubaDiving', label: '水肺潛水' },
+        { id: 'hiking', label: '登山健行' },
+        { id: 'farmingActivities', label: '農場活動' },
+        { id: 'culturalExchange', label: '文化交流' }
       ]
     }
   ];
@@ -212,7 +237,7 @@ const PreviewStep: React.FC = () => {
         </div>
       </div>
 
-      {/* 照片及媒體 */}
+      {/* 照片及媒體 - 修改為匹配 MediaUploadStep 的欄位結構 */}
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 bg-gray-50">
           <h3 className="text-base font-semibold leading-6 text-gray-900">照片及媒體</h3>
@@ -234,8 +259,8 @@ const PreviewStep: React.FC = () => {
                       index={index}
                     />
                     {photoDescriptions && photoDescriptions[index] && (
-                      <div className="absolute bottom-0 inset-x-0 bg-black bg-opacity-50 text-white p-2 text-sm">
-                        {photoDescriptions[index]}
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2">
+                        <p className="text-xs text-white">{photoDescriptions[index]}</p>
                       </div>
                     )}
                   </div>
@@ -252,10 +277,20 @@ const PreviewStep: React.FC = () => {
             {videoIntroduction && videoIntroduction.url ? (
               <div>
                 <div className="aspect-w-16 aspect-h-9 rounded-lg overflow-hidden">
-                  {/* 這裡放視頻嵌入iframe，需要解析視頻URL */}
-                  <div className="bg-gray-200 flex items-center justify-center text-gray-500">
-                    视频链接: {videoIntroduction.url}
-                  </div>
+                  {/* 解析視頻URL，嘗試顯示嵌入式播放器 */}
+                  {videoIntroduction.url.includes('youtube.com') || videoIntroduction.url.includes('youtu.be') ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${videoIntroduction.url.split('v=')[1] || videoIntroduction.url.split('youtu.be/')[1]}`}
+                      title="YouTube video player"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  ) : (
+                    <div className="bg-gray-200 flex items-center justify-center text-gray-500">
+                      视频链接: {videoIntroduction.url}
+                    </div>
+                  )}
                 </div>
                 {videoIntroduction.description && (
                   <p className="mt-2 text-sm text-gray-600">{videoIntroduction.description}</p>
@@ -265,6 +300,21 @@ const PreviewStep: React.FC = () => {
               <p className="text-gray-500 italic">未提供視頻介紹</p>
             )}
           </div>
+
+          {/* 虛擬導覽 */}
+          {additionalMedia?.virtualTour && (
+            <div className="mt-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">虛擬導覽</h4>
+              <a
+                href={additionalMedia.virtualTour}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:text-primary-500"
+              >
+                查看虛擬導覽
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
@@ -276,84 +326,82 @@ const PreviewStep: React.FC = () => {
         <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
           <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
             <div>
-              <dt className="text-sm font-medium text-gray-500">聯絡人</dt>
-              <dd className="mt-1 text-sm text-gray-900">{contact.person || '未提供'}</dd>
+              <dt className="text-sm font-medium text-gray-500">聯絡電子郵件</dt>
+              <dd className="mt-1 text-sm text-gray-900">{contactInfo.contactEmail || '未提供'}</dd>
             </div>
             <div>
-              <dt className="text-sm font-medium text-gray-500">職稱</dt>
-              <dd className="mt-1 text-sm text-gray-900">{contact.title || '未提供'}</dd>
+              <dt className="text-sm font-medium text-gray-500">聯絡手機</dt>
+              <dd className="mt-1 text-sm text-gray-900">{contactInfo.contactMobile || '未提供'}</dd>
             </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">聯絡電話</dt>
-              <dd className="mt-1 text-sm text-gray-900">{contact.phone || '未提供'}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">電子郵件</dt>
-              <dd className="mt-1 text-sm text-gray-900">{contact.email || '未提供'}</dd>
-            </div>
-            {contact.fax && (
+            {contactInfo.phone && (
               <div>
-                <dt className="text-sm font-medium text-gray-500">傳真</dt>
-                <dd className="mt-1 text-sm text-gray-900">{contact.fax}</dd>
+                <dt className="text-sm font-medium text-gray-500">其他聯絡電話</dt>
+                <dd className="mt-1 text-sm text-gray-900">{contactInfo.phone}</dd>
               </div>
             )}
-            {contact.website && (
+            {contactInfo.fax && (
+              <div>
+                <dt className="text-sm font-medium text-gray-500">傳真</dt>
+                <dd className="mt-1 text-sm text-gray-900">{contactInfo.fax}</dd>
+              </div>
+            )}
+            {contactInfo.website && (
               <div>
                 <dt className="text-sm font-medium text-gray-500">網站</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  <a href={`https://${contact.website}`} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-500">
-                    {contact.website}
+                  <a href={`https://${contactInfo.website}`} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:text-primary-500">
+                    {contactInfo.website}
                   </a>
                 </dd>
               </div>
             )}
-            {contact.social && Object.entries(contact.social).some(([_, value]) => value) && (
+            {contactInfo.socialMedia && Object.entries(contactInfo.socialMedia).some(([_, value]) => value) && (
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">社群媒體</dt>
                 <dd className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {contact.social.facebook && (
+                  {contactInfo.socialMedia.facebook && (
                     <a
-                      href={`https://facebook.com/${contact.social.facebook}`}
+                      href={`https://facebook.com/${contactInfo.socialMedia.facebook}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary-600 hover:text-primary-500"
                     >
-                      Facebook: {contact.social.facebook}
+                      Facebook: {contactInfo.socialMedia.facebook}
                     </a>
                   )}
-                  {contact.social.instagram && (
+                  {contactInfo.socialMedia.instagram && (
                     <a
-                      href={`https://instagram.com/${contact.social.instagram}`}
+                      href={`https://instagram.com/${contactInfo.socialMedia.instagram}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary-600 hover:text-primary-500"
                     >
-                      Instagram: {contact.social.instagram}
+                      Instagram: {contactInfo.socialMedia.instagram}
                     </a>
                   )}
-                  {contact.social.line && (
+                  {contactInfo.socialMedia.line && (
                     <span className="text-gray-900">
-                      LINE: {contact.social.line}
+                      LINE: {contactInfo.socialMedia.line}
                     </span>
                   )}
-                  {contact.social.other && (
+                  {contactInfo.socialMedia.other && (
                     <span className="text-gray-900">
-                      其他: {contact.social.other}
+                      其他: {contactInfo.socialMedia.other}
                     </span>
                   )}
                 </dd>
               </div>
             )}
-            {contact.contactHours && (
+            {contactInfo.contactHours && (
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">聯絡時段</dt>
-                <dd className="mt-1 text-sm text-gray-900">{contact.contactHours}</dd>
+                <dd className="mt-1 text-sm text-gray-900">{contactInfo.contactHours}</dd>
               </div>
             )}
-            {contact.notes && (
+            {contactInfo.notes && (
               <div className="sm:col-span-2">
                 <dt className="text-sm font-medium text-gray-500">聯絡注意事項</dt>
-                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{contact.notes}</dd>
+                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-line">{contactInfo.notes}</dd>
               </div>
             )}
           </dl>
@@ -369,9 +417,9 @@ const PreviewStep: React.FC = () => {
           {/* 特色標籤 */}
           <div className="mb-6">
             <h4 className="text-sm font-medium text-gray-700 mb-2">特色標籤</h4>
-            {formData.features && formData.features.length > 0 ? (
+            {features && features.length > 0 ? (
               <div className="flex flex-wrap">
-                {formData.features.map((feature: string, index: number) => (
+                {features.map((feature: string, index: number) => (
                   <span key={index} className="inline-flex items-center rounded-full bg-primary-100 px-3 py-0.5 text-sm font-medium text-primary-800 mr-2 mb-2">
                     {feature}
                   </span>
@@ -385,48 +433,48 @@ const PreviewStep: React.FC = () => {
           {/* 主人故事 */}
           <div className="mb-6">
             <h4 className="text-sm font-medium text-gray-700 mb-2">主人故事</h4>
-            {formData.story ? (
-              <p className="text-sm text-gray-900 whitespace-pre-line">{formData.story}</p>
+            {story ? (
+              <p className="text-sm text-gray-900 whitespace-pre-line">{story}</p>
             ) : (
               <p className="text-gray-500 italic">未提供主人故事</p>
             )}
           </div>
 
           {/* 工作交換經驗 */}
-          {formData.experience && (
+          {experience && (
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-700 mb-2">工作交換經驗</h4>
-              <p className="text-sm text-gray-900 whitespace-pre-line">{formData.experience}</p>
+              <p className="text-sm text-gray-900 whitespace-pre-line">{experience}</p>
             </div>
           )}
 
           {/* 環境描述 */}
           <div className="mb-6">
             <h4 className="text-sm font-medium text-gray-700 mb-2">環境描述</h4>
-            {formData.environment ? (
+            {environment ? (
               <div className="space-y-4">
                 {/* 周邊環境 */}
-                {formData.environment.surroundings && (
+                {environment.surroundings && (
                   <div>
                     <h5 className="text-xs font-medium text-gray-600">周邊環境</h5>
-                    <p className="text-sm text-gray-900 whitespace-pre-line">{formData.environment.surroundings}</p>
+                    <p className="text-sm text-gray-900 whitespace-pre-line">{environment.surroundings}</p>
                   </div>
                 )}
 
                 {/* 交通便利性 */}
-                {formData.environment.accessibility && (
+                {environment.accessibility && (
                   <div>
                     <h5 className="text-xs font-medium text-gray-600">交通便利性</h5>
-                    <p className="text-sm text-gray-900 whitespace-pre-line">{formData.environment.accessibility}</p>
+                    <p className="text-sm text-gray-900 whitespace-pre-line">{environment.accessibility}</p>
                   </div>
                 )}
 
                 {/* 附近景點 */}
-                {formData.environment.nearbyAttractions && formData.environment.nearbyAttractions.length > 0 && (
+                {environment.nearbyAttractions && environment.nearbyAttractions.length > 0 && (
                   <div>
                     <h5 className="text-xs font-medium text-gray-600">附近景點</h5>
                     <div className="flex flex-wrap mt-1">
-                      {formData.environment.nearbyAttractions.map((attraction: string, index: number) => (
+                      {environment.nearbyAttractions.map((attraction: string, index: number) => (
                         <span key={index} className="inline-flex items-center rounded-full bg-gray-100 px-3 py-0.5 text-sm font-medium text-gray-800 mr-2 mb-2">
                           {attraction}
                         </span>
@@ -452,6 +500,13 @@ const PreviewStep: React.FC = () => {
             <h4 className="text-sm font-medium text-gray-700 mb-2">提供的設施</h4>
             {renderAmenities()}
           </div>
+
+          {workExchangeDescription && (
+            <div className="mb-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">工作交換概述</h4>
+              <p className="text-sm text-gray-900 whitespace-pre-line">{workExchangeDescription}</p>
+            </div>
+          )}
 
           {amenitiesNotes && (
             <div className="mb-6">

@@ -51,26 +51,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 連接資料庫
     await dbConnect();
 
-    // 獲取主辦方詳細資料
-    const host = await Host.findById(hostId);
-    if (!host) {
-      return res.status(404).json({ message: '找不到主辦方' });
-    }
+    // 使用 findByIdAndUpdate 方法直接更新狀態欄位，避免觸發完整文檔驗證
+    const updateData: any = {
+      status,
+      updatedAt: new Date()
+    };
 
-    // 更新狀態
-    host.status = status;
+    // 如有狀態備註，加入更新數據
     if (statusNote) {
-      host.statusNote = statusNote;
+      updateData.statusNote = statusNote;
     }
 
     // 如果狀態為驗證通過，更新驗證相關欄位
     if (status === HostStatus.ACTIVE) {
-      host.verified = true;
-      host.verifiedAt = new Date();
+      updateData.verified = true;
+      updateData.verifiedAt = new Date();
     }
 
-    // 保存更新
-    await host.save();
+    // 直接更新指定欄位，不驗證其他欄位
+    const updatedHost = await Host.findByIdAndUpdate(
+      hostId,
+      { $set: updateData },
+      {
+        new: true,  // 返回更新後的文檔
+        runValidators: false  // 不執行模型驗證器
+      }
+    );
+
+    if (!updatedHost) {
+      return res.status(404).json({ message: '找不到主辦方' });
+    }
 
     // 處理相應的後續動作
     // 例如: 發送通知、建立活動日誌等
@@ -78,14 +88,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 返回更新後的主辦方詳情
     return res.status(200).json({
+      success: true,
       message: '主辦方狀態已更新',
       host: {
-        _id: host._id,
-        name: host.name,
-        status: host.status,
-        statusNote: host.statusNote,
-        verified: host.verified,
-        verifiedAt: host.verifiedAt
+        _id: updatedHost._id,
+        name: updatedHost.name,
+        status: updatedHost.status,
+        statusNote: updatedHost.statusNote,
+        verified: updatedHost.verified,
+        verifiedAt: updatedHost.verifiedAt
       }
     });
   } catch (error: unknown) {

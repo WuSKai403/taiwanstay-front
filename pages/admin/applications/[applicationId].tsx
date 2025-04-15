@@ -408,7 +408,7 @@ export default function ApplicationDetail() {
                         <Image
                           className="rounded-full object-cover"
                           src={application.host.media.logo}
-                          alt={application.host.name}
+                          alt={application.host.name || '主辦方'}
                           fill
                           style={{ objectFit: 'cover' }}
                         />

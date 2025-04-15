@@ -49,7 +49,6 @@ interface HostProfile extends BaseProfile {
 
   // 選填欄位
   contactPreferences?: {
-    preferredContactMethod?: string;
     availableTime?: string;
     responseTime?: string;
   };

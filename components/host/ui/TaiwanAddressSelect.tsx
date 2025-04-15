@@ -111,7 +111,7 @@ const TaiwanAddressSelect: React.FC<TaiwanAddressSelectProps> = ({
         onDistrictChange(selectedDistrict);
       }
     }
-  }, [isInitialized]);
+  }, [isInitialized, onCountyChange, onDistrictChange, selectedCounty, selectedDistrict]);
 
   return (
     <div className={`flex flex-wrap gap-2 ${className || ''}`}>

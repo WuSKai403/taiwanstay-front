@@ -181,7 +181,6 @@ async function importUsers() {
         preferredWorkHours: 40,
         languages: ['中文', '英文'],
         contactPreferences: {
-          preferredContactMethod: 'email',
           availableTime: '09:00-18:00',
           responseTime: '24小時內'
         }
@@ -195,7 +194,6 @@ async function importUsers() {
         preferredWorkHours: 40,
         languages: ['中文', '英文'],
         contactPreferences: {
-          preferredContactMethod: 'email',
           availableTime: '09:00-18:00',
           responseTime: '24小時內'
         }
@@ -257,8 +255,11 @@ async function importHosts() {
       type: host.type as HostType,
       category: host.category,
       verified: host.status === 'ACTIVE',
+      email: host.contactEmail,
+      mobile: '0912345678',
       contactInfo: {
-        email: host.contactEmail,
+        contactEmail: host.contactEmail,
+        contactMobile: '0912345678',
         phone: '0912345678',
         website: `https://${host.slug}.example.com`
       },
@@ -272,14 +273,41 @@ async function importHosts() {
           coordinates: [parseFloat(host.lng), parseFloat(host.lat)]
         }
       },
-      media: {
-        logo: `https://picsum.photos/seed/${host.slug}/200/200`,
-        coverImage: `https://picsum.photos/seed/${host.slug}-cover/1200/600`,
-        gallery: [
-          `https://picsum.photos/seed/${host.slug}-1/800/600`,
-          `https://picsum.photos/seed/${host.slug}-2/800/600`,
-          `https://picsum.photos/seed/${host.slug}-3/800/600`
-        ]
+      // 使用新的媒體欄位結構
+      photos: [
+        {
+          publicId: host.photoId1,
+          secureUrl: host.photoUrl1,
+          thumbnailUrl: host.photoUrl1?.replace('/800/600', '/150/100') || '',
+          previewUrl: host.photoUrl1?.replace('/800/600', '/400/300') || '',
+          originalUrl: host.photoUrl1 || ''
+        },
+        {
+          publicId: host.photoId2,
+          secureUrl: host.photoUrl2,
+          thumbnailUrl: host.photoUrl2?.replace('/800/600', '/150/100') || '',
+          previewUrl: host.photoUrl2?.replace('/800/600', '/400/300') || '',
+          originalUrl: host.photoUrl2 || ''
+        },
+        {
+          publicId: host.photoId3,
+          secureUrl: host.photoUrl3,
+          thumbnailUrl: host.photoUrl3?.replace('/800/600', '/150/100') || '',
+          previewUrl: host.photoUrl3?.replace('/800/600', '/400/300') || '',
+          originalUrl: host.photoUrl3 || ''
+        }
+      ].filter(photo => photo.publicId && photo.secureUrl), // 只保留有效的照片
+      photoDescriptions: [
+        host.photoDesc1 || '',
+        host.photoDesc2 || '',
+        host.photoDesc3 || ''
+      ].filter(desc => desc), // 過濾空描述
+      videoIntroduction: {
+        url: host.videoUrl || '',
+        description: host.videoDesc || ''
+      },
+      additionalMedia: {
+        virtualTour: host.virtualTourUrl || '',
       },
       amenities: {
         hasWifi: true,
@@ -351,14 +379,41 @@ async function importOrganizations() {
           coordinates: [parseFloat(org.lng), parseFloat(org.lat)]
         }
       },
-      media: {
-        logo: `https://picsum.photos/seed/${org.slug}/200/200`,
-        coverImage: `https://picsum.photos/seed/${org.slug}-cover/1200/600`,
-        gallery: [
-          `https://picsum.photos/seed/${org.slug}-1/800/600`,
-          `https://picsum.photos/seed/${org.slug}-2/800/600`,
-          `https://picsum.photos/seed/${org.slug}-3/800/600`
-        ]
+      // 使用新的媒體欄位結構
+      photos: [
+        {
+          publicId: `${org.slug}-photo-1`,
+          secureUrl: `https://picsum.photos/seed/${org.slug}-1/800/600`,
+          thumbnailUrl: `https://picsum.photos/seed/${org.slug}-1/150/100`,
+          previewUrl: `https://picsum.photos/seed/${org.slug}-1/400/300`,
+          originalUrl: `https://picsum.photos/seed/${org.slug}-1/800/600`
+        },
+        {
+          publicId: `${org.slug}-photo-2`,
+          secureUrl: `https://picsum.photos/seed/${org.slug}-2/800/600`,
+          thumbnailUrl: `https://picsum.photos/seed/${org.slug}-2/150/100`,
+          previewUrl: `https://picsum.photos/seed/${org.slug}-2/400/300`,
+          originalUrl: `https://picsum.photos/seed/${org.slug}-2/800/600`
+        },
+        {
+          publicId: `${org.slug}-photo-3`,
+          secureUrl: `https://picsum.photos/seed/${org.slug}-3/800/600`,
+          thumbnailUrl: `https://picsum.photos/seed/${org.slug}-3/150/100`,
+          previewUrl: `https://picsum.photos/seed/${org.slug}-3/400/300`,
+          originalUrl: `https://picsum.photos/seed/${org.slug}-3/800/600`
+        }
+      ],
+      photoDescriptions: [
+        `${org.name} 的環境照片 1`,
+        `${org.name} 的環境照片 2`,
+        `${org.name} 的環境照片 3`
+      ],
+      videoIntroduction: {
+        url: Math.random() > 0.7 ? `https://www.youtube.com/watch?v=example-${org.slug}` : '',
+        description: Math.random() > 0.7 ? `關於 ${org.name} 的影片介紹` : ''
+      },
+      additionalMedia: {
+        virtualTour: Math.random() > 0.8 ? `https://360tour.example.com/${org.slug}` : '',
       },
       details: {
         foundedYear: 2000 + Math.floor(Math.random() * 20),

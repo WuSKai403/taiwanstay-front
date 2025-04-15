@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, FieldErrors } from 'react-hook-form';
+import { HostRegisterFormData } from '@/lib/schemas/host';
 
 // 特色標籤選項
 const FEATURE_OPTIONS = [
@@ -24,33 +25,33 @@ const FeaturesStep: React.FC = () => {
     watch,
     setValue,
     formState: { errors }
-  } = useFormContext();
+  } = useFormContext<HostRegisterFormData>();
 
-  // 監聽已選擇的特色標籤
-  const selectedFeatures = watch('features') || [];
+  // 監聽已選擇的特色標籤 - 修正欄位路徑
+  const selectedFeatures = watch('features.features') || [];
   const [newAttraction, setNewAttraction] = useState('');
-  const nearbyAttractions = watch('environment.nearbyAttractions') || [];
+  const nearbyAttractions = watch('features.environment.nearbyAttractions') || [];
 
   // 處理特色標籤選擇
   const handleFeatureToggle = (featureId: string) => {
-    const isSelected = selectedFeatures.includes(featureId);
+    const isSelected = Array.isArray(selectedFeatures) && selectedFeatures.includes(featureId);
 
     if (isSelected) {
       // 如果已選擇，則移除
-      setValue('features', selectedFeatures.filter(id => id !== featureId), { shouldValidate: true });
+      setValue('features.features', selectedFeatures.filter((id: string) => id !== featureId), { shouldValidate: true });
     } else {
       // 如果未選擇且未達到上限，則添加
-      if (selectedFeatures.length < 5) {
-        setValue('features', [...selectedFeatures, featureId], { shouldValidate: true });
+      if (Array.isArray(selectedFeatures) && selectedFeatures.length < 5) {
+        setValue('features.features', [...selectedFeatures, featureId], { shouldValidate: true });
       }
     }
   };
 
   // 處理新增附近景點
   const handleAddAttraction = () => {
-    if (newAttraction.trim() && !nearbyAttractions.includes(newAttraction.trim())) {
+    if (newAttraction.trim() && Array.isArray(nearbyAttractions) && !nearbyAttractions.includes(newAttraction.trim())) {
       if (nearbyAttractions.length < 10) {
-        setValue('environment.nearbyAttractions', [...nearbyAttractions, newAttraction.trim()], { shouldValidate: true });
+        setValue('features.environment.nearbyAttractions', [...nearbyAttractions, newAttraction.trim()], { shouldValidate: true });
         setNewAttraction('');
       }
     }
@@ -58,11 +59,33 @@ const FeaturesStep: React.FC = () => {
 
   // 處理移除附近景點
   const handleRemoveAttraction = (attraction: string) => {
+    if (Array.isArray(nearbyAttractions)) {
     setValue(
-      'environment.nearbyAttractions',
+        'features.environment.nearbyAttractions',
       nearbyAttractions.filter((item: string) => item !== attraction),
       { shouldValidate: true }
     );
+    }
+  };
+
+  // 安全獲取錯誤訊息
+  const getErrorMessage = (path: string): string | undefined => {
+    try {
+      const keys = path.split('.');
+      let current: any = errors;
+
+      for (const key of keys) {
+        if (current && current[key]) {
+          current = current[key];
+        } else {
+          return undefined;
+        }
+      }
+
+      return current.message ? String(current.message) : undefined;
+    } catch (e) {
+      return undefined;
+    }
   };
 
   return (
@@ -86,7 +109,7 @@ const FeaturesStep: React.FC = () => {
               type="button"
               onClick={() => handleFeatureToggle(feature.id)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedFeatures.includes(feature.id)
+                Array.isArray(selectedFeatures) && selectedFeatures.includes(feature.id)
                   ? 'bg-primary-100 text-primary-800 border-2 border-primary-500'
                   : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
               }`}
@@ -95,28 +118,29 @@ const FeaturesStep: React.FC = () => {
             </button>
           ))}
         </div>
-        {errors.features && (
-          <p className="mt-1 text-sm text-red-600">{errors.features.message as string}</p>
+        {getErrorMessage('features.features') && (
+          <p className="mt-1 text-sm text-red-600">{getErrorMessage('features.features')}</p>
         )}
       </div>
 
       {/* 主人故事 */}
       <div>
         <label htmlFor="story" className="block text-sm font-medium text-gray-700">
-          主人故事
+          主人故事 <span className="text-red-500">*</span>
         </label>
         <p className="mt-1 text-sm text-gray-500 mb-2">
           請分享關於您場所的創立故事、使命和理念，讓申請者更了解您的背景和價值觀。
         </p>
         <textarea
-          id="story"
-          {...register('story')}
+          id="features.story"
+          data-error-path="features.story"
+          {...register('features.story')}
           rows={6}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           placeholder="例如：我們的農場創立於2010年，源自於對有機農業的熱愛和對可持續生活方式的追求..."
         />
-        {errors.story && (
-          <p className="mt-1 text-sm text-red-600">{errors.story.message as string}</p>
+        {getErrorMessage('features.story') && (
+          <p className="mt-1 text-sm text-red-600">{getErrorMessage('features.story')}</p>
         )}
       </div>
 
@@ -130,13 +154,13 @@ const FeaturesStep: React.FC = () => {
         </p>
         <textarea
           id="experience"
-          {...register('experience')}
+          {...register('features.experience')}
           rows={4}
           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           placeholder="例如：過去5年來，我們已接待超過50位來自全球各地的工作交換者，提供農業技術、永續生活方式的學習機會..."
         />
-        {errors.experience && (
-          <p className="mt-1 text-sm text-red-600">{errors.experience.message as string}</p>
+        {getErrorMessage('features.experience') && (
+          <p className="mt-1 text-sm text-red-600">{getErrorMessage('features.experience')}</p>
         )}
       </div>
 
@@ -147,20 +171,21 @@ const FeaturesStep: React.FC = () => {
         {/* 周邊環境描述 */}
         <div className="mb-4">
           <label htmlFor="surroundings" className="block text-sm font-medium text-gray-700">
-            環境描述
+            環境描述 <span className="text-red-500">*</span>
           </label>
           <p className="mt-1 text-sm text-gray-500 mb-2">
             描述您場所的周邊環境、自然風景、氣候特色等。
           </p>
           <textarea
-            id="surroundings"
-            {...register('environment.surroundings')}
+            id="features.environment.surroundings"
+            data-error-path="features.environment.surroundings"
+            {...register('features.environment.surroundings')}
             rows={4}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             placeholder="例如：我們的場所位於山腳下，四周被茂密的森林環繞，空氣清新，晚上可以看到滿天星斗..."
           />
-          {errors.environment?.surroundings && (
-            <p className="mt-1 text-sm text-red-600">{errors.environment.surroundings.message as string}</p>
+          {getErrorMessage('features.environment.surroundings') && (
+            <p className="mt-1 text-sm text-red-600">{getErrorMessage('features.environment.surroundings')}</p>
           )}
         </div>
 
@@ -174,13 +199,13 @@ const FeaturesStep: React.FC = () => {
           </p>
           <textarea
             id="accessibility"
-            {...register('environment.accessibility')}
+            {...register('features.environment.accessibility')}
             rows={3}
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
             placeholder="例如：可搭乘台鐵至花蓮站，再轉乘公車約30分鐘；自行開車從台北出發約需3小時..."
           />
-          {errors.environment?.accessibility && (
-            <p className="mt-1 text-sm text-red-600">{errors.environment.accessibility.message as string}</p>
+          {getErrorMessage('features.environment.accessibility') && (
+            <p className="mt-1 text-sm text-red-600">{getErrorMessage('features.environment.accessibility')}</p>
           )}
         </div>
 
@@ -201,7 +226,7 @@ const FeaturesStep: React.FC = () => {
             <button
               type="button"
               onClick={handleAddAttraction}
-              disabled={!newAttraction.trim() || nearbyAttractions.length >= 10}
+              disabled={!newAttraction.trim() || (Array.isArray(nearbyAttractions) && nearbyAttractions.length >= 10)}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               添加
@@ -209,7 +234,7 @@ const FeaturesStep: React.FC = () => {
           </div>
 
           {/* 已添加的附近景點列表 */}
-          {nearbyAttractions.length > 0 && (
+          {Array.isArray(nearbyAttractions) && nearbyAttractions.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {nearbyAttractions.map((attraction: string, index: number) => (
                 <div
