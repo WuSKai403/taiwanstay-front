@@ -554,7 +554,12 @@ async function importOpportunities() {
         acceptsCouples: true,
         acceptsFamilies: false,
         acceptsPets: false,
-        drivingLicenseRequired: false,
+        drivingLicense: {
+          carRequired: false,
+          motorcycleRequired: false,
+          otherRequired: false,
+          otherDescription: undefined
+        },
         specificSkills: ['良好的溝通能力', '團隊合作精神', '基本的英文能力'],
         otherRequirements: ['對此領域有熱情', '願意學習新事物', '能適應簡單的生活環境']
       },

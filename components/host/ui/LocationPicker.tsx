@@ -252,23 +252,25 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     }
   }, [city, district, fallbackToCity, isSearching, onPositionChange, updatePopupContent]);
 
-  // 當地址、城市或區域改變時，更新彈出窗口
+  // 當地址變更且有指定城市/區域時，進行搜索
   useEffect(() => {
-    if (marker && mapInstance) {
+    if (!mapInstance || !marker || !city || !district) return;
+
+    // 檢查是否已經有使用者在地圖上互動過
+    // 如果 city 或 district 有值但沒被定義為傳入屬性，代表他們是暫時的搜索參數
+    // 這種情況下才進行自動搜索，避免在使用者已互動後重複搜索
+    if (city && district) {
+      console.log(`[地圖] 嘗試搜索位置: ${city} ${district}`);
+      geocodeCityAndDistrict(mapInstance, marker);
+    }
+  }, [mapInstance, marker, city, district, geocodeCityAndDistrict]);
+
+  // 當詳細地址變更時，只更新彈出窗內容，不重新搜索位置
+  useEffect(() => {
+    if (marker) {
       updatePopupContent(marker);
     }
-  }, [city, district, address, marker, mapInstance, updatePopupContent]);
-
-  // 監聽城市和區域變化，更新地圖位置
-  useEffect(() => {
-    if (mapInstance && marker && city && !isSearching) {
-      const timer = setTimeout(() => {
-        geocodeCityAndDistrict(mapInstance, marker);
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [city, district, mapInstance, marker, isSearching, geocodeCityAndDistrict]);
+  }, [address, marker]);
 
   // 確保只在客戶端渲染地圖
   if (!isClient) {

@@ -8,6 +8,7 @@ import { ApiError } from '@/lib/errors';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
 import dbConnect from '@/lib/dbConnect';
+import { getSession } from 'next-auth/react';
 
 // 創建Express應用程序（用於測試）
 export const app = null;
@@ -15,6 +16,13 @@ export const app = null;
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 連接到數據庫
   await connectToDatabase();
+
+  // 獲取用戶會話
+  const session = await getSession({ req });
+
+  if (!session || !session.user) {
+    return res.status(401).json({ success: false, message: '未授權' });
+  }
 
   // 根據HTTP方法處理請求
   switch (req.method) {
@@ -188,94 +196,54 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
 // 創建工作機會
 async function createOpportunity(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // 從請求體中獲取數據
-    const {
-      hostId,
-      title,
-      slug,
-      description,
-      shortDescription,
-      status,
-      statusNote,
-      type,
-      workDetails,
-      benefits,
-      requirements,
-      media,
-      location,
-      applicationProcess,
-      impact,
-      ratings,
-      stats
-    } = req.body;
+    // 獲取用戶會話
+    const session = await getSession({ req });
 
-    // 驗證必要欄位
-    if (!hostId || !title || !description || !type) {
-      return res.status(400).json({ message: '缺少必要欄位' });
+    if (!session || !session.user) {
+      return res.status(401).json({
+        success: false,
+        message: '未授權，請先登入'
+      });
     }
 
-    // 驗證hostId是否有效
-    if (!isValidObjectId(hostId)) {
-      return res.status(400).json({ message: '無效的主辦方ID' });
-    }
+    // 檢查用戶是否是主辦方
+    const host = await Host.findOne({ userId: session.user.id });
 
-    // 檢查主辦方是否存在
-    const host = await Host.findById(hostId);
     if (!host) {
-      return res.status(404).json({ message: '找不到該主辦方' });
+      return res.status(403).json({
+        success: false,
+        message: '只有認證的主辦方可以創建機會'
+      });
     }
 
-    // 生成 publicId
-    const publicId = generatePublicId();
+    // 創建機會
+    const opportunityData = req.body;
 
-    // 生成 slug，格式為 {publicId}-{title-slug}
-    const titleSlug = await generateSlug(title);
-    const opportunitySlug = await generateSlug(title, publicId);
+    // 設置關鍵字段
+    opportunityData.hostId = host._id;
+    opportunityData.status = opportunityData.status || 'DRAFT';
+    opportunityData.createdAt = new Date();
+    opportunityData.updatedAt = new Date();
+    opportunityData.viewCount = 0;
+    opportunityData.bookmarkCount = 0;
+    opportunityData.applications = [];
 
-    // 創建工作機會
-    const opportunity = new Opportunity({
-      hostId,
-      title,
-      slug: opportunitySlug,
-      publicId,
-      description,
-      shortDescription,
-      status: status || OpportunityStatus.DRAFT,
-      statusNote,
-      type,
-      workDetails,
-      benefits,
-      requirements,
-      media,
-      location,
-      applicationProcess,
-      impact,
-      ratings: ratings || {
-        average: 0,
-        count: 0
-      },
-      stats: stats || {
-        views: 0,
-        applications: 0,
-        shares: 0
-      }
-    });
+    // 如果狀態是已發布，設置發布日期
+    if (opportunityData.status === 'PUBLISHED') {
+      opportunityData.publishedAt = new Date();
+    }
 
-    // 保存工作機會
-    await opportunity.save();
+    // 創建新機會
+    const newOpportunity = new Opportunity(opportunityData);
+    await newOpportunity.save();
 
-    // 返回成功響應
     return res.status(201).json({
-      message: '工作機會創建成功',
-      opportunity: {
-        id: opportunity._id,
-        publicId: opportunity.publicId,
-        title: opportunity.title,
-        slug: opportunity.slug
-      }
+      success: true,
+      message: '機會創建成功',
+      opportunity: JSON.parse(JSON.stringify(newOpportunity))
     });
   } catch (error) {
-    console.error('創建工作機會失敗:', error);
-    return res.status(500).json({ message: '創建工作機會時發生錯誤', error: (error as Error).message });
+    console.error('創建機會時出錯:', error);
+    return res.status(500).json({ success: false, message: '服務器錯誤' });
   }
 }

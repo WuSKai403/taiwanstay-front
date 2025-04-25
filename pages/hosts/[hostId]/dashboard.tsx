@@ -248,7 +248,7 @@ const HostDashboard = ({ hostId }: HostDashboardProps) => {
             </div>
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Link href={`/hosts/${hostId}/opportunities/create`} className="block p-4 rounded-lg border border-gray-200 hover:border-primary-500 hover:bg-primary-50 transition-colors">
+                <Link href={`/hosts/${hostId}/opportunities/new`} className="block p-4 rounded-lg border border-gray-200 hover:border-primary-500 hover:bg-primary-50 transition-colors">
                   <div className="flex items-center">
                     <div className="h-10 w-10 rounded-md bg-primary-100 flex items-center justify-center mr-3">
                       <svg className="h-6 w-6 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

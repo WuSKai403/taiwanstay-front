@@ -237,7 +237,7 @@ export default function HostDashboard() {
                   <h3 className="font-medium mb-2">進入主人中心</h3>
                   <p className="text-gray-600 text-sm">管理您的主人資料、工作機會和申請。</p>
                 </Link>
-                <Link href={`/hosts/${hostInfo._id}/opportunities/create`} className="p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors">
+                <Link href={`/hosts/${hostInfo._id}/opportunities/new`} className="p-4 border border-gray-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-colors">
                   <h3 className="font-medium mb-2">新增工作機會</h3>
                   <p className="text-gray-600 text-sm">創建新的工作機會，吸引更多旅行者。</p>
                 </Link>

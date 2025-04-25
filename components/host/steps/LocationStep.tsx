@@ -54,6 +54,11 @@ interface LocationFormData {
   };
 }
 
+// 產生儲存使用者互動狀態的 localStorage key
+const getInteractionKey = (city: string, district: string): string => {
+  return `location_interacted_${city}_${district}`;
+};
+
 const LocationStep: React.FC = () => {
   const {
     register,
@@ -62,6 +67,9 @@ const LocationStep: React.FC = () => {
     setValue,
     trigger
   } = useFormContext<LocationFormData>();
+
+  // 追蹤使用者是否已在地圖上互動
+  const [userInteracted, setUserInteracted] = useState<boolean>(false);
 
   // 監視位置相關欄位
   const country = watch('location.country');
@@ -77,23 +85,45 @@ const LocationStep: React.FC = () => {
     trigger('location.country');
   }, [setValue, trigger]);
 
+  // 載入使用者互動狀態
+  useEffect(() => {
+    if (city && district) {
+      const interactionKey = getInteractionKey(city, district);
+      const hasInteracted = localStorage.getItem(interactionKey) === 'true';
+      setUserInteracted(hasInteracted);
+      console.log(`[地址] 讀取互動狀態: ${city}-${district} => ${hasInteracted ? '已互動' : '未互動'}`);
+    } else {
+      setUserInteracted(false);
+    }
+  }, [city, district]);
+
   // 處理地點選擇事件 - 使用 useCallback 避免不必要的重新創建
   const handleLocationSelected = useCallback((lat: number, lng: number) => {
     setValue('location.coordinates.coordinates', [lng, lat]);
     // 觸發座標驗證
     trigger('location.coordinates');
-  }, [setValue, trigger]);
+
+    // 儲存使用者互動狀態到 localStorage
+    if (city && district) {
+      const interactionKey = getInteractionKey(city, district);
+      localStorage.setItem(interactionKey, 'true');
+      setUserInteracted(true);
+      console.log(`[地址] 已設定互動狀態: ${city}-${district}`);
+    }
+  }, [setValue, trigger, city, district]);
 
   // 處理縣市變更 - 使用 useCallback 避免不必要的重新創建
   const handleCountyChange = useCallback((county: string) => {
     setValue('location.city', county);
     trigger('location.city');
+    // 城市變更時不重置互動狀態，而是在下一個 useEffect 中讀取新組合的互動狀態
   }, [setValue, trigger]);
 
   // 處理區域變更 - 使用 useCallback 避免不必要的重新創建
   const handleDistrictChange = useCallback((district: string) => {
     setValue('location.district', district);
     trigger('location.district');
+    // 區域變更時不重置互動狀態，而是在下一個 useEffect 中讀取新組合的互動狀態
 
     // 當區域變更時直接更新郵遞區號
     if (city && district) {
@@ -221,8 +251,8 @@ const LocationStep: React.FC = () => {
             ]}
             onPositionChange={handleLocationSelected}
             address={watch('location.address')}
-            city={city}
-            district={district}
+            city={userInteracted ? undefined : city}
+            district={userInteracted ? undefined : district}
           />
         </div>
         {getLocationError('coordinates') && (

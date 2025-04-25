@@ -1,9 +1,12 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { compare } from 'bcryptjs';
-import { connectToDatabase } from '@/lib/mongodb';
+import { connectToDatabase } from './mongodb';
 import { ObjectId } from 'mongodb';
 import { isValidObjectId } from '@/utils/helpers';
+import { GetServerSidePropsContext, NextApiRequest, NextApiResponse } from 'next';
+import { getSession } from 'next-auth/react';
+import { UserRole } from '@/models/enums/UserRole';
 
 // 定義 JWT token 的類型
 interface CustomToken {
@@ -15,6 +18,9 @@ interface CustomToken {
   sub?: string;
 }
 
+/**
+ * NextAuth 配置選項
+ */
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -131,3 +137,21 @@ export const authOptions: NextAuthOptions = {
   },
   debug: process.env.NODE_ENV === 'development'
 };
+
+/**
+ * 檢查用戶是否已登入（服務端專用）
+ *
+ * 使用示例:
+ * ```
+ * if (!(await isAuthenticated(req))) {
+ *   return { redirect: { destination: '/login', permanent: false } };
+ * }
+ * ```
+ */
+export async function isAuthenticated(
+  req: NextApiRequest | GetServerSidePropsContext['req'],
+  res?: NextApiResponse | GetServerSidePropsContext['res']
+) {
+  const session = await getSession({ req });
+  return !!session?.user;
+}

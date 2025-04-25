@@ -1,12 +1,19 @@
-import { UserRole } from '../models/enums/UserRole';
+import { UserRole } from '@/models/enums/UserRole';
 
 /**
- * 檢查用戶是否為管理員
- * @param user 用戶對象或包含 role 屬性的對象
- * @returns 是否為管理員
+ * 角色檢查工具函數
+ *
+ * 這些函數僅執行純邏輯的角色判斷，不執行資料庫查詢或外部資源訪問
  */
-export function isAdmin(user?: { role?: UserRole }): boolean {
-  return user?.role !== undefined && user.role === UserRole.ADMIN;
+
+/**
+ * 檢查用戶是否擁有指定角色
+ * @param user 用戶對象或包含 role 屬性的對象
+ * @param role 需要檢查的角色
+ * @returns 是否擁有該角色
+ */
+export function hasRole(user?: { role?: UserRole }, role?: UserRole): boolean {
+  return user?.role !== undefined && role !== undefined && user.role === role;
 }
 
 /**
@@ -16,6 +23,24 @@ export function isAdmin(user?: { role?: UserRole }): boolean {
  */
 export function isHost(user?: { role?: UserRole }): boolean {
   return user?.role !== undefined && user.role === UserRole.HOST;
+}
+
+/**
+ * 檢查用戶是否為管理員
+ * @param user 用戶對象或包含 role 屬性的對象
+ * @returns 是否為管理員
+ */
+export function isAdmin(user?: { role?: UserRole }): boolean {
+  return user?.role !== undefined && (user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN);
+}
+
+/**
+ * 檢查用戶是否為超級管理員
+ * @param user 用戶對象或包含 role 屬性的對象
+ * @returns 是否為超級管理員
+ */
+export function isSuperAdmin(user?: { role?: UserRole }): boolean {
+  return user?.role !== undefined && user.role === UserRole.SUPER_ADMIN;
 }
 
 /**
@@ -34,16 +59,6 @@ export function isOrganizationAdmin(user?: { role?: UserRole }): boolean {
  */
 export function isUser(user?: { role?: UserRole }): boolean {
   return user?.role !== undefined && user.role === UserRole.USER;
-}
-
-/**
- * 檢查用戶是否有特定角色
- * @param user 用戶對象或包含 role 屬性的對象
- * @param role 要檢查的角色
- * @returns 是否有特定角色
- */
-export function hasRole(user?: { role?: UserRole }, role?: UserRole): boolean {
-  return user?.role !== undefined && role !== undefined && user.role === role;
 }
 
 /**

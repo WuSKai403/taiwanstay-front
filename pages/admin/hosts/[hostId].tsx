@@ -30,7 +30,8 @@ import { zhTW } from 'date-fns/locale';
 import mongoose from 'mongoose';
 import CloudinaryImage from '@/components/CloudinaryImage';
 import { CloudinaryImageResource } from '@/lib/cloudinary/types';
-import HostDetailView from '@/components/admin/HostDetailView';
+import HostDetailView from '@/components/admin/HostDetailComponents';
+import LocationMapViewer from '@/components/LocationMapViewer';
 
 // 定義主辦方資料介面
 interface IHost {
@@ -226,11 +227,15 @@ function HostDetail() {
       });
 
       if (response.ok) {
-        // 更新狀態成功後重新獲取資料
-        await fetchHostData();
+        // 更新狀態成功後先關閉模態框，再重新獲取數據
         setShowStatusModal(false);
         setPendingStatus(null);
         setStatusNote('');
+
+        // 獲取更新後的數據
+        setTimeout(() => {
+          fetchHostData();
+        }, 300); // 延遲執行，確保 DOM 有時間正確清理
       } else {
         const errorData = await response.json();
         alert(`更新失敗: ${errorData.message}`);
@@ -429,6 +434,29 @@ function HostDetail() {
                   )}
                 </div>
               </div>
+
+              {/* 地圖顯示 */}
+              {host.location.coordinates && host.location.coordinates.coordinates && (
+                <div className="mt-4">
+                  <h3 className="text-md font-medium text-gray-900 mb-2">地圖位置</h3>
+                  <div className="border border-gray-300 rounded-md overflow-hidden" style={{ height: '300px' }}>
+                    <LocationMapViewer
+                      key={`map-${host._id}-${host.updatedAt}`}
+                      position={[
+                        host.location.coordinates.coordinates[1],
+                        host.location.coordinates.coordinates[0]
+                      ]}
+                      address={host.location.address}
+                      city={host.location.city}
+                      district={host.location.district}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    座標：{host.location.coordinates.coordinates[1].toFixed(6)}, {host.location.coordinates.coordinates[0].toFixed(6)}
+                  </p>
+                </div>
+              )}
+
               {host.environment?.surroundings && (
                 <div className="mt-4">
                   <h3 className="text-md font-medium text-gray-900 mb-1">周邊環境</h3>

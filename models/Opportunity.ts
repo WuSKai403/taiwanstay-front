@@ -103,7 +103,12 @@ export interface IOpportunity extends Document {
     acceptsCouples: boolean;
     acceptsFamilies: boolean;
     acceptsPets: boolean;
-    drivingLicenseRequired: boolean;
+    drivingLicense?: {
+      carRequired: boolean;
+      motorcycleRequired: boolean;
+      otherRequired: boolean;
+      otherDescription?: string;
+    };
     specificNationalities?: string[];
     specificSkills?: string[];
     otherRequirements?: string[];
@@ -293,7 +298,12 @@ const OpportunitySchema: Schema = new Schema({
     acceptsCouples: { type: Boolean, default: false },
     acceptsFamilies: { type: Boolean, default: false },
     acceptsPets: { type: Boolean, default: false },
-    drivingLicenseRequired: { type: Boolean, default: false },
+    drivingLicense: {
+      carRequired: { type: Boolean, default: false },
+      motorcycleRequired: { type: Boolean, default: false },
+      otherRequired: { type: Boolean, default: false },
+      otherDescription: { type: String }
+    },
     specificNationalities: [{ type: String }],
     specificSkills: [{ type: String }],
     otherRequirements: [{ type: String }]

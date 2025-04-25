@@ -155,7 +155,12 @@ interface OpportunityDetail {
     acceptsCouples?: boolean;
     acceptsFamilies?: boolean;
     acceptsPets?: boolean;
-    drivingLicenseRequired?: boolean;
+    drivingLicense?: {
+      carRequired: boolean;
+      motorcycleRequired: boolean;
+      otherRequired: boolean;
+      otherDescription?: string;
+    };
     otherRequirements?: string[];
   };
   media: {
