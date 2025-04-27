@@ -290,6 +290,23 @@ export default function OpportunityForm({
           <h1 className="text-2xl font-bold">
             {isNewOpportunity ? '新增工作機會' : '編輯工作機會'}
           </h1>
+          {!isNewOpportunity && opportunity && (
+            <div className="flex items-center">
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                opportunity.status === OpportunityStatus.ACTIVE
+                  ? 'bg-green-100 text-green-800'
+                  : opportunity.status === OpportunityStatus.PENDING
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-gray-100 text-gray-800'
+              }`}>
+                {opportunity.status === OpportunityStatus.ACTIVE
+                  ? '已發布'
+                  : opportunity.status === OpportunityStatus.PENDING
+                    ? '審核中'
+                    : '草稿'}
+              </span>
+            </div>
+          )}
         </div>
 
         <Tab.Group selectedIndex={activeTab} onChange={setActiveTab}>
