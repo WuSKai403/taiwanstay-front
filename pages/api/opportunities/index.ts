@@ -8,7 +8,6 @@ import { ApiError } from '@/lib/errors';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
 import dbConnect from '@/lib/dbConnect';
-import { getSession } from 'next-auth/react';
 
 // 創建Express應用程序（用於測試）
 export const app = null;
@@ -17,8 +16,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 連接到數據庫
   await connectToDatabase();
 
-  // 獲取用戶會話
-  const session = await getSession({ req });
+  // 使用 getServerSession 獲取用戶會話
+  const session = await getServerSession(req, res, authOptions);
 
   if (!session || !session.user) {
     return res.status(401).json({ success: false, message: '未授權' });
@@ -57,6 +56,33 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
 
     // 構建查詢條件
     const query = buildMongoQuery(req.query);
+
+    // 處理 excludeStatus 參數，過濾掉指定狀態的機會
+    if (req.query.excludeStatus) {
+      const excludeStatus = req.query.excludeStatus as string;
+      // 使用 $ne（不等於）運算符排除特定狀態
+      query.status = { $ne: excludeStatus };
+      console.log(`排除狀態為 ${excludeStatus} 的機會`);
+    }
+
+    // 獲取用戶會話
+    const session = await getServerSession(req, res, authOptions);
+    const isAdmin = session?.user?.role === 'ADMIN' || session?.user?.role === 'SUPER_ADMIN';
+
+    // 針對非管理員用戶，自動過濾掉草稿狀態的機會
+    // 這確保了無論前端如何請求，後端都會自動排除草稿
+    if (!isAdmin && (!query.status || !req.query.all)) {
+      // 如果已經有狀態過濾，則使用 $and 邏輯
+      if (query.status) {
+        query.$and = query.$and || [];
+        query.$and.push({ status: { $ne: OpportunityStatus.DRAFT } });
+      } else {
+        // 如果沒有狀態過濾，直接設置排除草稿
+        query.status = { $ne: OpportunityStatus.DRAFT };
+      }
+      console.log('非管理員用戶，自動排除草稿狀態的機會');
+    }
+
     console.log('MongoDB 查詢條件:', JSON.stringify(query, null, 2));
     console.log(`查詢類型: ${isMapRequest ? '地圖請求' : '列表請求'}, 限制: ${limit}`);
 
@@ -196,8 +222,8 @@ async function getOpportunities(req: NextApiRequest, res: NextApiResponse) {
 // 創建工作機會
 async function createOpportunity(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // 獲取用戶會話
-    const session = await getSession({ req });
+    // 使用 getServerSession 獲取用戶會話
+    const session = await getServerSession(req, res, authOptions);
 
     if (!session || !session.user) {
       return res.status(401).json({
@@ -240,6 +266,7 @@ async function createOpportunity(req: NextApiRequest, res: NextApiResponse) {
     return res.status(201).json({
       success: true,
       message: '機會創建成功',
+      _id: newOpportunity._id, // 確保返回 _id 字段
       opportunity: JSON.parse(JSON.stringify(newOpportunity))
     });
   } catch (error) {

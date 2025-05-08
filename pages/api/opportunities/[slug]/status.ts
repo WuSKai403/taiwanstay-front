@@ -1,76 +1,103 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
-import { connectToDatabase } from '@/lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import Opportunity from '@/models/Opportunity';
-import Host from '@/models/Host';
+import { OpportunityStatus } from '@/models/enums';
+import { isValidObjectId } from '@/utils/helpers';
+import { requireOpportunityAccess } from '@/lib/middleware/authMiddleware';
+import { isValidStatusTransition } from '@/lib/hooks/useOpportunities';
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 只允許 PATCH 方法
   if (req.method !== 'PATCH') {
     return res.status(405).json({ success: false, message: '方法不允許' });
   }
 
   try {
-    // 獲取用戶會話
-    const session = await getSession({ req });
-
-    if (!session || !session.user) {
-      return res.status(401).json({ success: false, message: '未授權' });
-    }
-
     // 連接數據庫
-    await connectToDatabase();
+    await dbConnect();
 
-    const { opportunityId } = req.query;
+    const { slug } = req.query;
     const { status } = req.body;
 
-    // 驗證狀態值
-    const validStatuses = ['DRAFT', 'PUBLISHED', 'PAUSED', 'ARCHIVED'];
-    if (!status || !validStatuses.includes(status)) {
+    if (!status || !Object.values(OpportunityStatus).includes(status)) {
       return res.status(400).json({ success: false, message: '無效的狀態值' });
     }
 
-    // 獲取機會信息
-    const opportunity = await Opportunity.findById(opportunityId);
+    // 查找機會
+    let opportunity;
+    let opportunityId;
+
+    // 如果是有效的 MongoDB ObjectId，直接用來查詢
+    if (isValidObjectId(slug as string)) {
+      opportunityId = slug;
+      opportunity = await Opportunity.findById(opportunityId);
+    } else {
+      // 否則嘗試通過 slug 查詢
+      opportunity = await Opportunity.findOne({ slug: slug });
+      opportunityId = opportunity?._id;
+    }
 
     if (!opportunity) {
       return res.status(404).json({ success: false, message: '機會不存在' });
     }
 
-    // 檢查主人身份
-    const host = await Host.findOne({
-      _id: opportunity.hostId,
-      userId: session.user.id
-    });
+    // 檢查狀態轉換是否有效
+    const currentStatus = opportunity.status;
+    if (!isValidStatusTransition(currentStatus, status)) {
+      return res.status(400).json({
+        success: false,
+        message: '無效的狀態轉換',
+        currentStatus,
+        requestedStatus: status
+      });
+    }
 
-    if (!host) {
-      return res.status(403).json({ success: false, message: '沒有訪問權限' });
+    // 添加特殊處理邏輯
+    const updateData: any = { status };
+
+    // 如果從非活躍狀態變為活躍狀態，設置發布日期
+    if (status === OpportunityStatus.ACTIVE && currentStatus !== OpportunityStatus.ACTIVE) {
+      updateData.publishedAt = new Date();
+    }
+
+    // 如果是被拒絕的狀態，可能需要包含拒絕原因
+    if (status === OpportunityStatus.REJECTED && req.body.rejectionReason) {
+      updateData.rejectionReason = req.body.rejectionReason;
     }
 
     // 更新狀態
-    opportunity.status = status;
-
-    // 如果從草稿變為已發布，設置發布日期
-    if (status === 'PUBLISHED' && opportunity.status !== 'PUBLISHED') {
-      opportunity.publishedAt = new Date();
-    }
-
-    await opportunity.save();
+    const updatedOpportunity = await Opportunity.findByIdAndUpdate(
+      opportunityId,
+      { $set: updateData },
+      { new: true }
+    );
 
     return res.status(200).json({
       success: true,
       message: '狀態更新成功',
       opportunity: {
-        id: opportunity._id,
-        status: opportunity.status,
-        publishedAt: opportunity.publishedAt
+        id: updatedOpportunity._id,
+        status: updatedOpportunity.status,
+        publishedAt: updatedOpportunity.publishedAt
       }
     });
   } catch (error) {
     console.error('更新機會狀態時出錯:', error);
-    return res.status(500).json({ success: false, message: '服務器錯誤' });
+    return res.status(500).json({
+      success: false,
+      message: '更新狀態失敗，請稍後再試',
+      error: (error as Error).message
+    });
   }
 }
+
+// 提取 slug 參數並轉換為 ID
+const extractOpportunityIdFromSlug = (req: NextApiRequest): string => {
+  const { slug } = req.query;
+  if (typeof slug !== 'string') return '';
+
+  const idPart = slug.split('-')[0];
+  return isValidObjectId(idPart) ? idPart : slug;
+};
+
+export default requireOpportunityAccess(extractOpportunityIdFromSlug)(handler);

@@ -18,7 +18,8 @@
       "@/utils/*": ["utils/*"],
       "@/store/*": ["store/*"],
       "@/hooks/*": ["hooks/*"],
-      "@/constants/*": ["constants/*"]
+      "@/constants/*": ["constants/*"],
+      "@/pages/*": ["pages/*"]
     },
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,

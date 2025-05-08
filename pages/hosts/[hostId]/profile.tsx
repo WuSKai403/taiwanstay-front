@@ -78,15 +78,25 @@ const HostProfile = ({ hostId }: HostProfileProps) => {
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">電子郵件</h3>
-                    <p className="mt-1">{hostData.email || '未設定'}</p>
+                    <p className="mt-1">{hostData.contactInfo?.contactEmail || hostData.email || '未設定'}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">電話</h3>
-                    <p className="mt-1">{hostData.phone || '未設定'}</p>
+                    <p className="mt-1">{hostData.contactInfo?.contactMobile || hostData.contactInfo?.phone || '未設定'}</p>
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">地址</h3>
-                    <p className="mt-1">{hostData.address || '未設定'}</p>
+                    <p className="mt-1">{hostData.location?.address || '未設定'}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500">網站</h3>
+                    <p className="mt-1">
+                      {hostData.contactInfo?.website ? (
+                        <a href={hostData.contactInfo.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                          {hostData.contactInfo.website}
+                        </a>
+                      ) : '未設定'}
+                    </p>
                   </div>
                 </div>
               </div>

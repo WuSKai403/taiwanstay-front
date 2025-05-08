@@ -1,10 +1,10 @@
 // Cloudinary 資源基本介面
 export interface CloudinaryResource {
-  public_id: string;
+  publicId: string;
   format?: string;
   version?: string;
   filename?: string;
-  secure_url: string;
+  secureUrl: string;
   url?: string;
   bytes?: number;
   width?: number;
@@ -15,8 +15,8 @@ export interface CloudinaryResource {
 
 // 上傳結果介面 (原始的Cloudinary API回應)
 export interface CloudinaryUploadResult {
-  public_id: string;
-  secure_url: string;
+  publicId: string;
+  secureUrl: string;
   bytes: number;
   created_at: string;
   format: string;

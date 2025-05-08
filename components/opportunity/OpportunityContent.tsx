@@ -45,18 +45,6 @@ const OpportunityContent: React.FC<OpportunityContentProps> = ({ opportunity }) 
             <h3 className="text-xl font-bold mb-4">工作詳情</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-semibold text-lg mb-2">工作時間</h4>
-                <p className="flex items-center mb-2">
-                  <span className="text-gray-600 mr-2">每日工時：</span>
-                  <span>{opportunity.workTimeSettings?.workHoursPerDay || '未指定'} 小時</span>
-                </p>
-                <p className="flex items-center">
-                  <span className="text-gray-600 mr-2">每週工作：</span>
-                  <span>{opportunity.workTimeSettings?.workDaysPerWeek || '未指定'} 天</span>
-                </p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-lg mb-2">提供福利</h4>
                 <div className="space-y-2">
                   <p className="flex items-center">
@@ -67,6 +55,20 @@ const OpportunityContent: React.FC<OpportunityContentProps> = ({ opportunity }) 
                     <span className="text-gray-600 mr-2">餐食：</span>
                     <span>{opportunity.benefits?.meals?.provided ? `提供 (${opportunity.benefits.meals.count}餐)` : '不提供'}</span>
                   </p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-lg mb-2">工作任務</h4>
+                <div className="space-y-2">
+                  {opportunity.workDetails?.tasks?.map((task, index) => (
+                    <p key={index} className="flex items-center">
+                      <span className="text-gray-800">{task}</span>
+                    </p>
+                  ))}
+                  {(!opportunity.workDetails?.tasks || opportunity.workDetails.tasks.length === 0) && (
+                    <p className="text-gray-500">未提供任務資訊</p>
+                  )}
                 </div>
               </div>
             </div>

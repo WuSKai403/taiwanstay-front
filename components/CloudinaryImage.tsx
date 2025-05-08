@@ -54,11 +54,11 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
   const [isLoadingHighRes, setIsLoadingHighRes] = useState<boolean>(false);
 
   // 定義 localStorage 緩存鍵名
-  const localStorageKey = useRef<string>(`cloudinary_${resource?.public_id}_${isPrivate ? 'private' : 'public'}`);
+  const localStorageKey = useRef<string>(`cloudinary_${resource?.publicId}_${isPrivate ? 'private' : 'public'}`);
 
   // 從 localStorage 獲取緩存
   const getLocalCache = useCallback(() => {
-    if (!resource?.public_id) return null;
+    if (!resource?.publicId) return null;
 
     try {
       const cachedData = localStorage.getItem(localStorageKey.current);
@@ -69,7 +69,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
         const now = Date.now();
         if (parsedData.expires && parsedData.expires > now) {
           console.log('%c[緩存] - 使用 localStorage 緩存', 'background:#8BC34A;color:white;padding:3px 6px;border-radius:3px;', {
-            publicId: resource.public_id,
+            publicId: resource.publicId,
             來源: 'localStorage',
             剩餘分鐘: Math.round((parsedData.expires - now) / 60000)
           });
@@ -83,11 +83,11 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
       console.error('讀取localStorage緩存錯誤:', error);
     }
     return null;
-  }, [resource?.public_id]);
+  }, [resource?.publicId]);
 
   // 保存數據到 localStorage
   const saveToLocalCache = useCallback((data: any) => {
-    if (!resource?.public_id || !data) return;
+    if (!resource?.publicId || !data) return;
 
     try {
       // 設置 55 分鐘過期時間
@@ -101,7 +101,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
     } catch (error) {
       console.error('保存到localStorage緩存錯誤:', error);
     }
-  }, [resource?.public_id]);
+  }, [resource?.publicId]);
 
   // 從IndexedDB檢查圖片緩存
   const checkImageCache = useCallback(async (publicId: string, type: 'thumbnail' | 'preview' | 'original' = 'preview') => {
@@ -160,9 +160,9 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
 
   // 使用React Query緩存請求
   const { data: signedUrls, isError } = useQuery({
-    queryKey: ['cloudinarySignedUrl', resource?.public_id, isPrivate],
+    queryKey: ['cloudinarySignedUrl', resource?.publicId, isPrivate],
     queryFn: async () => {
-      if (!resource?.public_id || !isPrivate) return null;
+      if (!resource?.publicId || !isPrivate) return null;
 
       // 先檢查 localStorage 緩存
       const localCache = getLocalCache();
@@ -171,14 +171,14 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
       }
 
       // 無緩存時發起請求
-      const result = await getSignedUrls(resource.public_id);
+      const result = await getSignedUrls(resource.publicId);
 
       // 緩存結果到 localStorage
       saveToLocalCache(result);
 
       return result;
     },
-    enabled: !!resource?.public_id && isPrivate,
+    enabled: !!resource?.publicId && isPrivate,
     staleTime: 55 * 60 * 1000, // 55分鐘內不重新獲取
     gcTime: 24 * 60 * 60 * 1000, // 保留緩存24小時
     retry: 1, // 僅重試一次以減少API調用
@@ -232,7 +232,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
   // 初始化時檢查圖片緩存
   useEffect(() => {
     const initializeImage = async () => {
-      if (!resource?.public_id) {
+      if (!resource?.publicId) {
         setLoadError(true);
         setIsLoading(false);
         return;
@@ -242,7 +242,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
       setLoadError(false);
 
       // 先檢查緩存中是否有圖片
-      const cachedImage = await checkImageCache(resource.public_id, 'preview');
+      const cachedImage = await checkImageCache(resource.publicId, 'preview');
 
       if (cachedImage) {
         // 緩存命中
@@ -256,7 +256,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
       // 非私有資源：直接使用優化的公開URL
       if (!isPrivate) {
         const optimizedPreviewUrl = getOptimizedImageUrl(
-          resource.previewUrl || resource.secure_url || '',
+          resource.previewUrl || resource.secureUrl || '',
           'preview'
         );
 
@@ -265,30 +265,30 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
         setImageSource('network');
 
         // 背景緩存圖片
-        cacheImage(resource.public_id, optimizedPreviewUrl, 'preview');
+        cacheImage(resource.publicId, optimizedPreviewUrl, 'preview');
       }
     };
 
     initializeImage();
-  }, [resource?.public_id, isPrivate, checkImageCache]);
+  }, [resource?.publicId, isPrivate, checkImageCache]);
 
   // 處理私有資源的簽名URL
   useEffect(() => {
-    if (!isPrivate || !resource?.public_id || imageSource === 'cache') return;
+    if (!isPrivate || !resource?.publicId || imageSource === 'cache') return;
 
     if (signedUrls) {
       // 優先使用私有下載URL
       if (signedUrls.privateDownload?.previewUrl) {
-        loadImage(resource.public_id, 'preview', signedUrls.privateDownload.previewUrl);
+        loadImage(resource.publicId, 'preview', signedUrls.privateDownload.previewUrl);
       } else if (signedUrls.previewUrl) {
-        loadImage(resource.public_id, 'preview', signedUrls.previewUrl);
+        loadImage(resource.publicId, 'preview', signedUrls.previewUrl);
       }
 
       setIsLoading(false);
     }
 
     if (isError) {
-      console.error('獲取簽名URL失敗:', resource.public_id);
+      console.error('獲取簽名URL失敗:', resource.publicId);
       setLoadError(true);
       setIsLoading(false);
     }
@@ -296,12 +296,12 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
 
   // 當模態窗打開時，加載高解析度圖片
   useEffect(() => {
-    if (isModalOpen && resource?.public_id) {
+    if (isModalOpen && resource?.publicId) {
       const loadHighResImage = async () => {
         setIsLoadingHighRes(true);
 
         // 1. 檢查緩存中是否有高解析度圖片
-        const cachedOriginal = await checkImageCache(resource.public_id, 'original');
+        const cachedOriginal = await checkImageCache(resource.publicId, 'original');
         if (cachedOriginal) {
           setOriginalObjectUrl(cachedOriginal);
           setLoadOriginal(true);
@@ -311,7 +311,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
 
         // 2. 使用已有的簽名URL
         if (signedUrls?.privateDownload?.originalUrl) {
-          loadImage(resource.public_id, 'original', signedUrls.privateDownload.originalUrl);
+          loadImage(resource.publicId, 'original', signedUrls.privateDownload.originalUrl);
           setLoadOriginal(true);
           setIsLoadingHighRes(false);
           return;
@@ -320,9 +320,9 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
         // 3. 對於私有資源，請求專門的原圖URL
         if (isPrivate) {
           try {
-            const result = await getSignedUrls(resource.public_id, 'original');
+            const result = await getSignedUrls(resource.publicId, 'original');
             if (result.privateDownload?.originalUrl) {
-              loadImage(resource.public_id, 'original', result.privateDownload.originalUrl);
+              loadImage(resource.publicId, 'original', result.privateDownload.originalUrl);
               setLoadOriginal(true);
             }
           } catch (err) {
@@ -332,10 +332,10 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
         } else {
           // 4. 對於公開資源，使用優化的URL
           const optimizedOriginalUrl = getOptimizedImageUrl(
-            resource.secure_url || '',
+            resource.secureUrl || '',
             'original'
           );
-          loadImage(resource.public_id, 'original', optimizedOriginalUrl);
+          loadImage(resource.publicId, 'original', optimizedOriginalUrl);
           setLoadOriginal(true);
         }
 
@@ -350,7 +350,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
         setLoadOriginal(false);
       }
     };
-  }, [isModalOpen, resource?.public_id, signedUrls, isPrivate, checkImageCache, loadImage]);
+  }, [isModalOpen, resource?.publicId, signedUrls, isPrivate, checkImageCache, loadImage]);
 
   // 釋放ObjectURL以防止內存泄漏
   useEffect(() => {

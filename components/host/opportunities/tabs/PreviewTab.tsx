@@ -30,7 +30,8 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
     benefits,
     requirements,
     media,
-    workTimeSettings,
+    hasTimeSlots,
+    timeSlots,
   } = values;
 
   // 獲取類型顏色
@@ -211,35 +212,40 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
               </div>
             )}
 
-            {/* 工作時間 */}
-            {workTimeSettings && (
+            {/* 時間段管理 - 取代原本的 workTimeSettings 段落 */}
+            {hasTimeSlots && timeSlots && timeSlots.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3">工作時間</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {workTimeSettings.workHoursPerDay && (
-                    <div>
-                      <span className="text-gray-600">每天工作時間：</span>
-                      <span className="font-medium">{workTimeSettings.workHoursPerDay} 小時</span>
+                <h3 className="text-lg font-semibold mb-3">工作時間段</h3>
+                <div className="space-y-4">
+                  {timeSlots.map((slot, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium mb-2">時間段 #{index + 1}</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <span className="text-gray-600 text-sm">開始日期：</span>
+                          <span className="font-medium">{slot.startDate || '未設定'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600 text-sm">結束日期：</span>
+                          <span className="font-medium">{slot.endDate || '未設定'}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600 text-sm">人數容量：</span>
+                          <span className="font-medium">{slot.defaultCapacity} 人</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600 text-sm">最短停留時間：</span>
+                          <span className="font-medium">{slot.minimumStay} 天</span>
+                        </div>
+                        {slot.description && (
+                          <div className="col-span-2 mt-2">
+                            <span className="text-gray-600 text-sm">描述：</span>
+                            <p className="text-sm mt-1">{slot.description}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  {workTimeSettings.workDaysPerWeek && (
-                    <div>
-                      <span className="text-gray-600">每週工作天數：</span>
-                      <span className="font-medium">{workTimeSettings.workDaysPerWeek} 天</span>
-                    </div>
-                  )}
-                  {workTimeSettings.minimumStay && (
-                    <div>
-                      <span className="text-gray-600">最少停留時間：</span>
-                      <span className="font-medium">{workTimeSettings.minimumStay} 天</span>
-                    </div>
-                  )}
-                  {workTimeSettings.maximumStay && (
-                    <div>
-                      <span className="text-gray-600">最長停留時間：</span>
-                      <span className="font-medium">{workTimeSettings.maximumStay} 天</span>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
             )}
@@ -352,10 +358,23 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
         </div>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-        <p className="text-yellow-800">
-          <strong>注意：</strong> 請檢查以上內容是否完整準確，所有資訊將在發布後顯示給潛在申請者。
-        </p>
+      <div className="space-y-4">
+        <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+          <p className="text-yellow-800">
+            <strong>注意：</strong> 請檢查以上內容是否完整準確，所有資訊將在發布後顯示給潛在申請者。
+          </p>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+          <h4 className="font-semibold text-blue-800 mb-2">審核流程說明</h4>
+          <ol className="list-decimal pl-5 text-blue-700 space-y-1">
+            <li>點擊「儲存」按鈕可將工作機會保存為草稿，您可以隨時繼續編輯</li>
+            <li>點擊「送出審核」按鈕將提交工作機會進行審核</li>
+            <li>審核通常需要 1-2 個工作天</li>
+            <li>審核通過後，工作機會將自動發布並對外開放申請</li>
+            <li>如果審核未通過，您將收到通知並可修改後重新提交</li>
+          </ol>
+        </div>
       </div>
     </div>
   );

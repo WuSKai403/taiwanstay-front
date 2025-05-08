@@ -1,4 +1,4 @@
-title,slug,hostSlug,type,status,shortDescription,city,country,lat,lng,workHoursPerWeek,workDaysPerWeek,accommodationProvided,mealsProvided,minimumStay,maximumStay,hasTimeSlots,timeSlotStartMonth,timeSlotEndMonth,timeSlotDefaultCapacity,timeSlotMinimumStay
+title,slug,hostSlug,type,status,shortDescription,city,country,lat,lng,workHoursPerWeek,workDaysPerWeek,accommodationProvided,mealsProvided,minimumStay,maximumStay,hasTimeSlots,timeSlotstartDate,timeSlotendDate,timeSlotDefaultCapacity,timeSlotMinimumStay
 有機蔬果種植體驗,organic-vegetable-farming,organic-farm,FARMING,ACTIVE,在有機農場體驗有機蔬果的種植過程，學習永續農業技術和理念。,宜蘭縣,台灣,24.7021,121.7377,25,5,true,true,14,60,true,2025-04,2025-09,2,14
 生態導覽志工,eco-tour-volunteer,eco-lodge,TOURISM,ACTIVE,擔任生態旅館的生態導覽志工，向訪客介紹永續生活方式和自然環境。,南投縣,台灣,23.9609,120.9720,20,4,true,true,30,90,true,2025-03,2025-08,3,30
 民宿接待與管理,homestay-reception,eco-lodge,HOSPITALITY,ACTIVE,協助生態旅館的日常運營，包括接待客人、房務整理和活動安排。,南投縣,台灣,23.9609,120.9720,30,5,true,true,60,180,true,2025-01,2025-12,2,60

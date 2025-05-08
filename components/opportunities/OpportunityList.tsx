@@ -122,6 +122,23 @@ const OpportunityCard = memo(({ opportunity }: { opportunity: TransformedOpportu
                   ? opportunity.media.images[0].url
                   : defaultImage;
 
+  // 獲取最短停留時間 - 從 timeSlots 獲取
+  const getMinimumStay = () => {
+    // 優先從 timeSlots 中獲取最短停留時間
+    if (opportunity.hasTimeSlots &&
+        opportunity.timeSlots &&
+        opportunity.timeSlots.length > 0) {
+      // 找出所有時間段中最短的停留時間
+      const minStay = Math.min(...opportunity.timeSlots.map(slot => slot.minimumStay || 0));
+      if (minStay > 0) {
+        return `最少 ${minStay} 天`;
+      }
+    }
+
+    // 如果沒有時間段或最短停留時間，顯示彈性時間
+    return '彈性時間';
+  };
+
   return (
     <Link
       href={`/opportunities/${opportunity.slug}`}
@@ -152,11 +169,7 @@ const OpportunityCard = memo(({ opportunity }: { opportunity: TransformedOpportu
         <div className="flex items-center text-sm text-gray-500">
           <span>{opportunity.location?.city || '地點未指定'}</span>
           <span className="mx-2">•</span>
-          <span>
-            {opportunity.workTimeSettings?.minimumStay
-              ? `最少 ${opportunity.workTimeSettings.minimumStay} 天`
-              : '彈性時間'}
-          </span>
+          <span>{getMinimumStay()}</span>
         </div>
       </div>
     </Link>

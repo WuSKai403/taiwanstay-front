@@ -47,8 +47,8 @@ interface ApplicationWithRelations {
   opportunityId?: mongoose.Types.ObjectId;
   status: ApplicationStatus;
   applicationDetails?: {
-    startMonth?: string;
-    endMonth?: string;
+    startDate?: string;
+    endDate?: string;
     duration?: number;
     [key: string]: any;
   };
@@ -357,8 +357,8 @@ export default function AdminApplications() {
                         <div className="text-sm text-gray-900">
                           <div className="flex items-center">
                             <DocumentTextIcon className="h-4 w-4 mr-1 text-gray-400" />
-                            {application.applicationDetails?.startMonth?.replace('-', '/')}
-                            {application.applicationDetails?.endMonth && ` - ${application.applicationDetails.endMonth.replace('-', '/')}`}
+                            {application.applicationDetails?.startDate?.replace('-', '/')}
+                            {application.applicationDetails?.endDate && ` - ${application.applicationDetails.endDate.replace('-', '/')}`}
                           </div>
                         </div>
                         <div className="text-sm text-gray-500">

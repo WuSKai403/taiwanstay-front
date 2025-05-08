@@ -146,12 +146,6 @@ export interface IHost extends Document {
     providesAccommodation: boolean;
     providesMeals: boolean;
     dietaryOptions?: string[];
-    seasonalAvailability?: {
-      spring: boolean;
-      summer: boolean;
-      autumn: boolean;
-      winter: boolean;
-    };
     rules?: string[];
     expectations?: string[];
   };
@@ -339,12 +333,6 @@ const HostSchema: Schema = new Schema({
     providesAccommodation: { type: Boolean, default: true },
     providesMeals: { type: Boolean, default: false },
     dietaryOptions: [{ type: String }],
-    seasonalAvailability: {
-      spring: { type: Boolean, default: true },
-      summer: { type: Boolean, default: true },
-      autumn: { type: Boolean, default: true },
-      winter: { type: Boolean, default: true }
-    },
     rules: [{ type: String }],
     expectations: [{ type: String }]
   },

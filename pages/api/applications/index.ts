@@ -80,16 +80,16 @@ import { isAdmin } from '@/utils/roleUtils';
  *                 type: object
  *                 required:
  *                   - message
- *                   - startMonth
- *                   - endMonth
+ *                   - startDate
+ *                   - endDate
  *                   - duration
  *                 properties:
  *                   message:
  *                     type: string
- *                   startMonth:
+ *                   startDate:
  *                     type: string
  *                     description: YYYY-MM 格式的開始月份
- *                   endMonth:
+ *                   endDate:
  *                     type: string
  *                     description: YYYY-MM 格式的結束月份
  *                   duration:
@@ -301,12 +301,12 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
     });
 
     // 驗證必填欄位
-    if (!opportunityId || !applicationDetails || !applicationDetails.message || !applicationDetails.startMonth || !applicationDetails.duration) {
+    if (!opportunityId || !applicationDetails || !applicationDetails.message || !applicationDetails.startDate || !applicationDetails.duration) {
       console.log('缺少必填欄位:', {
         hasOpportunityId: !!opportunityId,
         hasApplicationDetails: !!applicationDetails,
         hasMessage: !!applicationDetails?.message,
-        hasStartMonth: !!applicationDetails?.startMonth,
+        hasstartDate: !!applicationDetails?.startDate,
         hasDuration: !!applicationDetails?.duration
       });
       return res.status(400).json({ success: false, message: '缺少必填欄位' });
@@ -372,24 +372,24 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
 
       // 檢查申請的月份是否在時段範圍內
       // 將 YYYY-MM 格式轉換為 Date 對象用於比較
-      const startMonth = new Date(`${applicationDetails.startMonth}-01`);
-      const endMonth = applicationDetails.endMonth
-        ? new Date(`${applicationDetails.endMonth}-01`)
-        : new Date(startMonth.getFullYear(), startMonth.getMonth() + Math.floor(applicationDetails.duration / 30), 1);
+      const startDate = new Date(`${applicationDetails.startDate}-01`);
+      const endDate = applicationDetails.endDate
+        ? new Date(`${applicationDetails.endDate}-01`)
+        : new Date(startDate.getFullYear(), startDate.getMonth() + Math.floor(applicationDetails.duration / 30), 1);
 
-      const timeSlotStartMonth = new Date(`${timeSlot.startMonth}-01`);
-      const timeSlotEndMonth = new Date(`${timeSlot.endMonth}-01`);
+      const timeSlotstartDate = new Date(`${timeSlot.startDate}-01`);
+      const timeSlotendDate = new Date(`${timeSlot.endDate}-01`);
 
       console.log('月份範圍檢查:', {
-        startMonth,
-        endMonth,
-        timeSlotStartMonth,
-        timeSlotEndMonth,
-        isStartValid: startMonth >= timeSlotStartMonth,
-        isEndValid: endMonth <= timeSlotEndMonth
+        startDate,
+        endDate,
+        timeSlotstartDate,
+        timeSlotendDate,
+        isStartValid: startDate >= timeSlotstartDate,
+        isEndValid: endDate <= timeSlotendDate
       });
 
-      if (startMonth < timeSlotStartMonth || endMonth > timeSlotEndMonth) {
+      if (startDate < timeSlotstartDate || endDate > timeSlotendDate) {
         return res.status(400).json({ success: false, message: '申請的月份範圍超出了時段的有效期' });
       }
 
@@ -578,10 +578,10 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
         }
 
         // 從 CloudinaryImageResource 格式轉換
-        if (photo.public_id && photo.secure_url) {
+        if (photo.publicId && photo.secureUrl) {
           processedPhotos.push({
-            publicId: photo.public_id,
-            url: photo.secure_url,
+            publicId: photo.publicId,
+            url: photo.secureUrl,
             width: photo.width || 0,
             height: photo.height || 0,
             format: photo.format || 'jpg',
@@ -634,8 +634,8 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
         ...applicationDetails,
         // 確保必填欄位存在
         message: applicationDetails.message,
-        startMonth: applicationDetails.startMonth,
-        endMonth: applicationDetails.endMonth,
+        startDate: applicationDetails.startDate,
+        endDate: applicationDetails.endDate,
         duration: applicationDetails.duration,
         // 確保 termsAgreed 為布爾值
         termsAgreed: !!applicationDetails.termsAgreed

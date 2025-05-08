@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { CloudinaryUploadService } from '@/lib/cloudinary/uploadService';
 import { CloudinaryImageResource } from '@/lib/cloudinary/types';
 import CloudinaryImage from '@/components/CloudinaryImage';
@@ -46,6 +46,8 @@ const CloudinaryUploadWidget: React.FC<CloudinaryUploadWidgetProps> = ({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  // 生成唯一ID避免衝突
+  const uploadId = useId();
 
   // 處理照片上傳
   const handleImageUpload = async (file: File) => {
@@ -126,10 +128,10 @@ const CloudinaryUploadWidget: React.FC<CloudinaryUploadWidgetProps> = ({
       }
 
       // 如果有publicId，嘗試從Cloudinary刪除
-      if (removedImage?.public_id) {
+      if (removedImage?.publicId) {
         try {
-          await CloudinaryUploadService.deleteFile(removedImage.public_id);
-          console.log('已刪除Cloudinary上的圖片:', removedImage.public_id);
+          await CloudinaryUploadService.deleteFile(removedImage.publicId);
+          console.log('已刪除Cloudinary上的圖片:', removedImage.publicId);
         } catch (error) {
           console.error('刪除Cloudinary圖片失敗，但UI已更新', error);
         }
@@ -170,10 +172,10 @@ const CloudinaryUploadWidget: React.FC<CloudinaryUploadWidgetProps> = ({
               }}
               disabled={uploading}
               className="hidden"
-              id="image-upload"
+              id={`image-upload-${uploadId}`}
             />
             <label
-              htmlFor="image-upload"
+              htmlFor={`image-upload-${uploadId}`}
               className={`cursor-pointer flex flex-col items-center justify-center ${uploading ? 'opacity-50' : ''}`}
             >
               <PhotoIcon className="h-12 w-12 text-gray-400 mb-3" />
@@ -218,9 +220,9 @@ const CloudinaryUploadWidget: React.FC<CloudinaryUploadWidgetProps> = ({
           <h4 className="font-medium">已上傳圖片 ({images.length}/{maxFiles})</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {images.map((image, index) => (
-              <div key={image.public_id || index} className="border rounded-md p-3 space-y-3">
+              <div key={image.publicId || index} className="border rounded-md p-3 space-y-3">
                 <div className="relative h-40 w-full overflow-hidden rounded">
-                  {image.secure_url ? (
+                  {image.secureUrl ? (
                     <CloudinaryImage
                       resource={image}
                       alt={`圖片 ${index + 1}`}
@@ -245,8 +247,8 @@ const CloudinaryUploadWidget: React.FC<CloudinaryUploadWidgetProps> = ({
                 <div className="text-xs text-gray-500 mt-1">
                   <div className="flex justify-between">
                     <span>圖片 #{index + 1}</span>
-                    <span className="truncate" title={image.public_id || ''}>
-                      {image.public_id ? image.public_id.split('/').pop() : '處理中...'}
+                    <span className="truncate" title={image.publicId || ''}>
+                      {image.publicId ? image.publicId.split('/').pop() : '處理中...'}
                     </span>
                   </div>
                 </div>

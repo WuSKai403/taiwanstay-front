@@ -17,6 +17,7 @@ import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import { HostStatus } from '@/models/enums/HostStatus';
 import { z } from 'zod';
+import { generateSlug } from '@/lib/utils/slugUtils';
 
 // 定義每個步驟的名稱
 export const HOST_REGISTER_STEPS = {
@@ -467,7 +468,7 @@ export const HostRegisterProvider: React.FC<{ children: ReactNode }> = ({ childr
         delete formData.media;
       }
 
-      // 轉換照片欄位格式: public_id -> publicId, secure_url -> secureUrl
+      // 轉換照片欄位格式: publicId -> publicId, secureUrl -> secureUrl
       if (formData.photos && Array.isArray(formData.photos) && formData.photos.length > 0) {
         formData.photos = formData.photos.map((photo: any) => {
           if (!photo) return null;
@@ -476,14 +477,14 @@ export const HostRegisterProvider: React.FC<{ children: ReactNode }> = ({ childr
           const newPhoto: any = { ...photo };
 
           // 轉換字段名稱
-          if (photo.public_id && !photo.publicId) {
-            newPhoto.publicId = photo.public_id;
-            delete newPhoto.public_id;
+          if (photo.publicId && !photo.publicId) {
+            newPhoto.publicId = photo.publicId;
+            delete newPhoto.publicId;
           }
 
-          if (photo.secure_url && !photo.secureUrl) {
-            newPhoto.secureUrl = photo.secure_url;
-            delete newPhoto.secure_url;
+          if (photo.secureUrl && !photo.secureUrl) {
+            newPhoto.secureUrl = photo.secureUrl;
+            delete newPhoto.secureUrl;
           }
 
           // 確保所有必要欄位存在
@@ -500,64 +501,13 @@ export const HostRegisterProvider: React.FC<{ children: ReactNode }> = ({ childr
 
       // 自動生成 slug 欄位（如果沒有的話）
       if (formData.name && (!formData.slug || formData.slug.trim() === '')) {
-        // 將名稱轉換為 slug 格式
-        // 第一步：處理名稱
-        const nameBase = formData.name
-          .toLowerCase()
-          .replace(/[^\w\s-]/g, '') // 移除特殊字符
-          .replace(/\s+/g, '-') // 將空格替換為連字符
-          .replace(/--+/g, '-') // 替換多個連字符為一個
-          .trim(); // 移除首尾空格
-
-        // 第二步：處理中文字符的情況（保留英文和數字，移除純中文或其他非英文字符）
-        let slugBase = nameBase;
-
-        // 如果 slug 主要是中文（沒有多少英文字符）
-        if (slugBase.length < 2 || slugBase.replace(/[a-z0-9-]/g, '').length > slugBase.length * 0.5) {
-          // 使用類別作為前綴，提高 SEO 相關性
-          if (formData.type) {
-            const typePrefix = formData.type.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
-            slugBase = typePrefix + '-' + slugBase;
-          }
-
-          if (formData.category) {
-            const categoryPart = formData.category.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
-            if (categoryPart && categoryPart.length > 0) {
-              slugBase = slugBase + '-' + categoryPart;
-            }
-          }
-        }
-
-        // 第三步：添加位置信息以增強 SEO 相關性
-        if (formData.location && formData.location.city) {
-          const cityPart = formData.location.city
-            .toLowerCase()
-            .replace(/[^\w\s-]/g, '')
-            .replace(/\s+/g, '-');
-
-          if (cityPart && cityPart.length > 0 && !slugBase.includes(cityPart)) {
-            slugBase = slugBase + '-' + cityPart;
-          }
-        }
-
-        // 第四步：確保 slug 長度適中（不要太長）
-        if (slugBase.length > 50) {
-          slugBase = slugBase.substring(0, 50);
-          // 確保不會在單詞中間切斷
-          if (slugBase.lastIndexOf('-') > 0) {
-            slugBase = slugBase.substring(0, slugBase.lastIndexOf('-'));
-          }
-        }
-
-        // 第五步：添加短隨機字串確保唯一性（使用時間戳的一部分 + 隨機字符）
-        const uniqueSuffix = Date.now().toString().slice(-4) +
-                             Math.random().toString(36).substring(2, 5);
-
-        // 組合最終的 slug
-        const finalSlug = `${slugBase}-${uniqueSuffix}`;
-
-        // 最後確保沒有開頭或結尾的連字符
-        formData.slug = finalSlug.replace(/^-+|-+$/g, '');
+        // 使用通用的 slug 生成函數
+        formData.slug = generateSlug(
+          formData.name,
+          formData.type,
+          formData.location?.city,
+          formData.category
+        );
         console.log('自動生成 SEO 友善的 slug:', formData.slug);
       }
 

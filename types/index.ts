@@ -99,8 +99,8 @@ export interface Application {
   status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
   applicationDetails: {
     message: string;
-    startMonth: string;
-    endMonth?: string;
+    startDate: string;
+    endDate?: string;
     duration: number;
     travelingWith?: {
       partner: boolean;

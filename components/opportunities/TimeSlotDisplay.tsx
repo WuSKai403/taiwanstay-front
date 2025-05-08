@@ -1,16 +1,16 @@
 import { useState } from 'react';
 
 interface TimeSlotDisplayProps {
-  startMonth: string; // YYYY-MM 格式
-  endMonth: string; // YYYY-MM 格式
+  startDate: string; // YYYY-MM 格式
+  endDate: string; // YYYY-MM 格式
   defaultCapacity: number;
   minimumStay: number;
   appliedCount: number;
 }
 
 const TimeSlotDisplay: React.FC<TimeSlotDisplayProps> = ({
-  startMonth,
-  endMonth,
+  startDate,
+  endDate,
   defaultCapacity,
   minimumStay,
   appliedCount,
@@ -24,14 +24,14 @@ const TimeSlotDisplay: React.FC<TimeSlotDisplayProps> = ({
     };
   };
 
-  const startDate = parseYearMonth(startMonth);
-  const endDate = parseYearMonth(endMonth);
-  const [currentYear, setCurrentYear] = useState(startDate.year);
+  const startDateParsed = parseYearMonth(startDate);
+  const endDateParsed = parseYearMonth(endDate);
+  const [currentYear, setCurrentYear] = useState(startDateParsed.year);
 
-  const startYear = startDate.year;
-  const endYear = endDate.year;
-  const startMonthIndex = startDate.month;
-  const endMonthIndex = endDate.month;
+  const startYear = startDateParsed.year;
+  const endYear = endDateParsed.year;
+  const startDateIndex = startDateParsed.month;
+  const endDateIndex = endDateParsed.month;
 
   // 檢查年份是否可選
   const canGoPrev = currentYear > startYear;
@@ -41,16 +41,16 @@ const TimeSlotDisplay: React.FC<TimeSlotDisplayProps> = ({
   const generateMonthsForYear = (year: number) => {
     return Array.from({ length: 12 }, (_, index) => {
       const isAvailable =
-        (year === startYear && index >= startMonthIndex) ||
-        (year === endYear && index <= endMonthIndex) ||
+        (year === startYear && index >= startDateIndex) ||
+        (year === endYear && index <= endDateIndex) ||
         (year > startYear && year < endYear);
 
       return {
         month: index + 1,
         available: isAvailable,
         disabled:
-          (year === startYear && index < startMonthIndex) ||
-          (year === endYear && index > endMonthIndex) ||
+          (year === startYear && index < startDateIndex) ||
+          (year === endYear && index > endDateIndex) ||
           year < startYear ||
           year > endYear
       };

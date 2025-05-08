@@ -2,7 +2,7 @@ import React, { ButtonHTMLAttributes } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info' | 'white';
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'info' | 'white' | 'outline';
   size?: 'xs' | 'sm' | 'md' | 'lg';
   loading?: boolean;
   icon?: React.ReactNode;
@@ -44,6 +44,7 @@ const Button: React.FC<ButtonProps> = ({
     warning: 'bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-500',
     info: 'bg-blue-500 text-white hover:bg-blue-600 focus:ring-blue-500',
     white: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-500',
+    outline: 'bg-white text-primary-600 border border-primary-500 hover:bg-gray-50 focus:ring-primary-500',
   };
 
   // 禁用樣式

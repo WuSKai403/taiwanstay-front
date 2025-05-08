@@ -65,11 +65,11 @@ const BasicInfoStep = forwardRef<BasicInfoStepRef, BasicInfoStepProps>(({
 
   // 驗證最小停留天數
   const validateMinimumStay = (): boolean => {
-    const startMonth = watch('startMonth');
-    const endMonth = watch('endMonth');
-    if (!startMonth || !endMonth) return false;
+    const startDate = watch('startDate');
+    const endDate = watch('endDate');
+    if (!startDate || !endDate) return false;
 
-    const days = calculateDaysBetweenMonths(startMonth, endMonth);
+    const days = calculateDaysBetweenMonths(startDate, endDate);
     if (days < minDaysRequired) {
       setValidationError(`停留時間不得少於 ${minDaysRequired} 天`);
       return false;
@@ -196,8 +196,8 @@ const BasicInfoStep = forwardRef<BasicInfoStepRef, BasicInfoStepProps>(({
       const lastMonth = selectedMonthsList[selectedMonthsList.length - 1];
 
       // 更新表單值
-      setValue('startMonth', firstMonth.yearMonthStr);
-      setValue('endMonth', lastMonth.yearMonthStr);
+      setValue('startDate', firstMonth.yearMonthStr);
+      setValue('endDate', lastMonth.yearMonthStr);
       setValue('availableMonths', selectedMonthsList.map(m => m.yearMonthStr));
 
       // 更新日期範圍顯示
@@ -212,8 +212,8 @@ const BasicInfoStep = forwardRef<BasicInfoStepRef, BasicInfoStepProps>(({
       setValue('duration', days);
     } else {
       // 清除相關欄位
-      setValue('startMonth', '');
-      setValue('endMonth', '');
+      setValue('startDate', '');
+      setValue('endDate', '');
       setValue('availableMonths', []);
       setValue('duration', 0);
       setDateRangeDisplay('');

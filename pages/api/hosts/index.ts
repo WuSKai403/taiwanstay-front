@@ -189,11 +189,11 @@ async function createHost(req: NextApiRequest, res: NextApiResponse) {
         if (!photo) return null;
 
         return {
-          publicId: photo.publicId || photo.public_id,
-          secureUrl: photo.secureUrl || photo.secure_url,
+          publicId: photo.publicId || photo.publicId,
+          secureUrl: photo.secureUrl || photo.secureUrl,
           thumbnailUrl: photo.thumbnailUrl,
           previewUrl: photo.previewUrl,
-          originalUrl: photo.originalUrl || photo.secureUrl || photo.secure_url
+          originalUrl: photo.originalUrl || photo.secureUrl || photo.secureUrl
         };
       }).filter(Boolean);
 

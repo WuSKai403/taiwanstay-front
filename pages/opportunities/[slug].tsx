@@ -20,6 +20,7 @@ import { FiBookmark } from 'react-icons/fi';
 import { BiTimeFive, BiCalendarAlt } from 'react-icons/bi';
 import { HiOutlineClock } from 'react-icons/hi';
 import { RiLeafLine } from 'react-icons/ri';
+import { CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('../../components/MapComponent'), {
@@ -78,8 +79,8 @@ const typeNameMap = {
 // 更新 TimeSlot 介面定義
 interface TimeSlot {
   id: string;
-  startMonth: string; // YYYY-MM 格式
-  endMonth: string; // YYYY-MM 格式
+  startDate: string; // YYYY-MM 格式
+  endDate: string; // YYYY-MM 格式
   defaultCapacity: number;
   minimumStay: number;
   appliedCount: number;
@@ -105,8 +106,10 @@ interface OpportunityDetail {
     region?: string;
     country?: string;
     coordinates?: {
-      type: string;
-      coordinates: [number, number]; // 經度, 緯度
+      type?: string;
+      coordinates?: [number, number]; // 經度, 緯度
+      lat?: number;
+      lng?: number;
     };
   };
   workDetails: {
@@ -124,12 +127,6 @@ interface OpportunityDetail {
     startDate?: string;
     endDate?: string;
     isOngoing?: boolean;
-    seasonality?: {
-      spring?: boolean;
-      summer?: boolean;
-      autumn?: boolean;
-      winter?: boolean;
-    };
   };
   benefits: {
     accommodation: {
@@ -166,8 +163,32 @@ interface OpportunityDetail {
   media: {
     images?: Array<{
       url: string;
+      secureUrl?: string;
       alt?: string;
+      publicId?: string;
+      previewUrl?: string;
+      thumbnailUrl?: string;
+      version?: string;
+      format?: string;
+      width?: number;
+      height?: number;
     }>;
+    coverImage?: {
+      url: string;
+      secureUrl?: string;
+      alt?: string;
+      publicId?: string;
+      previewUrl?: string;
+      thumbnailUrl?: string;
+      version?: string;
+      format?: string;
+      width?: number;
+      height?: number;
+    };
+    descriptions?: string[];
+    videoUrl?: string;
+    videoDescription?: string;
+    virtualTour?: string;
   };
   host: {
     id: string;
@@ -212,6 +233,13 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
   const router = useRouter();
   const { data: session, status } = useSession();
   const { slug } = router.query;
+
+  // 格式化日期的輔助函數
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '未知日期';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('zh-TW');
+  };
 
   // 檢查用戶是否已收藏此機會
   useEffect(() => {
@@ -315,9 +343,14 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
 
   // 修改地圖相關部分
   const mapPosition = useMemo(() => {
-    if (opportunity.location?.coordinates?.coordinates) {
-      const [lng, lat] = opportunity.location.coordinates.coordinates;
-      return [lat, lng] as [number, number];
+    if (opportunity.location?.coordinates) {
+      // 處理兩種可能的座標格式
+      if (opportunity.location.coordinates.coordinates) {
+        const [lng, lat] = opportunity.location.coordinates.coordinates;
+        return [lat, lng] as [number, number];
+      } else if (opportunity.location.coordinates.lat && opportunity.location.coordinates.lng) {
+        return [opportunity.location.coordinates.lat, opportunity.location.coordinates.lng] as [number, number];
+      }
     }
     return undefined;
   }, [opportunity.location]);
@@ -339,14 +372,20 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
         region: opp.location?.region || '',
         city: opp.location?.city || '',
         address: opp.location?.address || null,
-        coordinates: opp.location?.coordinates?.coordinates ? {
-          lat: opp.location.coordinates.coordinates[1], // 緯度
-          lng: opp.location.coordinates.coordinates[0]  // 經度
+        coordinates: opp.location?.coordinates ? {
+          lat: opp.location.coordinates.lat ||
+               (opp.location.coordinates.coordinates && opp.location.coordinates.coordinates.length >= 2
+                ? opp.location.coordinates.coordinates[1] : null),
+          lng: opp.location.coordinates.lng ||
+               (opp.location.coordinates.coordinates && opp.location.coordinates.coordinates.length >= 2
+                ? opp.location.coordinates.coordinates[0] : null)
         } : null
       },
       media: {
         images: opp.media?.images || []
       },
+      hasTimeSlots: opp.hasTimeSlots || false,
+      timeSlots: opp.timeSlots || [],
       workTimeSettings: {
         hoursPerDay: opp.workTimeSettings?.workHoursPerDay || 0,
         daysPerWeek: opp.workTimeSettings?.workDaysPerWeek || 0,
@@ -385,6 +424,8 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
     );
   }
 
+  const typeClass = typeColorMap[opportunity.type as OpportunityType] || 'bg-gray-100 text-gray-800';
+
   return (
     <Layout title={`${opportunity.title} - TaiwanStay`} description={opportunity.shortDescription}>
       <div className="bg-gray-50 min-h-screen">
@@ -400,7 +441,7 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
               </Link>
             </div>
             <div className="flex flex-wrap items-center gap-3 mb-2">
-              <span className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${typeColorMap[opportunity.type as OpportunityType] || 'bg-gray-100 text-gray-800'}`}>
+              <span className={`inline-block px-3 py-1 text-sm font-semibold rounded-full ${typeClass}`}>
                 {typeNameMap[opportunity.type as OpportunityType] || '其他'}
               </span>
               <span className="text-gray-200">
@@ -423,123 +464,62 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
               {/* 封面圖片 */}
               <div className="bg-white shadow-sm rounded-lg overflow-hidden mb-8">
                 <div className="relative h-96">
-                  {opportunity.media?.images && opportunity.media.images[0] ? (
-                    <Image
-                      src={opportunity.media.images[0].url}
+                  <img
+                    src={opportunity.media?.coverImage?.url || opportunity.media?.coverImage?.secureUrl || '/placeholder-image.jpg'}
                       alt={opportunity.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      style={{ objectFit: 'cover' }}
+                    className="h-72 w-full object-cover rounded-t-lg"
                     />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                      <span className="text-gray-400">無圖片</span>
-                    </div>
-                  )}
                 </div>
 
                 <div className="p-6">
-                  {/* 1. 基本資訊 */}
-                  <div className="prose max-w-none mb-8">
-                    <h2 className="text-2xl font-bold mb-4">{opportunity.title}</h2>
-                    {opportunity.description && (
-                      <div dangerouslySetInnerHTML={{ __html: opportunity.description }} />
-                    )}
+                  <div className="border-b border-gray-200 pb-4 mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${typeClass}`}>
+                        {typeNameMap[opportunity.type] || opportunity.type}
+                      </span>
+                      <div className="flex items-center text-gray-500 text-sm">
+                        <CalendarIcon className="w-4 h-4 mr-1" />
+                        <span>發布於 {formatDate(opportunity.createdAt)}</span>
+                      </div>
+                    </div>
+                    <h1 className="text-2xl font-bold mt-2">{opportunity.title}</h1>
+                    <div className="flex items-center mt-2 text-gray-600">
+                      <MapPinIcon className="w-4 h-4 mr-1" />
+                      <span>{`${opportunity.location.city}${opportunity.location.district ? `, ${opportunity.location.district}` : ''}`}</span>
+                    </div>
                   </div>
 
-                  {/* 2. 時段資訊 */}
-                  {opportunity.hasTimeSlots && opportunity.timeSlots && opportunity.timeSlots.length > 0 && (
-                    <div className="mb-8">
-                      <h3 className="text-xl font-bold mb-4">可申請時段</h3>
-                      <TimeSlotDisplay
-                        startMonth={opportunity.timeSlots[0].startMonth}
-                        endMonth={opportunity.timeSlots[opportunity.timeSlots.length - 1].endMonth}
-                        defaultCapacity={opportunity.timeSlots[0].defaultCapacity}
-                        minimumStay={opportunity.timeSlots[0].minimumStay}
-                        appliedCount={opportunity.timeSlots.reduce((total, slot) => total + slot.appliedCount, 0)}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* 使用時間段信息替代原來的工作時間 */}
+                      {opportunity.hasTimeSlots && opportunity.timeSlots && opportunity.timeSlots.length > 0 && (
+                        <>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">最短停留時間</p>
+                            <p className="font-medium">
+                              {Math.min(...opportunity.timeSlots.map(slot => slot.minimumStay))} 天
+                            </p>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <p className="text-sm text-gray-500">可用名額</p>
+                            <p className="font-medium">
+                              {opportunity.timeSlots.reduce((total, slot) =>
+                                total + (slot.defaultCapacity - (slot.confirmedCount || 0)), 0)} 個
+                            </p>
+                      </div>
+                        </>
+                        )}
+                      </div>
+
+                    <div className="prose max-w-none mt-4">
+                      <h2 className="text-xl font-bold">機會介紹</h2>
+                      <div
+                        dangerouslySetInnerHTML={{ __html: opportunity.description || '' }}
                       />
                     </div>
-                  )}
 
-                  {/* 3. 工作詳情 */}
-                  <div className="mb-8">
-                    <h3 className="text-xl font-bold mb-4">工作詳情</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-lg mb-2">工作時間</h4>
-                        <p className="flex items-center mb-2">
-                          <span className="text-gray-600 mr-2">每日工時：</span>
-                          <span>{opportunity.workTimeSettings?.workHoursPerDay || '未指定'} 小時</span>
-                        </p>
-                        <p className="flex items-center">
-                          <span className="text-gray-600 mr-2">每週工作：</span>
-                          <span>{opportunity.workTimeSettings?.workDaysPerWeek || '未指定'} 天</span>
-                        </p>
-                      </div>
-
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-lg mb-2">提供福利</h4>
-                        <div className="space-y-2">
-                          <p className="flex items-center">
-                            <span className="text-gray-600 mr-2">住宿：</span>
-                            <span>{opportunity.benefits?.accommodation?.provided ? '提供' : '不提供'}</span>
-                          </p>
-                          <p className="flex items-center">
-                            <span className="text-gray-600 mr-2">餐食：</span>
-                            <span>{opportunity.benefits?.meals?.provided ? `提供 (${opportunity.benefits.meals.count}餐)` : '不提供'}</span>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                    {/* 移除對 workTimeSettings 的引用，改為從 timeSlots 渲染資訊 */}
                   </div>
-
-                  {/* 4. 主辦方資訊 */}
-                  <div className="mb-8">
-                    <h3 className="text-xl font-bold mb-4">主辦方資訊</h3>
-                    <div className="flex items-center mb-4">
-                      <div className="relative w-16 h-16 rounded-full overflow-hidden mr-4">
-                        {opportunity.host?.profileImage ? (
-                          <Image
-                            src={opportunity.host.profileImage}
-                            alt={opportunity.host.name}
-                            fill
-                            sizes="(max-width: 768px) 80px, 128px"
-                            style={{ objectFit: 'cover' }}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-gray-500 text-xl font-bold">
-                              {opportunity.host?.name?.charAt(0) || '?'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-lg font-semibold">{opportunity.host?.name}</h4>
-                        {opportunity.host?.description && (
-                          <p className="text-gray-600 mt-1">{opportunity.host.description}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 5. 位置資訊 */}
-                  {opportunity.location?.coordinates?.coordinates && (
-                    <div className="mt-6">
-                      <h3 className="text-lg font-semibold mb-4">位置</h3>
-                      <div className="h-96 relative rounded-lg overflow-hidden">
-                        <MapComponent
-                          position={mapPosition}
-                          zoom={15}
-                          showZoomControl
-                          showFullscreenControl
-                          showLocationControl
-                          opportunities={[convertToTransformedOpportunity(opportunity)]}
-                          isLoading={false}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -613,7 +593,7 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                         .map(slot => (
                           <div key={slot.id} className="bg-gray-50 p-3 rounded-md border border-gray-200">
                             <p className="text-sm font-medium">
-                              {slot.startMonth} 至 {slot.endMonth}
+                              {slot.startDate} 至 {slot.endDate}
                             </p>
                             <div className="flex justify-between items-center mt-1 text-xs text-gray-600">
                               <span>最短 {slot.minimumStay} 天</span>

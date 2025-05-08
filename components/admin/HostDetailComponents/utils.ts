@@ -4,8 +4,8 @@ import { CloudinaryImageResource } from '@/lib/cloudinary/types';
 // 將 Host 照片格式轉換為 CloudinaryImageResource 格式
 export const convertToCloudinaryResource = (photo: any): CloudinaryImageResource => {
   return {
-    public_id: photo.publicId || "",
-    secure_url: photo.secureUrl || "",
+    publicId: photo.publicId || "",
+    secureUrl: photo.secureUrl || "",
     thumbnailUrl: photo.thumbnailUrl || photo.secureUrl || "",
     previewUrl: photo.previewUrl || photo.secureUrl || ""
   };

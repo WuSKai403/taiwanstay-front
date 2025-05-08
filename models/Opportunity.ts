@@ -22,8 +22,8 @@ export interface IMonthlyCapacity {
 // 時段介面定義
 export interface ITimeSlot {
   _id?: mongoose.Types.ObjectId;
-  startMonth: string; // 時段開始年月，格式為 'YYYY-MM'
-  endMonth: string; // 時段結束年月，格式為 'YYYY-MM'
+  startDate: string; // 時段開始年月，格式為 'YYYY-MM'
+  endDate: string; // 時段結束年月，格式為 'YYYY-MM'
   defaultCapacity: number; // 默認容量（需求人數）
   minimumStay: number; // 最短停留天數
   appliedCount: number; // 已申請人數
@@ -66,12 +66,6 @@ export interface IOpportunity extends Document {
     startDate?: Date; // 整體開始日期
     endDate?: Date; // 整體結束日期
     isOngoing: boolean; // 是否長期有效
-    seasonality?: {
-      spring: boolean;
-      summer: boolean;
-      autumn: boolean;
-      winter: boolean;
-    };
   };
 
   // 提供的福利
@@ -116,9 +110,34 @@ export interface IOpportunity extends Document {
 
   // 媒體資訊
   media: {
-    coverImage?: string;
-    gallery?: string[];
-    videos?: string[];
+    coverImage: {
+      publicId: { type: String },
+      secureUrl: { type: String },
+      url: { type: String },
+      previewUrl: { type: String },
+      thumbnailUrl: { type: String },
+      alt: { type: String },
+      version: { type: String },
+      format: { type: String },
+      width: { type: Number },
+      height: { type: Number }
+    },
+    images: [{
+      publicId: { type: String },
+      secureUrl: { type: String },
+      url: { type: String },
+      previewUrl: { type: String },
+      thumbnailUrl: { type: String },
+      alt: { type: String },
+      version: { type: String },
+      format: { type: String },
+      width: { type: Number },
+      height: { type: Number }
+    }],
+    descriptions: [{ type: String }],
+    videoUrl: { type: String },
+    videoDescription: { type: String },
+    virtualTour: { type: String }
   };
 
   // 位置資訊
@@ -193,8 +212,8 @@ const MonthlyCapacitySchema: Schema = new Schema({
 
 // 時段模式定義
 const TimeSlotSchema: Schema = new Schema({
-  startMonth: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
-  endMonth: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
+  startDate: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
+  endDate: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
   defaultCapacity: { type: Number, required: true, min: 1 }, // 改名為 defaultCapacity 更清晰
   minimumStay: { type: Number, required: true, min: 1, default: 14 }, // 最短停留天數，默認 14 天
   appliedCount: { type: Number, default: 0 },
@@ -251,12 +270,6 @@ const OpportunitySchema: Schema = new Schema({
     startDate: { type: Date }, // 整體開始日期
     endDate: { type: Date }, // 整體結束日期
     isOngoing: { type: Boolean, default: true }, // 是否長期有效
-    seasonality: {
-      spring: { type: Boolean, default: true },
-      summer: { type: Boolean, default: true },
-      autumn: { type: Boolean, default: true },
-      winter: { type: Boolean, default: true }
-    }
   },
 
   // 提供的福利
@@ -311,9 +324,34 @@ const OpportunitySchema: Schema = new Schema({
 
   // 媒體資訊
   media: {
-    coverImage: { type: String },
-    gallery: [{ type: String }],
-    videos: [{ type: String }]
+    coverImage: {
+      publicId: { type: String },
+      secureUrl: { type: String },
+      url: { type: String },
+      previewUrl: { type: String },
+      thumbnailUrl: { type: String },
+      alt: { type: String },
+      version: { type: String },
+      format: { type: String },
+      width: { type: Number },
+      height: { type: Number }
+    },
+    images: [{
+      publicId: { type: String },
+      secureUrl: { type: String },
+      url: { type: String },
+      previewUrl: { type: String },
+      thumbnailUrl: { type: String },
+      alt: { type: String },
+      version: { type: String },
+      format: { type: String },
+      width: { type: Number },
+      height: { type: Number }
+    }],
+    descriptions: [{ type: String }],
+    videoUrl: { type: String },
+    videoDescription: { type: String },
+    virtualTour: { type: String }
   },
 
   // 位置資訊
@@ -386,11 +424,11 @@ OpportunitySchema.index({ 'location.coordinates': '2dsphere' });
 OpportunitySchema.index({ 'workTimeSettings.startDate': 1 });
 OpportunitySchema.index({ 'workTimeSettings.endDate': 1 });
 OpportunitySchema.index({ 'workTimeSettings.isOngoing': 1 });
-OpportunitySchema.index({ 'timeSlots.startMonth': 1 });
-OpportunitySchema.index({ 'timeSlots.endMonth': 1 });
+OpportunitySchema.index({ 'timeSlots.startDate': 1 });
+OpportunitySchema.index({ 'timeSlots.endDate': 1 });
 OpportunitySchema.index({ 'timeSlots.status': 1 });
 OpportunitySchema.index({ 'timeSlots.defaultCapacity': 1 });
-OpportunitySchema.index({ 'timeSlots.startMonth': 1, 'timeSlots.endMonth': 1 });
+OpportunitySchema.index({ 'timeSlots.startDate': 1, 'timeSlots.endDate': 1 });
 OpportunitySchema.index({ 'timeSlots.status': 1, 'timeSlots.defaultCapacity': 1 });
 OpportunitySchema.index({ hasTimeSlots: 1 });
 OpportunitySchema.index({ 'workDetails.availableMonths': 1 });
@@ -422,7 +460,7 @@ OpportunitySchema.pre('save', function(next) {
       const currentDate = new Date();
       const currentYearMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 
-      if (slot.endMonth < currentYearMonth &&
+      if (slot.endDate < currentYearMonth &&
           (slot.status === TimeSlotStatus.OPEN || slot.status === TimeSlotStatus.FILLED)) {
         slot.status = TimeSlotStatus.CLOSED;
       }

@@ -1,3 +1,17 @@
+/**
+ * API 路由中間件 (authMiddleware.ts)
+ *
+ * 權責說明:
+ * 1. API層級的權限控制：更細粒度的資源訪問權限檢查
+ * 2. 資源擁有權驗證：確保用戶只能訪問自己的資源（主人、機會等）
+ * 3. 角色權限校驗：管理員、主人等角色的細緻權限控制
+ *
+ * 與全局路由中間件 (middleware.ts) 的區別:
+ * - 本中間件處理API請求，middleware.ts處理頁面請求
+ * - 本中間件返回JSON錯誤響應，middleware.ts負責頁面重定向
+ * - 本中間件進行細粒度資源權限檢查，middleware.ts進行基本路由保護
+ */
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getSession } from 'next-auth/react';
 import { UserRole } from '@/models/enums/UserRole';
@@ -305,3 +319,68 @@ export async function checkApplicationAccess(
     return false;
   }
 }
+
+/**
+ * 驗證用戶是否有權訪問指定主人
+ * 此中間件特別用於檢查URL參數中的hostId和session中的hostId是否匹配
+ * 如果用戶是管理員，無論hostId是否匹配，都允許訪問
+ */
+export const requireHostAccess: MiddlewareFunction = (handler) => {
+  return async (req: NextApiRequest, res: NextApiResponse) => {
+    // 獲取用戶會話
+    const session = await getSession({ req });
+
+    if (!session || !session.user) {
+      return res.status(401).json({ success: false, message: '未授權，請先登入' });
+    }
+
+    try {
+      // 從URL獲取主人ID
+      const { hostId } = req.query;
+
+      // 如果沒有指定主人ID，返回錯誤
+      if (!hostId || typeof hostId !== 'string') {
+        return res.status(400).json({ success: false, message: '無效的主人ID' });
+      }
+
+      // 檢查用戶是否為管理員
+      await connectToDatabase();
+      const user = await User.findById(session.user.id);
+
+      // 如果是管理員，允許訪問
+      if (user && isAdmin(user)) {
+        return handler(req, res);
+      }
+
+      // 檢查會話中的hostId是否與URL中的hostId匹配
+      if (session.user.hostId && session.user.hostId === hostId) {
+        return handler(req, res);
+      }
+
+      // 否則檢查用戶是否是該主人的所有者
+      const host = await Host.findById(hostId);
+      if (host && host.userId.toString() === session.user.id) {
+        return handler(req, res);
+      }
+
+      // 如果都不符合，拒絕訪問
+      return res.status(403).json({
+        success: false,
+        message: '沒有權限訪問此主人資料'
+      });
+    } catch (error) {
+      console.error('驗證主人訪問權限出錯:', error);
+      return res.status(500).json({ success: false, message: '服務器錯誤' });
+    }
+  };
+};
+
+/**
+ * 優化版的hostId提取中間件，自動提取URL中的hostId
+ */
+export const requireHostOwnerOrAdminFromUrl = (): MiddlewareFunction => {
+  return requireHostOwnerOrAdmin((req) => {
+    const { hostId } = req.query;
+    return typeof hostId === 'string' ? hostId : undefined;
+  });
+};

@@ -36,8 +36,8 @@ interface ApplicationWithRelations {
   status: ApplicationStatus;
   statusNote?: string;
   applicationDetails?: {
-    startMonth?: string;
-    endMonth?: string;
+    startDate?: string;
+    endDate?: string;
     duration?: number;
     message?: string;
     nationality?: string;
@@ -266,8 +266,8 @@ export default function ApplicationDetail() {
                 <div>
                   <div className="text-sm text-gray-500">申請期間</div>
                   <div className="text-sm font-medium text-gray-900">
-                    {application.applicationDetails?.startMonth?.replace('-', '/')}
-                    {application.applicationDetails?.endMonth && ` - ${application.applicationDetails.endMonth.replace('-', '/')}`}
+                    {application.applicationDetails?.startDate?.replace('-', '/')}
+                    {application.applicationDetails?.endDate && ` - ${application.applicationDetails.endDate.replace('-', '/')}`}
                     {' ('}{application.applicationDetails?.duration || '?'} 天)
                   </div>
                 </div>

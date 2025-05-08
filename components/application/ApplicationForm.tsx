@@ -51,8 +51,8 @@ const formSteps: FormStep[] = [
   {
     title: '基本資訊',
     description: '請選擇您想要申請的時段和停留時間',
-    fields: ['timeSlotId', 'startMonth', 'endMonth', 'duration', 'drivingLicense'],
-    isValid: (data) => Boolean(data.startMonth && data.endMonth && data.duration >= 1)
+    fields: ['timeSlotId', 'startDate', 'endDate', 'duration', 'drivingLicense'],
+    isValid: (data) => Boolean(data.startDate && data.endDate && data.duration >= 1)
   },
   {
     title: '個人資訊',
@@ -115,8 +115,8 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
     resolver: zodResolver(applicationFormSchema),
     defaultValues: {
       message: '',
-      startMonth: '',
-      endMonth: '',
+      startDate: '',
+      endDate: '',
       duration: 7,
       timeSlotId: opportunity.timeSlots && opportunity.timeSlots.length > 0
         ? opportunity.timeSlots[0].id
@@ -230,8 +230,8 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
 
       // 檢查該月份是否在任何時間段內
         const isAvailable = opportunity.timeSlots.some(slot => {
-        const slotStart = new Date(slot.startMonth);
-        const slotEnd = new Date(slot.endMonth);
+        const slotStart = new Date(slot.startDate);
+        const slotEnd = new Date(slot.endDate);
         const monthDate = new Date(year, month);
         return monthDate >= slotStart && monthDate <= slotEnd;
       });
@@ -338,8 +338,8 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
       const lastMonth = selectedMonthsList[selectedMonthsList.length - 1];
 
       // 設置開始和結束月份
-      setValue('startMonth', firstMonth.yearMonthStr);
-      setValue('endMonth', lastMonth.yearMonthStr);
+      setValue('startDate', firstMonth.yearMonthStr);
+      setValue('endDate', lastMonth.yearMonthStr);
 
       // 更新 availableMonths 欄位
       const availableMonths = selectedMonthsList
@@ -352,8 +352,8 @@ const ApplicationForm: React.FC<Props> = ({ opportunity, onSubmit, initialData }
       setValue('duration', monthsDiff * 30);
     } else {
       // 如果沒有選中任何月份，則清除相關欄位
-      setValue('startMonth', '');
-      setValue('endMonth', '');
+      setValue('startDate', '');
+      setValue('endDate', '');
       setValue('availableMonths', []);
       setValue('duration', 7);
     }

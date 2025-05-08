@@ -282,11 +282,11 @@ const HostApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ hostI
                   <div>
                     <h3 className="font-medium text-gray-700 mb-2">申請期間</h3>
                     <p>
-                      {format(new Date(application.applicationDetails.startMonth), 'yyyy 年 MM 月', { locale: zhTW })}
-                      {application.applicationDetails.endMonth && (
+                      {format(new Date(application.applicationDetails.startDate), 'yyyy 年 MM 月', { locale: zhTW })}
+                      {application.applicationDetails.endDate && (
                         <>
                           {' - '}
-                          {format(new Date(application.applicationDetails.endMonth), 'yyyy 年 MM 月', { locale: zhTW })}
+                          {format(new Date(application.applicationDetails.endDate), 'yyyy 年 MM 月', { locale: zhTW })}
                         </>
                       )}
                       （{application.applicationDetails.duration} 天）

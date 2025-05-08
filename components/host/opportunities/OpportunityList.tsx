@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import { OpportunityStatus } from '@/models/enums';
+import {
+  getNextPossibleStates,
+  statusDescriptions,
+  getStatusUpdateMessage
+} from '@/lib/hooks/useOpportunities';
 
 // 機會狀態標籤顏色映射
 const statusColors = {
@@ -45,14 +50,15 @@ interface Opportunity {
     views?: number;
     bookmarks?: number;
   };
+  rejectionReason?: string;
 }
 
 interface OpportunityListProps {
   opportunities: Opportunity[];
   onEdit: (id: string) => void;
   onViewApplications: (id: string) => void;
-  onUpdateStatus: (id: string, status: OpportunityStatus) => void;
-  onDelete: (id: string) => void;
+  onUpdateStatus: (id: string, status: OpportunityStatus, currentStatus: OpportunityStatus) => Promise<any>;
+  isUpdating?: boolean;
 }
 
 const OpportunityList: React.FC<OpportunityListProps> = ({
@@ -60,31 +66,51 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
   onEdit,
   onViewApplications,
   onUpdateStatus,
-  onDelete,
+  isUpdating = false,
 }) => {
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
   // 獲取狀態切換選項
-  const getStatusToggleOptions = (currentStatus: OpportunityStatus) => {
-    switch (currentStatus) {
+  const getStatusToggleOptions = (opportunity: Opportunity) => {
+    const currentStatus = opportunity.status;
+    const nextStates = getNextPossibleStates(currentStatus);
+
+    return nextStates.map(state => ({
+      label: getStatusActionLabel(currentStatus, state),
+      value: state
+    }));
+  };
+
+  // 獲取狀態操作的顯示文字
+  const getStatusActionLabel = (currentStatus: OpportunityStatus, newStatus: OpportunityStatus): string => {
+    switch (newStatus) {
       case OpportunityStatus.DRAFT:
-        return [
-          { label: '上架發布', value: OpportunityStatus.ACTIVE },
-        ];
+        return currentStatus === OpportunityStatus.PENDING ? '撤回編輯' : '返回編輯';
+      case OpportunityStatus.PENDING:
+        return '送出審核';
       case OpportunityStatus.ACTIVE:
-        return [
-          { label: '暫停招募', value: OpportunityStatus.PAUSED },
-          { label: '下架機會', value: OpportunityStatus.ARCHIVED },
-        ];
+        return currentStatus === OpportunityStatus.PAUSED ? '恢復招募' :
+               currentStatus === OpportunityStatus.FILLED ? '增加名額' : '上架發布';
       case OpportunityStatus.PAUSED:
-        return [
-          { label: '恢復上架', value: OpportunityStatus.ACTIVE },
-          { label: '下架機會', value: OpportunityStatus.ARCHIVED },
-        ];
+        return '暫停招募';
       case OpportunityStatus.ARCHIVED:
-        return [
-          { label: '重新上架', value: OpportunityStatus.ACTIVE },
-        ];
+        return '下架機會';
       default:
-        return [];
+        return `變更為${statusLabels[newStatus]}`;
+    }
+  };
+
+  // 處理狀態更新
+  const handleStatusUpdate = async (id: string, newStatus: OpportunityStatus, currentStatus: OpportunityStatus) => {
+    try {
+      setUpdatingId(id);
+      await onUpdateStatus(id, newStatus, currentStatus);
+      alert(getStatusUpdateMessage(newStatus));
+    } catch (error) {
+      console.error('更新狀態失敗:', error);
+      alert(`更新狀態失敗: ${error instanceof Error ? error.message : '未知錯誤'}`);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -117,6 +143,20 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
     return '/images/opportunity-placeholder.jpg';
   };
 
+  // 取得編輯按鈕文字
+  const getEditButtonText = (status: OpportunityStatus) => {
+    switch (status) {
+      case OpportunityStatus.DRAFT:
+        return '繼續編輯';
+      case OpportunityStatus.REJECTED:
+        return '查看原因並編輯';
+      case OpportunityStatus.PENDING:
+        return '查看詳情';
+      default:
+        return '查看詳情';
+    }
+  };
+
   return (
     <div className="space-y-4">
       {opportunities.map((opportunity) => (
@@ -141,18 +181,31 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
                 <h3 className="text-lg font-medium text-gray-900 mb-1">
                   {opportunity.title}
                 </h3>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    statusColors[opportunity.status]
-                  }`}
-                >
-                  {statusLabels[opportunity.status]}
-                </span>
+                <div className="group relative">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      statusColors[opportunity.status]
+                    } cursor-help`}
+                  >
+                    {statusLabels[opportunity.status]}
+                  </span>
+                  <div className="absolute z-20 right-0 mt-1 w-64 hidden group-hover:block">
+                    <div className="bg-gray-800 text-white text-xs rounded-md p-2">
+                      {statusDescriptions[opportunity.status]}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <p className="text-gray-600 text-sm mb-2 line-clamp-2">
                 {opportunity.shortDescription || '無描述'}
               </p>
+
+              {opportunity.status === OpportunityStatus.REJECTED && opportunity.rejectionReason && (
+                <p className="text-orange-600 text-sm mb-2">
+                  拒絕原因: {opportunity.rejectionReason}
+                </p>
+              )}
 
               <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-3">
                 <span>
@@ -172,7 +225,7 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
                   onClick={() => onEdit(opportunity._id)}
                   className="px-3 py-1.5 bg-gray-100 text-gray-800 text-sm rounded-md hover:bg-gray-200 transition-colors"
                 >
-                  編輯
+                  {getEditButtonText(opportunity.status)}
                 </button>
 
                 {opportunity.stats?.applications ? (
@@ -185,31 +238,32 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
                 ) : null}
 
                 {/* 狀態切換下拉選單 */}
-                <div className="relative group">
-                  <button className="px-3 py-1.5 bg-gray-100 text-gray-800 text-sm rounded-md hover:bg-gray-200 transition-colors">
-                    更改狀態
-                  </button>
-                  <div className="absolute z-10 left-0 mt-1 w-40 hidden group-hover:block">
-                    <div className="bg-white shadow-lg rounded-md border border-gray-200 py-1">
-                      {getStatusToggleOptions(opportunity.status).map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() => onUpdateStatus(opportunity._id, option.value)}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+                {getStatusToggleOptions(opportunity).length > 0 && (
+                  <div className="relative group">
+                    <button
+                      className={`px-3 py-1.5 bg-gray-100 text-gray-800 text-sm rounded-md hover:bg-gray-200 transition-colors ${
+                        isUpdating && updatingId === opportunity._id ? 'opacity-50 cursor-wait' : ''
+                      }`}
+                      disabled={isUpdating && updatingId === opportunity._id}
+                    >
+                      {isUpdating && updatingId === opportunity._id ? '處理中...' : '更改狀態'}
+                    </button>
+                    <div className="absolute z-10 left-0 mt-1 w-40 hidden group-hover:block">
+                      <div className="bg-white shadow-lg rounded-md border border-gray-200 py-1">
+                        {getStatusToggleOptions(opportunity).map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => handleStatusUpdate(opportunity._id, option.value, opportunity.status)}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            disabled={isUpdating}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                <button
-                  onClick={() => onDelete(opportunity._id)}
-                  className="px-3 py-1.5 bg-red-100 text-red-800 text-sm rounded-md hover:bg-red-200 transition-colors"
-                >
-                  刪除
-                </button>
+                )}
               </div>
             </div>
           </div>

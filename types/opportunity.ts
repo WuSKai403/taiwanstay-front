@@ -16,8 +16,8 @@ export interface TimeSlot {
   _id: string;
   startDate: string;
   endDate: string;
-  startMonth: string; // 格式為 YYYY-MM
-  endMonth: string; // 格式為 YYYY-MM
+  startDate: string; // 格式為 YYYY-MM
+  endDate: string; // 格式為 YYYY-MM
   defaultCapacity: number;
   minimumStay: number;
   appliedCount: number;

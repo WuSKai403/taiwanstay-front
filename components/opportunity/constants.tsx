@@ -51,8 +51,8 @@ export const typeNameMap = {
 // TimeSlot 介面定義
 export interface TimeSlot {
   id: string;
-  startMonth: string; // YYYY-MM 格式
-  endMonth: string; // YYYY-MM 格式
+  startDate: string; // YYYY-MM 格式
+  endDate: string; // YYYY-MM 格式
   defaultCapacity: number;
   minimumStay: number;
   appliedCount: number;
@@ -88,21 +88,6 @@ export interface OpportunityDetail {
     learningOpportunities?: string[];
     physicalDemand?: 'low' | 'medium' | 'high';
     languages?: string[];
-  };
-  workTimeSettings?: {
-    workHoursPerDay?: number;
-    workDaysPerWeek?: number;
-    minimumStay?: number;
-    maximumStay?: number;
-    startDate?: string;
-    endDate?: string;
-    isOngoing?: boolean;
-    seasonality?: {
-      spring?: boolean;
-      summer?: boolean;
-      autumn?: boolean;
-      winter?: boolean;
-    };
   };
   benefits: {
     accommodation: {

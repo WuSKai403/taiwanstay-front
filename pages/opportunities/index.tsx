@@ -97,6 +97,7 @@ interface ApiOpportunity {
     id: string;
     name: string;
     description?: string;
+    profilePicture?: string;
   };
   location?: {
     city?: string;
@@ -104,15 +105,41 @@ interface ApiOpportunity {
     country?: string;
     address?: string;
     coordinates?: {
-      lat: number;
-      lng: number;
+      lat?: number;
+      lng?: number;
+      type?: string;
+      coordinates?: number[];
     };
   };
   media?: {
     images?: {
-      url: string;
+      url?: string;
+      secureUrl?: string;
       alt?: string;
+      publicId?: string;
+      previewUrl?: string;
+      thumbnailUrl?: string;
+      version?: string;
+      format?: string;
+      width?: number;
+      height?: number;
     }[];
+    coverImage?: {
+      url?: string;
+      secureUrl?: string;
+      alt?: string;
+      publicId?: string;
+      previewUrl?: string;
+      thumbnailUrl?: string;
+      version?: string;
+      format?: string;
+      width?: number;
+      height?: number;
+    };
+    descriptions?: string[];
+    videoUrl?: string;
+    videoDescription?: string;
+    virtualTour?: string;
   };
   workDetails?: {
     workHoursPerDay?: number;
@@ -120,6 +147,15 @@ interface ApiOpportunity {
     minimumStay?: number;
     maximumStay?: number;
     availableMonths?: number[];
+  };
+  workTimeSettings?: {
+    workHoursPerDay?: number;
+    workDaysPerWeek?: number;
+    minimumStay?: number;
+    maximumStay?: number;
+    startDate?: string;
+    endDate?: string;
+    isOngoing?: boolean;
   };
   benefits?: {
     accommodation?: any;
@@ -134,6 +170,18 @@ interface ApiOpportunity {
     applications: number;
     bookmarks: number;
   };
+  hasTimeSlots?: boolean;
+  timeSlots?: Array<{
+    id?: string;
+    startDate: string;
+    endDate: string;
+    defaultCapacity: number;
+    minimumStay: number;
+    appliedCount?: number;
+    confirmedCount?: number;
+    status?: string;
+    description?: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -183,36 +231,60 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       const createdAt = opp.createdAt ? new Date(opp.createdAt) : new Date();
       const updatedAt = opp.updatedAt ? new Date(opp.updatedAt) : new Date();
 
-      return {
-        id: opp.id,
-        _id: opp.id, // 確保同時有 id 和 _id
-        title: opp.title,
-        slug: opp.slug,
-        type: opp.type,
+      // 轉換後的機會數據
+      const transformedOpportunity = {
+        _id: opp.id || '',
+        id: opp.id || '',
+        title: opp.title || '未命名機會',
+        slug: opp.slug || '',
+        type: opp.type || 'OTHER',
+        description: opp.shortDescription || '',
         host: {
           id: opp.host?.id || '',
-          name: opp.host?.name || '',
-          avatar: null // 使用 null 而非 undefined，因為 undefined 無法被 JSON 序列化
+          name: opp.host?.name || '未知主辦方',
+          avatar: opp.host?.profilePicture || null
         },
         location: {
-          region: opp.location?.region || '',
+          region: '', // 數據庫沒有直接存儲 region
           city: opp.location?.city || '',
           address: opp.location?.address || null,
-          coordinates: opp.location?.coordinates || null
+          coordinates: opp.location?.coordinates ? {
+            // 處理兩種可能的座標格式
+            lat: opp.location.coordinates.lat ||
+                 (opp.location.coordinates.coordinates && opp.location.coordinates.coordinates.length >= 2
+                  ? opp.location.coordinates.coordinates[1] : null),
+            lng: opp.location.coordinates.lng ||
+                 (opp.location.coordinates.coordinates && opp.location.coordinates.coordinates.length >= 2
+                  ? opp.location.coordinates.coordinates[0] : null)
+          } : null
         },
-        media: opp.media || {
-          images: []
+        media: {
+          images: (opp.media?.images || []).map(img => ({
+            url: img.url || img.secureUrl || '',
+            alt: img.alt || opp.title || '機會圖片'
+          })),
+          coverImage: opp.media?.coverImage ? {
+            url: opp.media.coverImage.url || opp.media.coverImage.secureUrl || '',
+            alt: opp.media.coverImage.alt || opp.title || '機會封面圖片'
+          } : undefined
         },
-        workTimeSettings: {
-          hoursPerDay: opp.workDetails?.workHoursPerDay || 0,
-          daysPerWeek: opp.workDetails?.workDaysPerWeek || 0,
-          minimumStay: opp.workDetails?.minimumStay || null,
-          availableMonths: opp.workDetails?.availableMonths || null
-        },
-        // 將日期序列化為 ISO 字符串，這是 Next.js 推薦的方式
+        // 從 timeSlots 中獲取相關資訊
+        hasTimeSlots: opp.hasTimeSlots || false,
+        timeSlots: (opp.timeSlots || []).map(slot => ({
+          id: slot.id || '',
+          startDate: slot.startDate || '',
+          endDate: slot.endDate || '',
+          defaultCapacity: slot.defaultCapacity || 1,
+          minimumStay: slot.minimumStay || 7,
+          appliedCount: slot.appliedCount || 0,
+          confirmedCount: slot.confirmedCount || 0,
+          status: slot.status || 'OPEN'
+        })),
         createdAt: createdAt.toISOString(),
         updatedAt: updatedAt.toISOString()
       };
+
+      return transformedOpportunity;
     }) || [];
 
     return {

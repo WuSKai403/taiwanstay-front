@@ -4,6 +4,8 @@ import { OpportunityFormData } from '../OpportunityForm';
 import CloudinaryUploadWidget from '@/components/common/CloudinaryUploadWidget';
 import { CloudinaryImageResource } from '@/lib/cloudinary/types';
 import CloudinaryImage from '@/components/CloudinaryImage';
+import { CloudinaryUploadService } from '@/lib/cloudinary/uploadService';
+import { toast } from 'react-hot-toast';
 
 interface MediaUploadTabProps {
   control: Control<OpportunityFormData>;
@@ -46,12 +48,21 @@ const MediaUploadTab: React.FC<MediaUploadTabProps> = ({
 
   // 處理圖片描述
   const handleSetDescriptions = (newDescriptions: string[]) => {
-    // 確保 descriptions 是數組格式
+    // 確保 descriptions 始終是數組格式
     if (Array.isArray(newDescriptions)) {
-      setValue('media.descriptions', newDescriptions);
+      setValue('media.descriptions', newDescriptions, { shouldValidate: true });
+    } else if (newDescriptions && typeof newDescriptions === 'object') {
+      // 如果是對象格式，轉換為數組
+      const descriptionsArray = Object.keys(newDescriptions).map(key => newDescriptions[key]);
+      setValue('media.descriptions', descriptionsArray, { shouldValidate: true });
+      console.log('已將描述從對象格式轉換為數組格式', {
+        原格式: newDescriptions,
+        轉換後: descriptionsArray
+      });
     } else {
-      // 如果不是數組，則轉換為數組
-      setValue('media.descriptions', []);
+      // 預設為空數組
+      setValue('media.descriptions', [], { shouldValidate: true });
+      console.warn('收到無效的描述格式，已設置為空數組', newDescriptions);
     }
   };
 
@@ -61,6 +72,25 @@ const MediaUploadTab: React.FC<MediaUploadTabProps> = ({
       setValue('media.coverImage', newImages[0], { shouldValidate: true });
     } else {
       setValue('media.coverImage', null);
+    }
+  };
+
+  // 處理封面圖片移除
+  const handleRemoveCoverImage = async () => {
+    const currentCoverImage = coverImage;
+    // 先從 UI 移除
+    setValue('media.coverImage', null, { shouldValidate: true });
+
+    // 如果有 publicId，嘗試從 Cloudinary 刪除
+    if (currentCoverImage?.publicId) {
+      try {
+        await CloudinaryUploadService.deleteFile(currentCoverImage.publicId);
+        console.log('已刪除Cloudinary上的封面圖片:', currentCoverImage.publicId);
+        toast.success('已成功刪除封面圖片');
+      } catch (error) {
+        console.error('刪除Cloudinary封面圖片失敗，但UI已更新', error);
+        toast.error('刪除封面圖片失敗，請稍後再試');
+      }
     }
   };
 
@@ -83,7 +113,11 @@ const MediaUploadTab: React.FC<MediaUploadTabProps> = ({
     <div className="space-y-8">
       {/* 封面圖片上傳 */}
       <div className="border-b pb-6">
-        <h3 className="text-lg font-semibold mb-4">封面圖片</h3>
+        <h3 className="text-lg font-semibold mb-4">
+          封面圖片
+          <span className="text-red-500 ml-1">*</span>
+          <span className="text-sm font-normal text-gray-500 ml-2">(必填)</span>
+        </h3>
         <p className="text-gray-600 mb-4">
           上傳橫幅圖片作為機會列表和詳情頁的主要展示圖片。建議尺寸 1200×600 像素，橫幅比例。
         </p>
@@ -102,7 +136,7 @@ const MediaUploadTab: React.FC<MediaUploadTabProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setValue('media.coverImage', null)}
+                onClick={handleRemoveCoverImage}
                 className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -122,6 +156,13 @@ const MediaUploadTab: React.FC<MediaUploadTabProps> = ({
               title="上傳封面圖片"
               description="建議尺寸 1200×600 像素，橫幅比例"
             />
+          )}
+
+          {/* 顯示封面圖片錯誤消息 */}
+          {errors?.media?.coverImage && (
+            <p className="mt-1 text-sm text-red-600">
+              {errors.media.coverImage.secureUrl?.message || '請上傳封面圖片'}
+            </p>
           )}
         </div>
       </div>

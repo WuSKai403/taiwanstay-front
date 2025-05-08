@@ -43,8 +43,8 @@ export function isMonthInTimeSlot(yearMonth: string, timeSlot: TimeSlot): boolea
   const { year, month } = parseYearMonth(yearMonth);
   const targetDate = new Date(year, month);
 
-  const startDate = new Date(timeSlot.startMonth);
-  const endDate = new Date(timeSlot.endMonth);
+  const startDate = new Date(timeSlot.startDate);
+  const endDate = new Date(timeSlot.endDate);
   return targetDate >= startDate && targetDate <= endDate;
 }
 
@@ -56,8 +56,8 @@ export function isMonthAvailable(yearMonth: string, timeSlots: TimeSlot[]): bool
   const targetDate = new Date(year, month);
 
   return timeSlots.some(slot => {
-    const startDate = new Date(slot.startMonth);
-    const endDate = new Date(slot.endMonth);
+    const startDate = new Date(slot.startDate);
+    const endDate = new Date(slot.endDate);
     return targetDate >= startDate && targetDate <= endDate;
   });
 }

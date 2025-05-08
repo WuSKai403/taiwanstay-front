@@ -261,14 +261,14 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
                   <div>
                     <p className="text-sm text-gray-500">預計開始日期</p>
                     <p className="font-medium">
-                      {format(new Date(application.applicationDetails.startMonth), 'yyyy年MM月dd日', { locale: zhTW })}
+                      {format(new Date(application.applicationDetails.startDate), 'yyyy年MM月dd日', { locale: zhTW })}
                     </p>
                   </div>
-                  {application.applicationDetails.endMonth && (
+                  {application.applicationDetails.endDate && (
                     <div>
                       <p className="text-sm text-gray-500">預計結束日期</p>
                       <p className="font-medium">
-                        {format(new Date(application.applicationDetails.endMonth), 'yyyy年MM月dd日', { locale: zhTW })}
+                        {format(new Date(application.applicationDetails.endDate), 'yyyy年MM月dd日', { locale: zhTW })}
                       </p>
                     </div>
                   )}
@@ -589,8 +589,8 @@ const ApplicationDetailPage: NextPage<ApplicationDetailPageProps> = ({ applicati
 
                         // 將照片格式轉換為CloudinaryImage可接受的格式
                         const cloudinaryResource = {
-                          public_id: photo.publicId,
-                          secure_url: photo.url,
+                          publicId: photo.publicId,
+                          secureUrl: photo.url,
                           thumbnailUrl: photo.url.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200/'),
                           previewUrl: photo.url.replace('/upload/', '/upload/c_scale,w_600/')
                         };

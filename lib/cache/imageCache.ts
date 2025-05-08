@@ -9,7 +9,7 @@
 
 interface ImageCacheEntry {
   id?: number;
-  public_id: string;
+  publicId: string;
   url: string;
   blob_data?: Blob;
   type: 'thumbnail' | 'preview' | 'original';
@@ -32,7 +32,7 @@ interface ImageCacheConfig {
 // 緩存配置
 const CONFIG: ImageCacheConfig = {
   dbName: 'taiwanstay_image_cache',
-  version: 1,
+  version: 2,
   storeName: 'images',
   expiryTime: {
     thumbnail: 24 * 60 * 60 * 1000, // 24小時
@@ -88,7 +88,7 @@ const initDB = (): Promise<IDBDatabase> => {
           });
 
           // 創建索引
-          objectStore.createIndex('public_id_type', ['public_id', 'type'], { unique: true });
+          objectStore.createIndex('publicId_type', ['publicId', 'type'], { unique: true });
           objectStore.createIndex('expires', 'expires', { unique: false });
 
           console.log('%c[IndexedDB] - 已創建圖片緩存表', 'background:#2196F3;color:white;padding:3px 6px;border-radius:3px;');
@@ -103,29 +103,29 @@ const initDB = (): Promise<IDBDatabase> => {
 /**
  * 生成緩存鍵
  */
-const generateCacheKey = (public_id: string, type: 'thumbnail' | 'preview' | 'original'): string => {
-  return `${public_id}_${type}`;
+const generateCacheKey = (publicId: string, type: 'thumbnail' | 'preview' | 'original'): string => {
+  return `${publicId}_${type}`;
 };
 
 /**
  * 將圖片緩存到 IndexedDB
- * @param public_id 圖片的public_id
+ * @param publicId 圖片的publicId
  * @param url 圖片的URL
  * @param type 圖片類型 (縮略圖/預覽圖/原圖)
  * @returns Promise<boolean> 緩存是否成功
  */
 export const cacheImage = async (
-  public_id: string,
+  publicId: string,
   url: string,
   type: 'thumbnail' | 'preview' | 'original' = 'preview'
 ): Promise<boolean> => {
-  if (!public_id || !url) {
-    console.error('缺少 public_id 或 URL，無法緩存圖片');
+  if (!publicId || !url) {
+    console.error('缺少 publicId 或 URL，無法緩存圖片');
     return false;
   }
 
   // 避免重複緩存檢查
-  const existingImage = await getCachedImage(public_id, type);
+  const existingImage = await getCachedImage(publicId, type);
   if (existingImage) {
     // 已存在緩存，不重複獲取
     return true;
@@ -143,7 +143,7 @@ export const cacheImage = async (
     const expires = timestamp + CONFIG.expiryTime[type];
 
     const cacheEntry: ImageCacheEntry = {
-      public_id,
+      publicId,
       url,
       blob_data: blob,
       type,
@@ -156,9 +156,9 @@ export const cacheImage = async (
     const transaction = db.transaction([CONFIG.storeName], 'readwrite');
     const store = transaction.objectStore(CONFIG.storeName);
 
-    // 檢查是否已存在相同 public_id 和 type 的記錄
-    const index = store.index('public_id_type');
-    const existingRequest = index.get([public_id, type]);
+    // 檢查是否已存在相同 publicId 和 type 的記錄
+    const index = store.index('publicId_type');
+    const existingRequest = index.get([publicId, type]);
 
     return new Promise((resolve, reject) => {
       existingRequest.onsuccess = () => {
@@ -175,7 +175,7 @@ export const cacheImage = async (
 
           updateRequest.onsuccess = () => {
             console.log('%c[IndexedDB] - 已更新圖片緩存', 'background:#9C27B0;color:white;padding:3px 6px;border-radius:3px;', {
-              public_id,
+              publicId,
               type,
               大小: `${(blob.size / 1024).toFixed(2)} KB`,
               過期時間: new Date(expires).toLocaleString()
@@ -193,7 +193,7 @@ export const cacheImage = async (
 
           addRequest.onsuccess = () => {
             console.log('%c[IndexedDB] - 已添加圖片緩存', 'background:#3F51B5;color:white;padding:3px 6px;border-radius:3px;', {
-              public_id,
+              publicId,
               type,
               大小: `${(blob.size / 1024).toFixed(2)} KB`,
               過期時間: new Date(expires).toLocaleString()
@@ -226,24 +226,24 @@ export const cacheImage = async (
 
 /**
  * 從 IndexedDB 獲取緩存的圖片
- * @param public_id 圖片的public_id
+ * @param publicId 圖片的publicId
  * @param type 圖片類型 (縮略圖/預覽圖/原圖)
  * @returns Promise<string | null> 返回 blob URL 或 null
  */
 export const getCachedImage = async (
-  public_id: string,
+  publicId: string,
   type: 'thumbnail' | 'preview' | 'original' = 'preview'
 ): Promise<string | null> => {
-  if (!public_id) return null;
+  if (!publicId) return null;
 
   try {
     const db = await initDB();
     const transaction = db.transaction([CONFIG.storeName], 'readonly');
     const store = transaction.objectStore(CONFIG.storeName);
-    const index = store.index('public_id_type');
+    const index = store.index('publicId_type');
 
     return new Promise((resolve, reject) => {
-      const request = index.get([public_id, type]);
+      const request = index.get([publicId, type]);
 
       request.onsuccess = () => {
         const cacheEntry = request.result as ImageCacheEntry | undefined;
@@ -257,7 +257,7 @@ export const getCachedImage = async (
         // 檢查是否過期
         if (cacheEntry.expires < Date.now()) {
           console.log('%c[IndexedDB] - 緩存已過期', 'background:#FF9800;color:white;padding:3px 6px;border-radius:3px;', {
-            public_id,
+            publicId,
             type,
             過期時間: new Date(cacheEntry.expires).toLocaleString()
           });
@@ -272,7 +272,7 @@ export const getCachedImage = async (
           const objectURL = URL.createObjectURL(cacheEntry.blob_data);
 
           console.log('%c[IndexedDB] - 緩存命中!', 'background:#4CAF50;color:white;padding:3px 6px;border-radius:3px;', {
-            public_id,
+            publicId,
             type,
             大小: `${(cacheEntry.blob_data.size / 1024).toFixed(2)} KB`,
             建立時間: new Date(cacheEntry.timestamp).toLocaleString(),
@@ -281,7 +281,7 @@ export const getCachedImage = async (
 
           resolve(objectURL);
         } else {
-          console.warn('緩存項不含 Blob 數據:', public_id, type);
+          console.warn('緩存項不含 Blob 數據:', publicId, type);
           resolve(null);
         }
       };

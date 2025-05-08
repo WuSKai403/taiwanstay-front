@@ -11,9 +11,36 @@ interface HostLayoutProps {
 
 const HostLayout = ({ children }: HostLayoutProps) => {
   const router = useRouter();
-  const { data: session } = useSession();
-  const { hostId } = router.query;
+  const { data: session, status } = useSession();
   const [expandedItems, setExpandedItems] = useState<string[]>(['opportunities']);
+
+  // 從路由獲取hostId，如果沒有則使用session中的hostId
+  const routeHostId = router.query.hostId as string | undefined;
+  const hostId = routeHostId || session?.user?.hostId;
+
+  // 檢查是否有權限訪問
+  useEffect(() => {
+    if (status === 'loading') return;
+
+    // 如果未登入，重定向到登入頁
+    if (status === 'unauthenticated') {
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    // 如果已登入，但URL中沒有hostId且session中也沒有，重定向到主頁或主人註冊頁
+    if (!routeHostId && !session?.user?.hostId) {
+      router.push('/hosts/register');
+      return;
+    }
+
+    // 如果URL中有hostId但與session中的不同且用戶不是管理員，執行相應檢查
+    if (routeHostId && session?.user?.hostId && routeHostId !== session.user.hostId && session.user.role !== 'ADMIN' && session.user.role !== 'SUPER_ADMIN') {
+      // 這裡可以加入額外的權限檢查邏輯，例如檢查用戶是否有權訪問此主人
+      // 如沒有權限，重定向回用戶自己的主人頁面
+      router.push(`/hosts/${session.user.hostId}/dashboard`);
+    }
+  }, [status, router, routeHostId, session]);
 
   // 切換展開狀態
   const toggleExpanded = (key: string) => {
@@ -141,6 +168,11 @@ const HostLayout = ({ children }: HostLayoutProps) => {
 
   // 檢查子路徑是否匹配
   const isChildPathActive = (path: string) => {
+    // 如果是「機會列表」選項，則不應該在「新增機會」頁面被高亮
+    if (path.includes('opportunities') && !path.includes('new/edit') && router.pathname.includes('new/edit')) {
+      return false;
+    }
+
     return router.pathname === path ||
            router.asPath.startsWith(path) ||
            (path.includes('new/edit') && router.pathname.includes('new/edit'));
@@ -182,6 +214,11 @@ const HostLayout = ({ children }: HostLayoutProps) => {
     });
   }, [router.isReady, router.pathname, expandedItems, navItems]);
 
+  // 如果沒有主人ID，不渲染內容
+  if (!hostId) {
+    return null;
+  }
+
   return (
     <Layout>
       <Head>
@@ -203,7 +240,7 @@ const HostLayout = ({ children }: HostLayoutProps) => {
                       </span>
                     </div>
                     <div className="ml-3">
-                      <h2 className="text-lg font-semibold">{session?.user?.name || '主人'}</h2>
+                      <h2 className="text-lg font-semibold">{session?.user?.hostName || session?.user?.name || '主人'}</h2>
                       <p className="text-gray-600 text-sm truncate">{session?.user?.email || ''}</p>
                     </div>
                   </div>

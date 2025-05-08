@@ -27,12 +27,18 @@ export interface Opportunity {
       alt?: string;
     }[];
   };
-  workTimeSettings: {
-    hoursPerDay: number;
-    daysPerWeek: number;
-    minimumStay?: number;
-    availableMonths?: number[];
-  };
+  hasTimeSlots?: boolean;
+  timeSlots?: Array<{
+    id?: string;
+    startDate: string;
+    endDate: string;
+    defaultCapacity: number;
+    minimumStay: number;
+    appliedCount?: number;
+    confirmedCount?: number;
+    status?: string;
+    description?: string;
+  }>;
   livingConditions: {
     accommodation: string;
     meals: string;
@@ -69,12 +75,18 @@ export interface TransformedOpportunity {
       alt?: string;
     }[];
   };
-  workTimeSettings: {
-    hoursPerDay: number;
-    daysPerWeek: number;
-    minimumStay?: number | null;
-    availableMonths?: number[] | null;
-  };
+  hasTimeSlots?: boolean;
+  timeSlots?: Array<{
+    id?: string;
+    startDate: string;
+    endDate: string;
+    defaultCapacity: number;
+    minimumStay: number;
+    appliedCount?: number;
+    confirmedCount?: number;
+    status?: string;
+    description?: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -105,6 +117,12 @@ export function transformOpportunity(opportunity: Opportunity): TransformedOppor
   const hostId = host._id || '';
   const hostName = host.name || '未知主辦方';
 
+  // 處理時間段資訊
+  const hasTimeSlots = Boolean(
+    opportunity.hasTimeSlots ||
+    (opportunity.timeSlots && opportunity.timeSlots.length > 0)
+  );
+
   return {
     _id: opportunityId,
     id: opportunityId,
@@ -123,10 +141,9 @@ export function transformOpportunity(opportunity: Opportunity): TransformedOppor
       coordinates: opportunity.location?.coordinates || null
     },
     media: opportunity.media || { images: [] },
-    workTimeSettings: opportunity.workTimeSettings || {
-      hoursPerDay: 0,
-      daysPerWeek: 0
-    },
+    // 新增時間段相關欄位
+    hasTimeSlots,
+    timeSlots: opportunity.timeSlots || [],
     createdAt: typeof opportunity.createdAt === 'string'
       ? opportunity.createdAt
       : opportunity.createdAt ? new Date(opportunity.createdAt).toISOString() : new Date().toISOString(),

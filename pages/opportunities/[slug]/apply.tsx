@@ -26,8 +26,8 @@ interface OpportunityDetail {
   hasTimeSlots: boolean;
   timeSlots?: {
     id: string;
-    startMonth: string;
-    endMonth: string;
+    startDate: string;
+    endDate: string;
     defaultCapacity: number;
     minimumStay: number;
     appliedCount: number;
@@ -121,8 +121,8 @@ const ApplyPage: NextPage<ApplyPageProps> = ({ opportunity }) => {
               }
               // 從 CloudinaryImageResource 格式轉換為資料庫格式
               return {
-                publicId: photo.public_id,
-                url: photo.secure_url, // 使用 secure_url 作為 url
+                publicId: photo.publicId,
+                url: photo.secureUrl, // 使用 secureUrl 作為 url
                 width: photo.width || 0,
                 height: photo.height || 0,
                 format: photo.format || 'jpg',

@@ -56,8 +56,8 @@ export interface ApplicationDetail {
   };
   applicationDetails: {
     message: string;
-    startMonth: string;
-    endMonth?: string;
+    startDate: string;
+    endDate?: string;
     duration: number;
     travelingWith?: {
       partner: boolean;

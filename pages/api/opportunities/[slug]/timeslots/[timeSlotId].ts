@@ -62,10 +62,10 @@ export default async function handler(
 
       // 更新時段
       case 'PUT':
-        const { startMonth, endMonth, defaultCapacity, minimumStay, description, status } = req.body;
+        const { startDate, endDate, defaultCapacity, minimumStay, description, status } = req.body;
 
         // 驗證必要欄位
-        if (!startMonth || !endMonth || !defaultCapacity) {
+        if (!startDate || !endDate || !defaultCapacity) {
           return res.status(400).json({
             success: false,
             message: '請提供所有必要欄位'
@@ -73,10 +73,10 @@ export default async function handler(
         }
 
         // 驗證日期格式 (YYYY-MM)
-        const startMonthRegex = /^\d{4}-\d{2}$/;
-        const endMonthRegex = /^\d{4}-\d{2}$/;
+        const startDateRegex = /^\d{4}-\d{2}$/;
+        const endDateRegex = /^\d{4}-\d{2}$/;
 
-        if (!startMonthRegex.test(startMonth) || !endMonthRegex.test(endMonth)) {
+        if (!startDateRegex.test(startDate) || !endDateRegex.test(endDate)) {
           return res.status(400).json({
             success: false,
             message: '請提供有效的月份格式 (YYYY-MM)'
@@ -84,7 +84,7 @@ export default async function handler(
         }
 
         // 比較開始和結束月份
-        if (startMonth >= endMonth) {
+        if (startDate >= endDate) {
           return res.status(400).json({
             success: false,
             message: '結束月份必須晚於開始月份'
@@ -117,8 +117,8 @@ export default async function handler(
         }
 
         // 更新時段
-        timeSlot.startMonth = startMonth;
-        timeSlot.endMonth = endMonth;
+        timeSlot.startDate = startDate;
+        timeSlot.endDate = endDate;
         timeSlot.defaultCapacity = defaultCapacity;
         timeSlot.minimumStay = minStay;
         timeSlot.description = description || '';
@@ -129,7 +129,7 @@ export default async function handler(
         }
 
         // 生成月份範圍
-        const months = generateMonthRange(startMonth, endMonth);
+        const months = generateMonthRange(startDate, endDate);
 
         // 保留已有月份的預訂數量
         const updatedMonthlyCapacities = months.map(month => {
@@ -198,25 +198,25 @@ export default async function handler(
 
 /**
  * 生成月份範圍
- * @param startMonth 開始月份 (YYYY-MM)
- * @param endMonth 結束月份 (YYYY-MM)
+ * @param startDate 開始月份 (YYYY-MM)
+ * @param endDate 結束月份 (YYYY-MM)
  * @returns 月份列表 (YYYY-MM 格式)
  */
-function generateMonthRange(startMonth: string, endMonth: string): string[] {
+function generateMonthRange(startDate: string, endDate: string): string[] {
   const months: string[] = [];
 
   // 解析開始月份
-  const [startYear, startMonthNum] = startMonth.split('-').map(Number);
-  const [endYear, endMonthNum] = endMonth.split('-').map(Number);
+  const [startYear, startDateNum] = startDate.split('-').map(Number);
+  const [endYear, endDateNum] = endDate.split('-').map(Number);
 
   // 設置初始月份
   let currentYear = startYear;
-  let currentMonth = startMonthNum;
+  let currentMonth = startDateNum;
 
   // 生成每個月份
   while (
     currentYear < endYear ||
-    (currentYear === endYear && currentMonth <= endMonthNum)
+    (currentYear === endYear && currentMonth <= endDateNum)
   ) {
     // 格式化為 YYYY-MM
     const formattedMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;

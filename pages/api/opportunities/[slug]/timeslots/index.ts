@@ -140,11 +140,11 @@ export default async function handler(
         }
 
         // 計算開始月份和結束月份（YYYY-MM格式）
-        const startMonth = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
-        const endMonth = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}`;
+        const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+        const endDate = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}`;
 
         // 生成月份容量
-        const months = generateMonthRange(startMonth, endMonth);
+        const months = generateMonthRange(startDate, endDate);
         const monthlyCapacities = months.map(month => ({
           month,
           capacity: defaultCapacity,
@@ -155,8 +155,8 @@ export default async function handler(
         const newTimeSlot: Omit<TimeSlot, '_id'> = {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
-          startMonth,
-          endMonth,
+          startDate,
+          endDate,
           defaultCapacity,
           minimumStay: minStay,
           appliedCount: 0,
@@ -195,25 +195,25 @@ export default async function handler(
 
 /**
  * 生成月份範圍
- * @param startMonth 開始月份 (YYYY-MM)
- * @param endMonth 結束月份 (YYYY-MM)
+ * @param startDate 開始月份 (YYYY-MM)
+ * @param endDate 結束月份 (YYYY-MM)
  * @returns 月份列表 (YYYY-MM 格式)
  */
-function generateMonthRange(startMonth: string, endMonth: string): string[] {
+function generateMonthRange(startDate: string, endDate: string): string[] {
   const months: string[] = [];
 
   // 解析開始月份
-  const [startYear, startMonthNum] = startMonth.split('-').map(Number);
-  const [endYear, endMonthNum] = endMonth.split('-').map(Number);
+  const [startYear, startDateNum] = startDate.split('-').map(Number);
+  const [endYear, endDateNum] = endDate.split('-').map(Number);
 
   // 設置初始月份
   let currentYear = startYear;
-  let currentMonth = startMonthNum;
+  let currentMonth = startDateNum;
 
   // 生成每個月份
   while (
     currentYear < endYear ||
-    (currentYear === endYear && currentMonth <= endMonthNum)
+    (currentYear === endYear && currentMonth <= endDateNum)
   ) {
     // 格式化為 YYYY-MM
     const formattedMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;

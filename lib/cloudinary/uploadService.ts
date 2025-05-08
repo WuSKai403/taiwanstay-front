@@ -165,8 +165,8 @@ export class CloudinaryUploadService {
    */
   static convertToImageResource(result: CloudinaryUploadResponse): CloudinaryImageResource {
     return {
-      public_id: result.public_id,
-      secure_url: result.secure_url,
+      publicId: result.public_id,
+      secureUrl: result.secure_url,
       previewUrl: result.secure_url.replace('/upload/', '/upload/c_scale,w_600/'),
       thumbnailUrl: result.secure_url.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200/'),
       version: result.version_id,

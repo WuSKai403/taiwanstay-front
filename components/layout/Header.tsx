@@ -4,13 +4,26 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { useState } from 'react';
 import { UserRole } from '@/models/enums/UserRole';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useRouter } from 'next/router';
 
 export default function Header() {
   const { data: session, status } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const router = useRouter();
 
   // 檢查是否為管理員
   const isAdmin = session?.user?.role === UserRole.ADMIN || session?.user?.role === UserRole.SUPER_ADMIN;
+
+  // 更新主人中心入口的點擊處理函數
+  const handleHostCenter = () => {
+    if (session?.user?.hostId) {
+      // 如果有主人ID，直接進入主人儀表板
+      router.push(`/hosts/${session.user.hostId}/dashboard`);
+    } else {
+      // 否則，導向主人註冊頁面
+      router.push('/hosts/register');
+    }
+  };
 
   return (
     <header className="bg-white shadow-sm relative z-40">
@@ -113,12 +126,12 @@ export default function Header() {
 
                     {/* 對非管理員用戶顯示主人中心 */}
                     {!isAdmin && (
-                      <Link
-                        href="/hosts/dashboard"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      <button
+                        onClick={handleHostCenter}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                       >
-                        主人中心
-                      </Link>
+                        {session?.user?.hostId ? '主人中心' : '申請為主人'}
+                      </button>
                     )}
 
                     <Link
@@ -255,12 +268,12 @@ export default function Header() {
 
                 {/* 對非管理員用戶顯示主人中心 */}
                 {!isAdmin && (
-                  <Link
-                    href="/hosts/dashboard"
-                    className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                  <button
+                    onClick={handleHostCenter}
+                    className="block px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 w-full text-left"
                   >
-                    主人中心
-                  </Link>
+                    {session?.user?.hostId ? '主人中心' : '申請為主人'}
+                  </button>
                 )}
 
                 <Link

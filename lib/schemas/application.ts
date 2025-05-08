@@ -20,8 +20,8 @@ export const travelingWithSchema = z.object({
 // 定義時段的 schema
 export const timeSlotSchema = z.object({
   id: z.string(),
-  startMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
-  endMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
+  startDate: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
+  endDate: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
   defaultCapacity: z.number().min(1, '容量必須大於 0'),
   minimumStay: z.number().min(1, '最短停留天數必須大於 0'),
   appliedCount: z.number().default(0),
@@ -91,8 +91,8 @@ export const signedUrlsSchema = z.object({
 
 // 定義照片資源的 schema
 export const cloudinaryImageResourceSchema = z.object({
-  public_id: z.string(),
-  secure_url: z.string().url(),
+  publicId: z.string(),
+  secureUrl: z.string().url(),
   thumbnailUrl: z.string().url(),
   previewUrl: z.string().url(),
   transformedUrl: z.string().url().optional(),
@@ -111,8 +111,8 @@ export const applicationFormSchema = z.object({
     console.log('驗證message欄位:', val, val.length >= 50);
     return val;
   }),
-  startMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
-  endMonth: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
+  startDate: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
+  endDate: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
   duration: z.number().min(1, '停留時間必須大於 0'),
   timeSlotId: z.string().optional(),
   availableMonths: z.array(z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM')),

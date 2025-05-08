@@ -10,7 +10,7 @@ export interface CustomTransformationOptions {
 // 上傳結果介面
 export interface CloudinaryUploadResult {
   asset_id: string;
-  public_id: string;
+  publicId: string;
   version: number;
   version_id: string;
   signature: string;
@@ -22,7 +22,7 @@ export interface CloudinaryUploadResult {
   bytes: number;
   type: string;
   url: string;
-  secure_url: string;
+  secureUrl: string;
   original_filename: string;
   tags?: string[];
   context?: {
@@ -93,7 +93,7 @@ class CloudinaryService {
       formData.append('folder', options.folder);
 
       if (publicId) {
-        formData.append('public_id', publicId);
+        formData.append('publicId', publicId);
       }
 
       if (options.context) {

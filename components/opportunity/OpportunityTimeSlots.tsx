@@ -26,7 +26,7 @@ const OpportunityTimeSlots: React.FC<OpportunityTimeSlotsProps> = ({
             .map(slot => (
               <div key={slot.id} className="bg-gray-50 p-3 rounded-md border border-gray-200">
                 <p className="text-sm font-medium">
-                  {slot.startMonth} 至 {slot.endMonth}
+                  {slot.startDate} 至 {slot.endDate}
                 </p>
                 <div className="flex justify-between items-center mt-1 text-xs text-gray-600">
                   <span>最短 {slot.minimumStay} 天</span>
@@ -49,8 +49,8 @@ const OpportunityTimeSlots: React.FC<OpportunityTimeSlotsProps> = ({
     <div className="mb-8" id="available-timeslots">
       <h3 className="text-xl font-bold mb-4">可申請時段</h3>
       <TimeSlotDisplay
-        startMonth={opportunity.timeSlots[0].startMonth}
-        endMonth={opportunity.timeSlots[opportunity.timeSlots.length - 1].endMonth}
+        startDate={opportunity.timeSlots[0].startDate}
+        endDate={opportunity.timeSlots[opportunity.timeSlots.length - 1].endDate}
         defaultCapacity={opportunity.timeSlots[0].defaultCapacity}
         minimumStay={opportunity.timeSlots[0].minimumStay}
         appliedCount={opportunity.timeSlots.reduce((total, slot) => total + slot.appliedCount, 0)}
@@ -71,7 +71,7 @@ const OpportunityTimeSlots: React.FC<OpportunityTimeSlotsProps> = ({
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-medium">
-                    {slot.startMonth} 至 {slot.endMonth}
+                    {slot.startDate} 至 {slot.endDate}
                   </p>
                   <p className="text-sm text-gray-600 mt-1">
                     最短停留 {slot.minimumStay} 天

@@ -6,14 +6,14 @@ import { v2 as cloudinary } from 'cloudinary';
 
 // Cloudinary 通知的介面定義
 interface CloudinaryNotification {
-  public_id: string;
-  secure_url: string;
+  publicId: string;
+  secureUrl: string;
   resource_type: string;
   type: string;
   eager?: Array<{
     transformation: string;
     url: string;
-    secure_url: string;
+    secureUrl: string;
   }>;
   notification_type: string;
   upload_info?: {
@@ -49,7 +49,7 @@ const validateCloudinaryRequest = (req: NextApiRequest): boolean => {
 async function handleUploadComplete(notification: CloudinaryNotification) {
   try {
     // 取得資源資訊
-    const resourceInfo = await cloudinary.api.resource(notification.public_id);
+    const resourceInfo = await cloudinary.api.resource(notification.publicId);
 
     // 檢查是否為低品質圖片
     if (notification.tags?.includes('blurry')) {
@@ -61,7 +61,7 @@ async function handleUploadComplete(notification: CloudinaryNotification) {
         message: '您上傳的圖片可能品質不佳，建議重新上傳更清晰的版本。',
         isRead: false,
         metadata: {
-          resourceId: notification.public_id,
+          resourceId: notification.publicId,
           resourceType: notification.resource_type
         }
       });
@@ -70,7 +70,7 @@ async function handleUploadComplete(notification: CloudinaryNotification) {
     // 如果有自動生成的說明文字，更新到 context
     if (notification.upload_info?.info?.detection?.captioning?.data?.caption) {
       const formData = new FormData();
-      formData.append('file', notification.secure_url);
+      formData.append('file', notification.secureUrl);
       formData.append('context', JSON.stringify({
         caption: notification.upload_info.info.detection.captioning.data.caption
       }));
@@ -85,8 +85,8 @@ async function handleUploadComplete(notification: CloudinaryNotification) {
     }
 
     console.log('Upload completed:', {
-      public_id: notification.public_id,
-      url: notification.secure_url,
+      publicId: notification.publicId,
+      url: notification.secureUrl,
       resource_type: notification.resource_type
     });
   } catch (error) {
@@ -104,7 +104,7 @@ async function handleEagerComplete(notification: CloudinaryNotification) {
 
     // 記錄轉換結果
     console.log('Eager transformations completed:', {
-      public_id: notification.public_id,
+      publicId: notification.publicId,
       transformations: notification.eager
     });
 

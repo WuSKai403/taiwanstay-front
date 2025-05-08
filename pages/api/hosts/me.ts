@@ -19,8 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 獲取當前用戶的 session
     const session = await getSession({ req });
 
-    if (!session || !session.user || !session.user.id) {
-      return res.status(401).json({ success: false, message: '未授權' });
+    if (!session || !session.user) {
+      return res.status(401).json({ success: false, message: '未授權：缺少session' });
+    }
+
+    if (!session.user.id) {
+      return res.status(401).json({ success: false, message: '未授權：缺少用戶ID' });
     }
 
     // 連接數據庫
@@ -30,19 +34,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const user = await User.findById(session.user.id);
 
     if (!user) {
-      return res.status(404).json({ success: false, message: '用戶不存在' });
+      console.error(`用戶不存在: ID=${session.user.id}`);
+      return res.status(404).json({
+        success: false,
+        message: '用戶不存在',
+        debugInfo: {
+          userId: session.user.id ? `${session.user.id.substring(0, 6)}...` : 'missing',
+          email: session.user.email
+        }
+      });
     }
 
+    // 直接嘗試從session中獲取hostId
+    const hostId = session.user.hostId || user.hostId;
+
     // 如果用戶沒有關聯的主人ID，返回404
-    if (!user.hostId) {
-      return res.status(404).json({ success: false, message: '未找到主人資訊' });
+    if (!hostId) {
+      return res.status(404).json({
+        success: false,
+        message: '未找到主人資訊，用戶沒有關聯的主人ID'
+      });
     }
 
     // 查找主人資訊
-    const host = await Host.findById(user.hostId);
+    const host = await Host.findById(hostId);
 
     if (!host) {
-      return res.status(404).json({ success: false, message: '未找到主人資訊' });
+      console.error(`主人不存在: ID=${hostId}`);
+      return res.status(404).json({
+        success: false,
+        message: '未找到主人資訊，指定的主人ID不存在',
+        debugInfo: {
+          hostId: hostId ? `${hostId.substring(0, 6)}...` : 'missing'
+        }
+      });
     }
 
     // 獲取申請數量和機會數量
@@ -60,6 +85,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('獲取主人資訊錯誤:', error);
-    return res.status(500).json({ success: false, message: '服務器錯誤' });
+    return res.status(500).json({
+      success: false,
+      message: '服務器錯誤',
+      error: error instanceof Error ? error.message : '未知錯誤'
+    });
   }
 }

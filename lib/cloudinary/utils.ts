@@ -31,19 +31,19 @@ export const formatBytes = (bytes: number): string => {
 };
 
 export const convertToImageResource = (result: CloudinaryUploadResult): CloudinaryImageResource => {
-  if (!result.public_id || !result.secure_url) {
+  if (!result.publicId || !result.secureUrl) {
     throw new Error('Missing required fields in CloudinaryResource');
   }
 
   const resource: CloudinaryResource = {
-    public_id: result.public_id,
-    secure_url: result.secure_url
+    publicId: result.publicId,
+    secureUrl: result.secureUrl
   };
 
   return {
     ...resource,
-    thumbnailUrl: resource.secure_url.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200/'),
-    previewUrl: resource.secure_url.replace('/upload/', '/upload/c_scale,w_600/')
+    thumbnailUrl: resource.secureUrl.replace('/upload/', '/upload/c_fill,g_auto,h_200,w_200/'),
+    previewUrl: resource.secureUrl.replace('/upload/', '/upload/c_scale,w_600/')
   };
 };
 
@@ -85,10 +85,10 @@ export const createCloudinaryImageConfig = (props: {
     index
   } = props;
 
-  // 對於私有資源，直接使用 secure_url 而不是透過 Next.js Image 元件
+  // 對於私有資源，直接使用 secureUrl 而不是透過 Next.js Image 元件
   const imageUrl = isPrivate
-    ? resource.secure_url // 直接使用 Cloudinary URL
-    : resource.previewUrl || resource.secure_url;
+    ? resource.secureUrl // 直接使用 Cloudinary URL
+    : resource.previewUrl || resource.secureUrl;
 
   return {
     imageUrl,

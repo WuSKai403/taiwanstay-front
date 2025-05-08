@@ -27,26 +27,26 @@ function getLastDayOfMonth(year: number, month: number): number {
 }
 
 // 從 YYYY-MM 格式的起止月份生成可用月份數組
-function generateAvailableMonthsFromYearMonth(startMonth: string, endMonth: string): number[] {
-  if (!startMonth || !endMonth) {
+function generateAvailableMonthsFromYearMonth(startDate: string, endDate: string): number[] {
+  if (!startDate || !endDate) {
     // 如果沒有提供月份範圍，返回所有月份
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   }
 
-  const [startYear, startMonthNum] = startMonth.split('-').map(num => parseInt(num, 10));
-  const [endYear, endMonthNum] = endMonth.split('-').map(num => parseInt(num, 10));
+  const [startYear, startDateNum] = startDate.split('-').map(num => parseInt(num, 10));
+  const [endYear, endDateNum] = endDate.split('-').map(num => parseInt(num, 10));
 
   const months = new Set<number>();
 
   // 如果年份相同
   if (startYear === endYear) {
-    for (let month = startMonthNum; month <= endMonthNum; month++) {
+    for (let month = startDateNum; month <= endDateNum; month++) {
       months.add(month);
     }
   } else {
     // 如果跨年份
     // 添加第一年的月份
-    for (let month = startMonthNum; month <= 12; month++) {
+    for (let month = startDateNum; month <= 12; month++) {
       months.add(month);
     }
 
@@ -58,7 +58,7 @@ function generateAvailableMonthsFromYearMonth(startMonth: string, endMonth: stri
     }
 
     // 添加最後一年的月份
-    for (let month = 1; month <= endMonthNum; month++) {
+    for (let month = 1; month <= endDateNum; month++) {
       months.add(month);
     }
   }
@@ -456,12 +456,12 @@ async function importOpportunities() {
 
     if (hasTimeSlots) {
       // 創建時段
-      const startMonth = opp.timeSlotStartMonth; // 直接使用 YYYY-MM 格式
-      const endMonth = opp.timeSlotEndMonth; // 直接使用 YYYY-MM 格式
+      const startDate = opp.timeSlotstartDate; // 直接使用 YYYY-MM 格式
+      const endDate = opp.timeSlotendDate; // 直接使用 YYYY-MM 格式
       const defaultCapacity = parseInt(opp.timeSlotDefaultCapacity) || 2;
 
       // 生成月份範圍
-      const months = generateMonthRange(startMonth, endMonth);
+      const months = generateMonthRange(startDate, endDate);
 
       // 創建月份容量記錄
       const monthlyCapacities = months.map(month => ({
@@ -472,8 +472,8 @@ async function importOpportunities() {
 
       const timeSlot = {
         _id: new mongoose.Types.ObjectId(),
-        startMonth,
-        endMonth,
+        startDate,
+        endDate,
         defaultCapacity,
         minimumStay: parseInt(opp.timeSlotMinimumStay) || 14,
         appliedCount: 0,
@@ -487,9 +487,9 @@ async function importOpportunities() {
       timeSlots.push(timeSlot);
     }
 
-    // 從 timeSlotStartMonth 和 timeSlotEndMonth 生成 availableMonths
+    // 從 timeSlotstartDate 和 timeSlotendDate 生成 availableMonths
     const availableMonths = hasTimeSlots
-      ? generateAvailableMonthsFromYearMonth(opp.timeSlotStartMonth, opp.timeSlotEndMonth)
+      ? generateAvailableMonthsFromYearMonth(opp.timeSlotstartDate, opp.timeSlotendDate)
       : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // 如果沒有時段，預設全年可用
 
     // 創建機會
@@ -520,15 +520,9 @@ async function importOpportunities() {
         workDaysPerWeek: parseInt(opp.workDaysPerWeek),
         minimumStay: parseInt(opp.minimumStay) || 7,
         maximumStay: parseInt(opp.maximumStay) || 90,
-        startDate: hasTimeSlots ? parseYearMonthToDate(opp.timeSlotStartMonth) : new Date(),
-        endDate: hasTimeSlots ? parseYearMonthToDate(opp.timeSlotEndMonth, true) : new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
+        startDate: hasTimeSlots ? parseYearMonthToDate(opp.timeSlotstartDate) : new Date(),
+        endDate: hasTimeSlots ? parseYearMonthToDate(opp.timeSlotendDate, true) : new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
         isOngoing: true,
-        seasonality: {
-          spring: true,
-          summer: true,
-          autumn: true,
-          winter: true
-        }
       },
 
       benefits: {
@@ -629,25 +623,25 @@ async function importDateCapacities() {
 
 /**
  * 生成月份範圍
- * @param startMonth 開始月份 (YYYY-MM)
- * @param endMonth 結束月份 (YYYY-MM)
+ * @param startDate 開始月份 (YYYY-MM)
+ * @param endDate 結束月份 (YYYY-MM)
  * @returns 月份列表 (YYYY-MM 格式)
  */
-function generateMonthRange(startMonth: string, endMonth: string): string[] {
+function generateMonthRange(startDate: string, endDate: string): string[] {
   const months: string[] = [];
 
   // 解析開始月份
-  const [startYear, startMonthNum] = startMonth.split('-').map(Number);
-  const [endYear, endMonthNum] = endMonth.split('-').map(Number);
+  const [startYear, startDateNum] = startDate.split('-').map(Number);
+  const [endYear, endDateNum] = endDate.split('-').map(Number);
 
   // 設置初始月份
   let currentYear = startYear;
-  let currentMonth = startMonthNum;
+  let currentMonth = startDateNum;
 
   // 生成每個月份
   while (
     currentYear < endYear ||
-    (currentYear === endYear && currentMonth <= endMonthNum)
+    (currentYear === endYear && currentMonth <= endDateNum)
   ) {
     // 格式化為 YYYY-MM
     const formattedMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
@@ -746,8 +740,8 @@ async function importApplications() {
       status: app.status || 'PENDING',
       applicationDetails: {
         message: app.message || '',
-        startMonth: app.startMonth,
-        endMonth: app.endMonth,
+        startDate: app.startDate,
+        endDate: app.endDate,
         duration: parseInt(app.duration) || 30,
         dietaryRestrictions,
         languages,

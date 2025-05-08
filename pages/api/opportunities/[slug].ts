@@ -4,6 +4,7 @@ import { Opportunity, Host, Application } from '../../../models/index';
 import { isValidObjectId } from '../../../utils/helpers';
 import { ITimeSlot } from '@/models/Opportunity';
 import { requireAuth, requireOpportunityAccess } from '@/lib/middleware/authMiddleware';
+import { OpportunityStatus } from '@/models/enums';
 
 // 獲取機會的處理函數
 async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
@@ -24,7 +25,7 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
 
     // 如果 ID 部分是有效的 MongoDB ObjectId，則使用 _id 查詢
     if (isValidObjectId(idPart)) {
-      opportunity = await Opportunity.findById(idPart).populate('hostId');
+      opportunity = await Opportunity.findById(idPart).populate('hostId').lean();
     }
 
     // 如果找不到，嘗試使用 publicId 查詢
@@ -34,7 +35,7 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
           { publicId: idPart },
           { slug: slug }
         ]
-      }).populate('hostId');
+      }).populate('hostId').lean();
     }
 
     // 如果仍然找不到對應的機會，返回 404
@@ -47,6 +48,9 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
       { _id: opportunity._id },
       { $inc: { 'stats.views': 1 } }
     ).exec();
+
+    // 應用轉換邏輯 - 將 workTimeSettings 轉換為 timeSlots
+    opportunity = convertToTimeSlots(opportunity);
 
     // 格式化響應數據
     const coordinates = opportunity.location?.coordinates?.coordinates;
@@ -61,7 +65,9 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
       status: opportunity.status,
       location: {
         city: opportunity.location?.city,
+        district: opportunity.location?.district,
         country: opportunity.location?.country,
+        address: opportunity.location?.address,
         coordinates: coordinates ? {
           lat: coordinates[1],
           lng: coordinates[0]
@@ -89,14 +95,14 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
         views: opportunity.stats?.views || 0
       },
       hasTimeSlots: opportunity.hasTimeSlots || false,
-      timeSlots: opportunity.timeSlots ? opportunity.timeSlots.map((slot: ITimeSlot) => ({
-        id: slot._id ? slot._id.toString() : '',
-        startMonth: slot.startMonth,
-        endMonth: slot.endMonth,
+      timeSlots: opportunity.timeSlots ? opportunity.timeSlots.map((slot: any) => ({
+        id: slot._id ? slot._id.toString() : slot.id || '',
+        startDate: slot.startDate,
+        endDate: slot.endDate,
         defaultCapacity: slot.defaultCapacity,
         minimumStay: slot.minimumStay,
-        appliedCount: slot.appliedCount,
-        confirmedCount: slot.confirmedCount,
+        appliedCount: slot.appliedCount || 0,
+        confirmedCount: slot.confirmedCount || 0,
         status: slot.status,
         description: slot.description
       })) : [],
@@ -172,8 +178,8 @@ async function updateOpportunity(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-// 刪除機會處理函數
-async function deleteOpportunity(req: NextApiRequest, res: NextApiResponse) {
+// 封存機會（代替刪除）處理函數
+async function archiveOpportunity(req: NextApiRequest, res: NextApiResponse) {
   try {
     await dbConnect();
     const { slug } = req.query;
@@ -196,33 +202,22 @@ async function deleteOpportunity(req: NextApiRequest, res: NextApiResponse) {
       return res.status(404).json({ success: false, message: '機會不存在' });
     }
 
-    // 檢查是否有相關申請
-    const hasApplications = await Application.exists({ opportunityId });
+    // 更新機會狀態為已封存
+    opportunity.status = OpportunityStatus.ARCHIVED;
+    opportunity.updatedAt = new Date();
+    await opportunity.save();
 
-    // 如果有申請，不允許直接刪除，而是將狀態設為已歸檔
-    if (hasApplications) {
-      opportunity.status = 'ARCHIVED';
-      opportunity.updatedAt = new Date();
-      await opportunity.save();
-
-      return res.status(200).json({
-        success: true,
-        message: '機會已有申請，已將狀態設為已歸檔',
-        archived: true
-      });
-    }
-    // 如果沒有申請，直接刪除
-    else {
-      await Opportunity.findByIdAndDelete(opportunityId);
-
-      return res.status(200).json({
-        success: true,
-        message: '機會已成功刪除',
-        deleted: true
-      });
-    }
+    return res.status(200).json({
+      success: true,
+      message: '機會已成功封存',
+      archived: true,
+      opportunity: {
+        id: opportunity._id,
+        status: opportunity.status
+      }
+    });
   } catch (error) {
-    console.error('刪除機會時出錯:', error);
+    console.error('封存機會時出錯:', error);
     return res.status(500).json({ success: false, message: '服務器錯誤' });
   }
 }
@@ -243,7 +238,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case 'PUT':
       return requireOpportunityAccess(extractOpportunityIdFromSlug)(updateOpportunity)(req, res);
     case 'DELETE':
-      return requireOpportunityAccess(extractOpportunityIdFromSlug)(deleteOpportunity)(req, res);
+      return requireOpportunityAccess(extractOpportunityIdFromSlug)(archiveOpportunity)(req, res);
     default:
       return res.status(405).json({ success: false, message: '方法不允許' });
   }

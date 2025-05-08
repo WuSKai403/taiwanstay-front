@@ -96,10 +96,10 @@ const PhotoUploadStep: React.FC<PhotoUploadStepProps> = ({
       setValue('photoDescriptions', newDescriptions);
 
       // 如果有publicId，嘗試從Cloudinary刪除
-      if (removedPhoto?.public_id) {
+      if (removedPhoto?.publicId) {
         try {
-          await CloudinaryUploadService.deleteFile(removedPhoto.public_id);
-          console.log('已刪除Cloudinary上的照片:', removedPhoto.public_id);
+          await CloudinaryUploadService.deleteFile(removedPhoto.publicId);
+          console.log('已刪除Cloudinary上的照片:', removedPhoto.publicId);
         } catch (error) {
           console.error('刪除Cloudinary照片失敗，但UI已更新', error);
         }
@@ -195,9 +195,9 @@ const PhotoUploadStep: React.FC<PhotoUploadStepProps> = ({
             <h4 className="font-medium">已上傳照片 ({photos.length}/5)</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {photos.map((photo, index) => (
-                <div key={photo.public_id || index} className="border rounded-md p-3 space-y-3">
+                <div key={photo.publicId || index} className="border rounded-md p-3 space-y-3">
                   <div className="relative h-40 w-full overflow-hidden rounded">
-                    {photo.secure_url ? (
+                    {photo.secureUrl ? (
                       <CloudinaryImage
                         resource={photo}
                         alt={`照片 ${index + 1}`}
@@ -224,8 +224,8 @@ const PhotoUploadStep: React.FC<PhotoUploadStepProps> = ({
                   <div className="text-xs text-gray-500 mt-1">
                     <div className="flex justify-between">
                       <span>照片 #{index + 1}</span>
-                      <span className="truncate" title={photo.public_id || ''}>
-                        {photo.public_id ? photo.public_id.split('/').pop() : '處理中...'}
+                      <span className="truncate" title={photo.publicId || ''}>
+                        {photo.publicId ? photo.publicId.split('/').pop() : '處理中...'}
                       </span>
                     </div>
                   </div>

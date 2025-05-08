@@ -12,8 +12,8 @@ export interface IApplication extends Document {
   // 申請資訊
   applicationDetails: {
     message: string;
-    startMonth: string; // 用戶申請的開始月份，格式：YYYY-MM
-    endMonth?: string; // 用戶申請的結束月份，格式：YYYY-MM
+    startDate: string; // 用戶申請的開始月份，格式：YYYY-MM
+    endDate?: string; // 用戶申請的結束月份，格式：YYYY-MM
     duration: number; // 以天為單位，可以自動計算
     availableMonths?: string[]; // 用戶可用的月份列表，格式：['YYYY-MM'...]
     travelingWith?: {
@@ -182,8 +182,8 @@ const ApplicationSchema: Schema = new Schema({
   // 申請資訊
   applicationDetails: {
     message: { type: String, required: true },
-    startMonth: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // YYYY-MM 格式
-    endMonth: { type: String, match: /^\d{4}-\d{2}$/ }, // YYYY-MM 格式
+    startDate: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // YYYY-MM 格式
+    endDate: { type: String, match: /^\d{4}-\d{2}$/ }, // YYYY-MM 格式
     duration: { type: Number, required: true }, // 以天為單位
     availableMonths: [{ type: String, match: /^\d{4}-\d{2}$/ }], // 用戶可用的月份列表
     travelingWith: {
@@ -341,8 +341,8 @@ const ApplicationSchema: Schema = new Schema({
 ApplicationSchema.index({ userId: 1, opportunityId: 1, timeSlotId: 1 }, { unique: true });
 ApplicationSchema.index({ hostId: 1 });
 ApplicationSchema.index({ status: 1 });
-ApplicationSchema.index({ 'applicationDetails.startMonth': 1 });
-ApplicationSchema.index({ 'applicationDetails.endMonth': 1 });
+ApplicationSchema.index({ 'applicationDetails.startDate': 1 });
+ApplicationSchema.index({ 'applicationDetails.endDate': 1 });
 ApplicationSchema.index({ createdAt: 1 });
 ApplicationSchema.index({ timeSlotId: 1 });
 ApplicationSchema.index({ opportunityId: 1, timeSlotId: 1 });
@@ -382,29 +382,29 @@ ApplicationSchema.pre('save', async function(next) {
       }
 
       // 以下原始日期檢查邏輯仍然保留，確保日期範圍在時段有效期內
-      const startMonth = new Date(application.applicationDetails.startMonth);
-      const endMonth = application.applicationDetails.endMonth
-        ? new Date(application.applicationDetails.endMonth)
+      const startDate = new Date(application.applicationDetails.startDate);
+      const endDate = application.applicationDetails.endDate
+        ? new Date(application.applicationDetails.endDate)
         : null;
 
-      if (!endMonth) {
+      if (!endDate) {
         return next(new Error('請提供結束月份'));
       }
 
       // 檢查申請的時間範圍是否在時段的有效期內
-      const timeSlotStart = new Date(timeSlot.startMonth);
-      const timeSlotEnd = new Date(timeSlot.endMonth);
+      const timeSlotStart = new Date(timeSlot.startDate);
+      const timeSlotEnd = new Date(timeSlot.endDate);
 
-      if (startMonth < timeSlotStart || endMonth > timeSlotEnd) {
+      if (startDate < timeSlotStart || endDate > timeSlotEnd) {
         return next(new Error('申請的時間範圍超出了時段的有效期'));
       }
 
       // 獲取所有月份 (YYYY-MM 格式)
       const allMonths = [];
-      const currentMonth = new Date(startMonth);
+      const currentMonth = new Date(startDate);
       currentMonth.setDate(1); // 設置為月初
 
-      while (currentMonth <= endMonth) {
+      while (currentMonth <= endDate) {
         // 格式化為 YYYY-MM
         const monthStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
         allMonths.push(monthStr);
@@ -418,11 +418,11 @@ ApplicationSchema.pre('save', async function(next) {
         timeSlot.monthlyCapacities = [];
 
         // 初始化時段範圍內的每月容量
-        const slotStartMonth = new Date(timeSlot.startMonth);
-        const slotEndMonth = new Date(timeSlot.endMonth);
-        const tempMonth = new Date(slotStartMonth);
+        const slotstartDate = new Date(timeSlot.startDate);
+        const slotendDate = new Date(timeSlot.endDate);
+        const tempMonth = new Date(slotstartDate);
 
-        while (tempMonth <= slotEndMonth) {
+        while (tempMonth <= slotendDate) {
           const monthStr = `${tempMonth.getFullYear()}-${String(tempMonth.getMonth() + 1).padStart(2, '0')}`;
           timeSlot.monthlyCapacities.push({
             month: monthStr,

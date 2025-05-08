@@ -23,39 +23,44 @@ export default function HostRegister() {
   // 檢查用戶是否已經是主人或已提交申請
   useEffect(() => {
     if (sessionStatus === 'authenticated' && session?.user?.id) {
-      // 先嘗試直接從session中獲取hostId
+      // 先嘗試從session中獲取hostId和status
       if (session?.user?.hostId) {
         setHasHostId(true);
-        // 直接使用/api/hosts/me獲取當前用戶的主人信息
-        fetch('/api/hosts/me')
-          .then(res => {
-            if (res.ok) {
-              return res.json();
-            } else if (res.status === 404) {
-              // 如果API返回404，表示用戶沒有主人信息
-              return { success: false, message: '未找到主人信息' };
-            }
-            throw new Error('獲取主人信息失敗');
-          })
-          .then(data => {
-            if (data.success && data.host?.status) {
-              setHostStatus(data.host.status);
-            }
-          })
-          .catch(error => {
-            console.error('獲取主人狀態錯誤:', error);
-            // 即使獲取失敗，也設置isLoading為false，以避免無限加載
-            setIsLoading(false);
-          });
+
+        // 如果session中有hostStatus，直接使用
+        if (session?.user?.hostStatus) {
+          setHostStatus(session.user.hostStatus);
+          setIsLoading(false);
+        } else {
+          // 否則獲取主人信息
+          fetch('/api/hosts/me')
+            .then(res => {
+              if (res.ok) {
+                return res.json();
+              } else if (res.status === 404) {
+                return { success: false, message: '未找到主人信息' };
+              }
+              throw new Error('獲取主人信息失敗');
+            })
+            .then(data => {
+              if (data.success && data.host?.status) {
+                setHostStatus(data.host.status);
+              }
+            })
+            .catch(error => {
+              console.error('獲取主人狀態錯誤:', error);
+            })
+            .finally(() => {
+              setIsLoading(false);
+            });
+        }
       } else {
-        // 如果session中沒有hostId，再嘗試使用profile API
+        // 如果session中沒有hostId，嘗試使用profile API
         fetch('/api/user/profile')
           .then(res => res.json())
           .then(data => {
-            // 檢查用戶是否有主人ID
             if (data.profile?.hostId) {
               setHasHostId(true);
-              // 使用/api/hosts/me統一獲取當前用戶主人信息
               return fetch('/api/hosts/me')
                 .then(res => {
                   if (res.ok) {

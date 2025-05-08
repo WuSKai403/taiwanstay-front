@@ -41,8 +41,8 @@ interface Application {
   };
   applicationDetails: {
     message: string;
-    startMonth: string;
-    endMonth?: string;
+    startDate: string;
+    endDate?: string;
     duration: number;
   };
   communications: {
@@ -347,11 +347,11 @@ const HostApplicationsPage: NextPage<HostApplicationsPageProps> = ({ hostId }) =
                         <div>
                           <h4 className="text-sm font-medium text-gray-500">申請期間</h4>
                           <p className="mt-1">
-                            {format(new Date(application.applicationDetails.startMonth), 'yyyy 年 MM 月', { locale: zhTW })}
-                            {application.applicationDetails.endMonth && (
+                            {format(new Date(application.applicationDetails.startDate), 'yyyy 年 MM 月', { locale: zhTW })}
+                            {application.applicationDetails.endDate && (
                               <>
                                 {' - '}
-                                {format(new Date(application.applicationDetails.endMonth), 'yyyy 年 MM 月', { locale: zhTW })}
+                                {format(new Date(application.applicationDetails.endDate), 'yyyy 年 MM 月', { locale: zhTW })}
                               </>
                             )}
                           </p>

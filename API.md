@@ -397,7 +397,7 @@ PUT /api/opportunities/[id]
     "title": "新機會標題",
     "description": "新機會描述",
     "status": "ACTIVE",
-    "publicId": "public_id"
+    "publicId": "publicId"
   }
 }
 ```
