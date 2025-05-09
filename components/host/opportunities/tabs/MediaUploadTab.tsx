@@ -115,8 +115,7 @@ const MediaUploadTab: React.FC<MediaUploadTabProps> = ({
       <div className="border-b pb-6">
         <h3 className="text-lg font-semibold mb-4">
           封面圖片
-          <span className="text-red-500 ml-1">*</span>
-          <span className="text-sm font-normal text-gray-500 ml-2">(必填)</span>
+          <span className="text-sm font-normal text-gray-500 ml-2">(選填)</span>
         </h3>
         <p className="text-gray-600 mb-4">
           上傳橫幅圖片作為機會列表和詳情頁的主要展示圖片。建議尺寸 1200×600 像素，橫幅比例。
@@ -161,7 +160,7 @@ const MediaUploadTab: React.FC<MediaUploadTabProps> = ({
           {/* 顯示封面圖片錯誤消息 */}
           {errors?.media?.coverImage && (
             <p className="mt-1 text-sm text-red-600">
-              {errors.media.coverImage.secureUrl?.message || '請上傳封面圖片'}
+              {errors.media.coverImage.secureUrl?.message || '封面圖片格式不正確'}
             </p>
           )}
         </div>

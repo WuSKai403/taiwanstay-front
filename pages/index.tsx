@@ -22,88 +22,102 @@ export default function Home() {
     }
   }, [session, status, router]);
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/opportunities?search=${encodeURIComponent(searchQuery)}`);
+    }
+  };
+
   return (
     <Layout>
-      {/* 英雄區塊 */}
-      <div className="relative bg-white overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="relative z-10 pb-8 bg-white sm:pb-16 md:pb-20 lg:max-w-2xl lg:w-full lg:pb-28 xl:pb-32">
-            <main className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 lg:mt-16 lg:px-8 xl:mt-20">
-              <div className="sm:text-center lg:text-left">
-                <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                  <span className="block xl:inline">探索台灣的</span>{' '}
-                  <span className="block text-primary-600 xl:inline">工作換宿機會</span>
-                </h1>
-                <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
-                  透過 TaiwanStay，找到最適合您的工作換宿機會，體驗台灣在地生活，結交新朋友，創造難忘回憶。
-                </p>
-                <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
-                  <div className="rounded-md shadow">
-                    <Link
-                      href="/opportunities"
-                      className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 md:py-4 md:text-lg md:px-10"
-                    >
-                      瀏覽機會
-                    </Link>
-                  </div>
-                  <div className="mt-3 sm:mt-0 sm:ml-3">
-                    <Link
-                      href="/hosts"
-                      className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-primary-700 bg-primary-100 hover:bg-primary-200 md:py-4 md:text-lg md:px-10"
-                    >
-                      查看主人
-                    </Link>
+      {/* 簡化英雄區塊 */}
+      <div className="bg-blue-50 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
+              <span className="block">探索台灣的</span>
+              <span className="block text-primary-600">工作換宿機會</span>
+            </h1>
+            <p className="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+              透過 TaiwanStay，找到最適合您的工作換宿機會，體驗台灣在地生活，結交新朋友，創造難忘回憶。
+            </p>
+          </div>
+
+          {/* 搜尋區塊 */}
+          <div className="mt-10 max-w-md mx-auto">
+            <div className="bg-white shadow-md rounded-lg p-6">
+              <form onSubmit={handleSearch}>
+                <label htmlFor="search" className="block text-sm font-medium text-gray-700">
+                  尋找工作換宿機會
+                </label>
+                <div className="mt-1 relative rounded-md shadow-sm">
+                  <input
+                    type="text"
+                    name="search"
+                    id="search"
+                    className="focus:ring-primary-500 focus:border-primary-500 block w-full rounded-md border-gray-300 pr-10 sm:text-sm"
+                    placeholder="輸入地點、技能或關鍵字..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <SearchIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
                   </div>
                 </div>
-              </div>
-            </main>
-          </div>
-        </div>
-        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2 relative">
-          <Image
-            className="object-cover"
-            src="https://images.unsplash.com/photo-1596422846543-75c6fc197f07?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1045&q=80"
-            alt="台灣風景"
-            fill
-            sizes="(max-width: 1024px) 100vw, 50vw"
-            priority
-          />
-        </div>
-      </div>
-
-      {/* 搜尋區塊 */}
-      <div className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:py-16 lg:px-8">
-          <div className="rounded-lg bg-primary-50 px-6 py-6 md:py-12 md:px-12 lg:py-16 lg:px-16 xl:flex xl:items-center">
-            <div className="xl:w-0 xl:flex-1">
-              <h2 className="text-2xl font-extrabold tracking-tight text-gray-900 sm:text-3xl">
-                尋找您理想的工作換宿機會
-              </h2>
-              <p className="mt-3 max-w-3xl text-lg leading-6 text-gray-500">
-                輸入地點、技能或關鍵字，找到最適合您的機會。
-              </p>
-            </div>
-            <div className="mt-8 sm:w-full sm:max-w-md xl:mt-0 xl:ml-8">
-              <form className="sm:flex">
-                <label htmlFor="search-query" className="sr-only">
-                  搜尋
-                </label>
-                <input
-                  id="search-query"
-                  name="search-query"
-                  type="text"
-                  className="w-full rounded-md border-gray-300 px-5 py-3 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  placeholder="輸入地點、技能或關鍵字"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
                 <button
                   type="submit"
-                  className="mt-3 w-full flex items-center justify-center px-5 py-3 border border-transparent shadow text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:flex-shrink-0"
+                  className="w-full mt-4 bg-primary-600 border border-transparent rounded-md shadow-sm py-2 px-4 inline-flex justify-center text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
                 >
                   搜尋
                 </button>
               </form>
+            </div>
+          </div>
+
+          <div className="mt-8 flex justify-center">
+            <div className="inline-flex rounded-md shadow">
+              <Link
+                href="/opportunities"
+                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+              >
+                瀏覽機會
+              </Link>
+            </div>
+            <div className="ml-3 inline-flex">
+              <Link
+                href="/hosts"
+                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-primary-700 bg-white hover:bg-blue-50"
+              >
+                查看主人
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MVP提示橫幅 */}
+      <div className="bg-primary-600">
+        <div className="max-w-7xl mx-auto py-3 px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between flex-wrap">
+            <div className="w-0 flex-1 flex items-center">
+              <span className="flex p-2 rounded-lg bg-primary-800">
+                <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                </svg>
+              </span>
+              <p className="ml-3 font-medium text-white truncate">
+                <span className="md:hidden">網站開發中！優先通知功能即將推出</span>
+                <span className="hidden md:inline">重要公告！網站目前處於開發階段，部分功能尚未開放。</span>
+              </p>
+            </div>
+            <div className="order-3 mt-2 flex-shrink-0 w-full sm:order-2 sm:mt-0 sm:w-auto">
+              <Link
+                href="/auth/signup"
+                className="flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-primary-600 bg-white hover:bg-blue-50"
+              >
+                預約通知
+              </Link>
             </div>
           </div>
         </div>
@@ -228,32 +242,121 @@ export default function Home() {
         </div>
       </div>
 
+      {/* 即將上線區塊 */}
+      <div className="bg-gray-50 py-12 sm:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-medium bg-primary-100 text-primary-800">
+              即將推出
+            </div>
+            <h2 className="mt-2 text-3xl font-extrabold text-gray-900 tracking-tight sm:text-4xl">
+              台灣工作換宿平台
+            </h2>
+            <p className="max-w-xl mt-5 mx-auto text-xl text-gray-500">
+              我們正在打造專為台灣設計的工作換宿平台，敬請期待！
+            </p>
+          </div>
+
+          <div className="mt-10">
+            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="pt-6">
+                <div className="flow-root bg-white rounded-lg px-6 pb-8">
+                  <div className="-mt-6">
+                    <div>
+                      <span className="inline-flex items-center justify-center p-3 bg-primary-500 rounded-md shadow-lg">
+                        <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        </svg>
+                      </span>
+                    </div>
+                    <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">安全審核機制</h3>
+                    <p className="mt-5 text-base text-gray-500">
+                      所有主人和工作機會都經過嚴格審核，確保旅行者的安全
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6">
+                <div className="flow-root bg-white rounded-lg px-6 pb-8">
+                  <div className="-mt-6">
+                    <div>
+                      <span className="inline-flex items-center justify-center p-3 bg-primary-500 rounded-md shadow-lg">
+                        <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </span>
+                    </div>
+                    <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">在地特色配對</h3>
+                    <p className="mt-5 text-base text-gray-500">
+                      針對台灣文化和地域特色設計的配對系統，提供更好的體驗
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6">
+                <div className="flow-root bg-white rounded-lg px-6 pb-8">
+                  <div className="-mt-6">
+                    <div>
+                      <span className="inline-flex items-center justify-center p-3 bg-primary-500 rounded-md shadow-lg">
+                        <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                      </span>
+                    </div>
+                    <h3 className="mt-8 text-lg font-medium text-gray-900 tracking-tight">雙向評價系統</h3>
+                    <p className="mt-5 text-base text-gray-500">
+                      主人和旅行者互相評價，建立良好的社群信任度
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link
+              href="/auth/signup"
+              className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+            >
+              預約上線通知
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* 號召行動區塊 */}
       <div className="bg-primary-700">
-        <div className="max-w-2xl mx-auto text-center py-16 px-4 sm:py-20 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
+        <div className="max-w-2xl mx-auto text-center py-12 px-4 sm:py-16 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
             <span className="block">準備好開始您的工作換宿之旅了嗎？</span>
           </h2>
-          <p className="mt-4 text-lg leading-6 text-primary-200">
-            立即註冊，探索台灣各地的工作換宿機會，或者成為主人，分享您的空間和知識。
+          <p className="mt-4 text-base sm:text-lg leading-6 text-primary-200">
+            立即註冊，探索台灣各地的工作換宿機會，或者成為合作夥伴，分享您的空間和知識。
           </p>
-          <div className="mt-8 flex justify-center">
-            <div className="inline-flex rounded-md shadow">
-              <Link
-                href="/auth/signup"
-                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-primary-600 bg-white hover:bg-primary-50"
-              >
-                立即註冊
-              </Link>
-            </div>
-            <div className="ml-3 inline-flex">
-              <Link
-                href="/opportunities"
-                className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary-600 hover:bg-primary-500"
-              >
-                瀏覽機會
-              </Link>
-            </div>
+          <div className="mt-8 flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <Link
+              href="/auth/signup"
+              className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-primary-600 bg-white hover:bg-primary-50 shadow-sm"
+            >
+              立即註冊
+            </Link>
+            <Link
+              href="/become-host"
+              className="inline-flex items-center justify-center px-5 py-3 border border-white text-base font-medium rounded-md text-white hover:bg-primary-500 shadow-sm"
+            >
+              成為合作夥伴
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* 頁腳說明 */}
+      <div className="bg-white">
+        <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+          <div className="text-center text-sm text-gray-500">
+            <p>© {new Date().getFullYear()} TaiwanStay. 此網站目前處於開發階段，部分功能尚未開放。</p>
           </div>
         </div>
       </div>

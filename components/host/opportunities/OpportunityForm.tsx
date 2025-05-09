@@ -91,7 +91,7 @@ export const opportunitySchema = z.object({
     descriptions: z.array(z.string()).optional(),
     coverImage: z.object({
       publicId: z.string().optional(),
-      secureUrl: z.string().min(1, { message: '請上傳封面圖片' }),
+      secureUrl: z.string().optional(),
       previewUrl: z.string().optional(),
       thumbnailUrl: z.string().optional(),
       version: z.string().optional(),
@@ -428,18 +428,14 @@ export default function OpportunityForm({
         images: formData.media.images ? formData.media.images.length : 0
       });
 
-      // 特別檢查封面圖片
-      if (!formData.media.coverImage || !formData.media.coverImage.secureUrl) {
-        console.error('錯誤: 缺少封面圖片!');
-        setErrorMessage('送出審核失敗：請上傳封面圖片');
-        setErrorFields(['media.coverImage']);
-        setShowErrorNotification(true);
-
-        // 切換到圖片上傳頁籤
-        if (activeTab !== 3) {
-          setActiveTab(3);
-        }
-        return;
+      // 封面圖片現在是選填的，不需要強制檢查
+      // 如果有提供封面圖片，確保它有有效的 URL
+      if (formData.media.coverImage && !formData.media.coverImage.secureUrl) {
+        console.warn('警告: 封面圖片資料不完整，缺少 URL');
+        // 移除無效的封面圖片資料
+        formData.media.coverImage = undefined;
+        // 更新表單值
+        methods.setValue('media.coverImage', undefined);
       }
 
       // 確認圖片有 URL

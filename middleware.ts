@@ -112,9 +112,12 @@ function handleHostsRoutes(
   const hostIdMatch = pathname.match(/\/hosts\/([^\/]+)/);
   const urlHostId = hostIdMatch ? hostIdMatch[1] : null;
 
-  // 特殊處理 /hosts/dashboard 路徑
-  if (urlHostId === 'dashboard') {
-    // 如果是dashboard但沒有hostId，重定向到註冊頁面
+  // 是否有效的 ObjectId (24位十六進制字符串)
+  const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+
+  // 特殊處理 /hosts/dashboard 路徑或無效的 ObjectId
+  if (urlHostId === 'dashboard' || (urlHostId && !isValidObjectId(urlHostId))) {
+    // 如果是dashboard或無效ID但沒有hostId，重定向到註冊頁面
     if (!token?.hostId) {
       return NextResponse.redirect(new URL('/hosts/register', request.url));
     }

@@ -209,6 +209,13 @@ export const compose = (...middlewares: MiddlewareFunction[]): MiddlewareFunctio
  */
 export async function checkHostAccess(userId: string, hostId: string): Promise<boolean> {
   try {
+    // 驗證 hostId 是否為有效的 ObjectId
+    const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+    if (!isValidObjectId(hostId)) {
+      console.error(`無效的 hostId 格式: ${hostId}`);
+      return false;
+    }
+
     // 連接數據庫
     await connectToDatabase();
 
@@ -341,6 +348,12 @@ export const requireHostAccess: MiddlewareFunction = (handler) => {
       // 如果沒有指定主人ID，返回錯誤
       if (!hostId || typeof hostId !== 'string') {
         return res.status(400).json({ success: false, message: '無效的主人ID' });
+      }
+
+      // 驗證 hostId 是否為有效的 ObjectId
+      const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+      if (!isValidObjectId(hostId)) {
+        return res.status(400).json({ success: false, message: '無效的主人ID格式' });
       }
 
       // 檢查用戶是否為管理員

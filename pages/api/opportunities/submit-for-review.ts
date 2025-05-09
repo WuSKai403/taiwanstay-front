@@ -26,7 +26,7 @@ const opportunitySubmitSchema = z.object({
   media: z.object({
     coverImage: z.object({
       publicId: z.string().optional(),
-      secureUrl: z.string().min(1, { message: '請上傳封面圖片' }),
+      secureUrl: z.string().optional(),
       url: z.string().optional(),
       previewUrl: z.string().optional(),
       thumbnailUrl: z.string().optional(),

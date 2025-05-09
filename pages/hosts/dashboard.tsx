@@ -21,18 +21,25 @@ interface HostInfo {
 
 export default function HostDashboard() {
   const router = useRouter();
-  const { data: session, status: sessionStatus } = useSession();
-
+  const { data: session, status: authStatus } = useSession();
+  const [hostInfo, setHostInfo] = useState<HostInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hostInfo, setHostInfo] = useState<HostInfo | null>(null);
+
+  // 獲取用戶的 hostId，用於構建回調 URL
+  const callbackUrl = session?.user?.hostId
+    ? `/hosts/${session.user.hostId}/dashboard`
+    : '/hosts/register';
+
+  // 完整的授權驗證URL
+  const authRedirectUrl = `/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
 
   // 獲取主人信息
   useEffect(() => {
-    if (sessionStatus === 'authenticated') {
+    if (authStatus === 'authenticated') {
       fetchHostInfo();
     }
-  }, [sessionStatus]);
+  }, [authStatus]);
 
   const fetchHostInfo = async () => {
     try {
@@ -348,7 +355,7 @@ export default function HostDashboard() {
             <p className="mt-2 text-gray-600">管理您的主人資料、工作機會和申請</p>
           </div>
 
-          <AuthGuard redirectTo="/auth/signin?callbackUrl=/hosts/dashboard">
+          <AuthGuard redirectTo={authRedirectUrl}>
             {renderContent()}
           </AuthGuard>
         </div>

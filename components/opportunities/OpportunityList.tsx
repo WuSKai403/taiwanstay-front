@@ -472,9 +472,25 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
                      filters.availableMonths[0] &&
                      filters.availableMonths[0].includes('-')
                 ? filters.availableMonths[0].split('-')[0]
-                : currentYear}
+                : '0'}
               onChange={(e) => {
                 const selectedYear = e.target.value;
+
+                if (selectedYear === '0') {
+                  // 選擇"所有年分"
+                  const newFilters = { ...filters, availableMonths: [], page: 1 };
+
+                  // 更新本地狀態
+                  setFilters(newFilters);
+                  // 重置機會列表和頁碼以獲取新結果
+                  setPage(1);
+                  setIsSearching(true);
+
+                  // 通知父組件更新URL，但不觸發頁面重載
+                  onFilterChange({ ...newFilters, search: searchTerm });
+                  setTimeout(() => setIsSearching(false), 300);
+                  return;
+                }
                 // 如果原先有選擇的月份，則保留月份但更改年份
                 if (filters.availableMonths && filters.availableMonths.length > 0 && filters.availableMonths[0] && filters.availableMonths[0].includes('-')) {
                   const oldMonthStr = filters.availableMonths[0].split('-')[1] || '1';
@@ -510,6 +526,7 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
                 }
               }}
             >
+              <option value="0">所有年分</option>
               {years.map((year) => (
                 <option key={year} value={year}>
                   {year}年

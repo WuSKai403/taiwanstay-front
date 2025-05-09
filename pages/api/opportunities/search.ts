@@ -11,6 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 從查詢參數中獲取搜尋條件
     const {
       q,                  // 關鍵詞搜尋
+      search,             // 另一個關鍵詞搜尋參數名 (前端使用)
       type,               // 機會類型
       region,             // 地區
       city,               // 城市
@@ -37,17 +38,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } = req.query;
 
     // 構建查詢條件
-    const query: any = {};
+    let query: any = {};
 
     // 默認只搜尋活躍的機會
     query.status = status;
 
     // 關鍵詞搜尋（標題、描述、簡短描述）
-    if (q) {
+    const searchTerm = q || search;
+    if (searchTerm) {
+      // 根據優先級分配不同的匹配條件
+      // 標題和類型匹配是最高優先級
+      const titleMatch = { title: { $regex: searchTerm, $options: 'i' } };
+      const typeMatch = { type: { $regex: searchTerm, $options: 'i' } };
+      const descMatch = { description: { $regex: searchTerm, $options: 'i' } };
+      const shortDescMatch = { shortDescription: { $regex: searchTerm, $options: 'i' } };
+      const cityMatch = { 'location.city': { $regex: searchTerm, $options: 'i' } };
+      const regionMatch = { 'location.region': { $regex: searchTerm, $options: 'i' } };
+
+      // 設置搜尋條件
       query.$or = [
-        { title: { $regex: q, $options: 'i' } },
-        { description: { $regex: q, $options: 'i' } },
-        { shortDescription: { $regex: q, $options: 'i' } }
+        titleMatch, typeMatch, descMatch, shortDescMatch, cityMatch, regionMatch
       ];
     }
 
@@ -206,7 +216,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 排序方式
     let sortOption: any = {};
-    if (sort === 'newest') {
+
+    // 如果有搜尋關鍵字，先做一次檢索獲取相關性最高的結果
+    if (searchTerm && (sort === 'newest' || sort === 'oldest' || !sort)) {
+      // 當有搜尋關鍵字時，我們需要先檢查標題中包含關鍵字的，優先展示
+      const titleMatchResults = await Opportunity.find({
+        ...query,
+        title: { $regex: searchTerm, $options: 'i' }
+      }).select('_id');
+
+      // 如果有標題匹配的結果，我們需要將它們排在前面
+      if (titleMatchResults.length > 0) {
+        const titleMatchIds = titleMatchResults.map(result => result._id);
+
+        // 重建查詢，將標題匹配的排在前面
+        query = {
+          $or: [
+            // 標題匹配的結果
+            { _id: { $in: titleMatchIds } },
+            // 其他匹配的結果
+            { ...query, _id: { $nin: titleMatchIds } }
+          ]
+        };
+
+        // 保持原本的時間排序作為第二層排序
+        if (sort === 'oldest') {
+          sortOption = { createdAt: 1 };
+        } else {
+          sortOption = { createdAt: -1 }; // 預設或 newest
+        }
+      } else {
+        // 沒有標題匹配的結果，使用普通排序
+        if (sort === 'oldest') {
+          sortOption = { createdAt: 1 };
+        } else {
+          sortOption = { createdAt: -1 }; // 預設或 newest
+        }
+      }
+    } else if (sort === 'newest') {
       sortOption = { createdAt: -1 };
     } else if (sort === 'oldest') {
       sortOption = { createdAt: 1 };
@@ -214,6 +261,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       sortOption = { 'stats.views': -1 };
     } else if (sort === 'rating') {
       sortOption = { 'ratings.overall': -1 };
+    } else {
+      // 默認排序
+      sortOption = { createdAt: -1 };
     }
 
     // 查詢工作機會列表

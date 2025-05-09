@@ -410,13 +410,17 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
                     {organization.opportunities.map((opportunity) => (
                       <div key={opportunity.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-200">
                         <div className="relative h-48">
-                          {opportunity.media.coverImage && (
+                          {opportunity.media.coverImage ? (
                             <Image
                               src={opportunity.media.coverImage}
                               alt={opportunity.title}
                               fill
                               style={{ objectFit: 'cover' }}
                             />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                              <span className="text-gray-400">無圖片</span>
+                            </div>
                           )}
                         </div>
 

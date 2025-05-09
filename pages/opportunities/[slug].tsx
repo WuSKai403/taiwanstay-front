@@ -464,11 +464,19 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
               {/* 封面圖片 */}
               <div className="bg-white shadow-sm rounded-lg overflow-hidden mb-8">
                 <div className="relative h-96">
+                  {opportunity.media?.coverImage?.url || opportunity.media?.images?.[0]?.url ? (
                   <img
-                    src={opportunity.media?.coverImage?.url || opportunity.media?.coverImage?.secureUrl || '/placeholder-image.jpg'}
+                      src={opportunity.media?.coverImage?.url || opportunity.media?.coverImage?.secureUrl ||
+                          opportunity.media?.images?.[0]?.url || opportunity.media?.images?.[0]?.secureUrl ||
+                          '/placeholder-image.jpg'}
                       alt={opportunity.title}
                     className="h-72 w-full object-cover rounded-t-lg"
                     />
+                  ) : (
+                    <div className="h-72 w-full flex items-center justify-center bg-gray-100 rounded-t-lg">
+                      <span className="text-gray-400">無圖片</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-6">

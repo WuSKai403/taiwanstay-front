@@ -103,11 +103,11 @@ export default function HostRegister() {
               </div>
             </div>
           ));
-          router.replace('/hosts/dashboard');
+          router.replace(`/hosts/${session?.user?.hostId}/dashboard`);
           break;
         case HostStatus.ACTIVE:
           toast.success('您已經是註冊主人');
-          router.replace('/hosts/dashboard');
+          router.replace(`/hosts/${session?.user?.hostId}/dashboard`);
           break;
         case HostStatus.EDITING:
           // 重新申請中，允許進入編輯流程，不進行跳轉
@@ -115,16 +115,16 @@ export default function HostRegister() {
           break; // 不跳轉，允許進入編輯流程
         case HostStatus.REJECTED:
           toast.error('您的主人申請已被拒絕，請聯繫客服瞭解詳情');
-          router.replace('/hosts/dashboard');
+          router.replace(`/hosts/${session?.user?.hostId}/dashboard`);
           break;
         case HostStatus.INACTIVE:
         case HostStatus.SUSPENDED:
           toast.error('您的主人帳號已被暫停');
-          router.replace('/hosts/dashboard');
+          router.replace(`/hosts/${session?.user?.hostId}/dashboard`);
           break;
         default:
           // 未知狀態，重定向到主人儀表板頁面讓其處理
-          router.replace('/hosts/dashboard');
+          router.replace(`/hosts/${session?.user?.hostId}/dashboard`);
       }
     }
   }, [isLoading, hasHostId, hostStatus, router]);
