@@ -82,7 +82,7 @@ const convertOpportunitiesToMarkers = (opportunities: TransformedOpportunity[] =
 
 interface MapComponentProps {
   opportunities: TransformedOpportunity[];
-  isLoading: boolean;
+  isLoading?: boolean;
   position?: [number, number];
   zoom?: number;
   height?: string | number;
@@ -92,11 +92,12 @@ interface MapComponentProps {
   showFullscreenControl?: boolean;
   showLocationControl?: boolean;
   highlightedMarkerId?: string;
+  readOnly?: boolean;
 }
 
 const MapComponent: React.FC<MapComponentProps> = ({
   opportunities,
-  isLoading,
+  isLoading = false,
   position = TAIWAN_CENTER,
   zoom = DEFAULT_ZOOM,
   height = '100%',
@@ -105,7 +106,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
   showZoomControl = true,
   showFullscreenControl = false,
   showLocationControl = false,
-  highlightedMarkerId
+  highlightedMarkerId,
+  readOnly = false
 }) => {
   // 組件 ID
   const componentIdRef = useRef(`map-${Math.random().toString(36).substr(2, 9)}`);
@@ -117,7 +119,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
     showZoomControl,
     showFullscreenControl,
     showLocationControl,
-  }), [position, zoom, showZoomControl, showFullscreenControl, showLocationControl]);
+    readOnly,
+  }), [position, zoom, showZoomControl, showFullscreenControl, showLocationControl, readOnly]);
 
   // 初始化地圖
   const { mapRef, mapInstance, isMapReady } = useLeafletMap(mapOptions);

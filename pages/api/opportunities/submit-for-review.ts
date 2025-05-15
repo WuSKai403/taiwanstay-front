@@ -60,6 +60,8 @@ const opportunitySubmitSchema = z.object({
     endDate: z.string().min(1, { message: '請選擇結束日期' }),
     defaultCapacity: z.number().min(1, { message: '容量至少為1人' }),
     minimumStay: z.number().min(1, { message: '最短停留時間至少為1天' }),
+    workDaysPerWeek: z.number().min(1, { message: '每週工作天數至少為1天' }).max(7, { message: '每週工作天數最多為7天' }),
+    workHoursPerDay: z.number().min(1, { message: '每日工作時數至少為1小時' }),
     description: z.string().optional(),
   })).optional(),
 });
@@ -176,6 +178,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             endDate: slot.endDate,
             defaultCapacity: slot.defaultCapacity,
             minimumStay: slot.minimumStay,
+            workDaysPerWeek: slot.workDaysPerWeek,
+            workHoursPerDay: slot.workHoursPerDay,
             hasDescription: Boolean(slot.description)
           });
         });
@@ -280,10 +284,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
     console.log('生成的slug:', slug);
 
-    // 刪除舊的 workTimeSettings (如果存在)
-    if (processedOpportunityData.workTimeSettings) {
-      console.log('移除舊的 workTimeSettings 欄位，將使用 timeSlots 代替');
-      delete processedOpportunityData.workTimeSettings;
+    // 處理日期格式 - 將 YYYY-MM-DD 轉換為 YYYY-MM
+    if (processedOpportunityData.timeSlots && Array.isArray(processedOpportunityData.timeSlots)) {
+      processedOpportunityData.timeSlots = processedOpportunityData.timeSlots.map((slot: any) => {
+        // 確保日期格式正確
+        if (slot.startDate && typeof slot.startDate === 'string') {
+          // 保持原始格式，不再轉換為 YYYY-MM
+          console.log(`處理時間段開始日期: ${slot.startDate}`);
+        }
+
+        if (slot.endDate && typeof slot.endDate === 'string') {
+          // 保持原始格式，不再轉換為 YYYY-MM
+          console.log(`處理時間段結束日期: ${slot.endDate}`);
+        }
+
+        return slot;
+      });
+    }
+
+    // 確保地理位置座標格式正確
+    if (processedOpportunityData.location && processedOpportunityData.location.coordinates) {
+      console.log('處理地理位置座標...');
+      // 檢查座標格式
+      if (processedOpportunityData.location.coordinates.type === 'Point' &&
+          !Array.isArray(processedOpportunityData.location.coordinates.coordinates)) {
+        // 如果有原始座標值但格式不正確，嘗試修復
+        if (processedOpportunityData.location.coordinates.lat && processedOpportunityData.location.coordinates.lng) {
+          console.log(`修正座標格式: [${processedOpportunityData.location.coordinates.lng}, ${processedOpportunityData.location.coordinates.lat}]`);
+          processedOpportunityData.location.coordinates = {
+            type: 'Point',
+            coordinates: [
+              parseFloat(processedOpportunityData.location.coordinates.lng),
+              parseFloat(processedOpportunityData.location.coordinates.lat)
+            ]
+          };
+        } else {
+          // 如果沒有座標值，設置一個默認值或移除座標
+          console.log('座標資料不完整，移除座標欄位');
+          delete processedOpportunityData.location.coordinates;
+        }
+      } else if (Array.isArray(processedOpportunityData.location.coordinates) && processedOpportunityData.location.coordinates.length === 2) {
+        // 如果座標是數組但沒有 type 字段，添加 type
+        console.log(`座標是數組格式，添加 type: 'Point'`);
+        processedOpportunityData.location.coordinates = {
+          type: 'Point',
+          coordinates: processedOpportunityData.location.coordinates
+        };
+      }
     }
 
     const opportunity = new Opportunity({

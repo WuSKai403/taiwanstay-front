@@ -8,6 +8,7 @@ interface UseLeafletMapOptions {
   showZoomControl?: boolean;
   showFullscreenControl?: boolean;
   showLocationControl?: boolean;
+  readOnly?: boolean;
 }
 
 export const useLeafletMap = ({
@@ -16,6 +17,7 @@ export const useLeafletMap = ({
   showZoomControl = true,
   showFullscreenControl = false,
   showLocationControl = false,
+  readOnly = false,
 }: UseLeafletMapOptions = {}) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<LeafletMap | null>(null);
@@ -40,6 +42,11 @@ export const useLeafletMap = ({
         maxZoom: MAX_ZOOM,
         minZoom: MIN_ZOOM,
         attributionControl: true,
+        dragging: !readOnly,
+        touchZoom: !readOnly,
+        scrollWheelZoom: !readOnly,
+        doubleClickZoom: !readOnly,
+        boxZoom: !readOnly,
       });
 
       // 添加圖層
@@ -49,7 +56,7 @@ export const useLeafletMap = ({
       }).addTo(map);
 
       // 添加全屏控制項
-      if (showFullscreenControl && (L as any).control.fullscreen) {
+      if (!readOnly && showFullscreenControl && (L as any).control.fullscreen) {
         (L as any).control.fullscreen({
           position: 'topleft',
           title: '全屏顯示',
@@ -59,7 +66,7 @@ export const useLeafletMap = ({
       }
 
       // 添加定位控制項
-      if (showLocationControl && (L as any).control.locate) {
+      if (!readOnly && showLocationControl && (L as any).control.locate) {
         (L as any).control.locate({
           position: 'topleft',
           strings: {
@@ -89,7 +96,7 @@ export const useLeafletMap = ({
       console.error('初始化地圖時發生錯誤:', error);
       mapInitializedRef.current = false;
     }
-  }, [center, zoom, showZoomControl, showFullscreenControl, showLocationControl]);
+  }, [center, zoom, showZoomControl, showFullscreenControl, showLocationControl, readOnly]);
 
   return {
     mapRef,

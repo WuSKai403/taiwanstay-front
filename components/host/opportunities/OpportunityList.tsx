@@ -8,30 +8,7 @@ import {
   statusDescriptions,
   getStatusUpdateMessage
 } from '@/lib/hooks/useOpportunities';
-
-// 機會狀態標籤顏色映射
-const statusColors = {
-  [OpportunityStatus.DRAFT]: 'bg-gray-200 text-gray-800',
-  [OpportunityStatus.PENDING]: 'bg-blue-100 text-blue-800',
-  [OpportunityStatus.ACTIVE]: 'bg-green-100 text-green-800',
-  [OpportunityStatus.PAUSED]: 'bg-yellow-100 text-yellow-800',
-  [OpportunityStatus.EXPIRED]: 'bg-gray-100 text-gray-600',
-  [OpportunityStatus.FILLED]: 'bg-purple-100 text-purple-800',
-  [OpportunityStatus.REJECTED]: 'bg-orange-100 text-orange-800',
-  [OpportunityStatus.ARCHIVED]: 'bg-red-100 text-red-800',
-};
-
-// 機會狀態顯示名稱
-const statusLabels = {
-  [OpportunityStatus.DRAFT]: '草稿',
-  [OpportunityStatus.PENDING]: '待審核',
-  [OpportunityStatus.ACTIVE]: '已上架',
-  [OpportunityStatus.PAUSED]: '已暫停',
-  [OpportunityStatus.EXPIRED]: '已過期',
-  [OpportunityStatus.FILLED]: '已滿額',
-  [OpportunityStatus.REJECTED]: '已拒絕',
-  [OpportunityStatus.ARCHIVED]: '已下架',
-};
+import { statusColorMap, statusLabelMap } from '@/components/opportunity/constants';
 
 interface Opportunity {
   _id: string;
@@ -56,6 +33,7 @@ interface Opportunity {
 interface OpportunityListProps {
   opportunities: Opportunity[];
   onEdit: (id: string) => void;
+  onView: (id: string) => void;
   onViewApplications: (id: string) => void;
   onUpdateStatus: (id: string, status: OpportunityStatus, currentStatus: OpportunityStatus) => Promise<any>;
   isUpdating?: boolean;
@@ -64,6 +42,7 @@ interface OpportunityListProps {
 const OpportunityList: React.FC<OpportunityListProps> = ({
   opportunities,
   onEdit,
+  onView,
   onViewApplications,
   onUpdateStatus,
   isUpdating = false,
@@ -96,7 +75,7 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
       case OpportunityStatus.ARCHIVED:
         return '下架機會';
       default:
-        return `變更為${statusLabels[newStatus]}`;
+        return `變更為${statusLabelMap[newStatus]}`;
     }
   };
 
@@ -150,10 +129,18 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
         return '繼續編輯';
       case OpportunityStatus.REJECTED:
         return '查看原因並編輯';
-      case OpportunityStatus.PENDING:
-        return '查看詳情';
       default:
-        return '查看詳情';
+        return '編輯';
+    }
+  };
+
+  // 處理按鈕點擊
+  const handleButtonClick = (opportunity: Opportunity) => {
+    const status = opportunity.status;
+    if (status === OpportunityStatus.DRAFT || status === OpportunityStatus.REJECTED) {
+      onEdit(opportunity._id);
+    } else {
+      onView(opportunity._id);
     }
   };
 
@@ -184,10 +171,10 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
                 <div className="group relative">
                   <span
                     className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      statusColors[opportunity.status]
+                      statusColorMap[opportunity.status]
                     } cursor-help`}
                   >
-                    {statusLabels[opportunity.status]}
+                    {statusLabelMap[opportunity.status]}
                   </span>
                   <div className="absolute z-20 right-0 mt-1 w-64 hidden group-hover:block">
                     <div className="bg-gray-800 text-white text-xs rounded-md p-2">
@@ -222,10 +209,10 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
               {/* 操作按鈕 */}
               <div className="flex flex-wrap gap-2 mt-4">
                 <button
-                  onClick={() => onEdit(opportunity._id)}
+                  onClick={() => handleButtonClick(opportunity)}
                   className="px-3 py-1.5 bg-gray-100 text-gray-800 text-sm rounded-md hover:bg-gray-200 transition-colors"
                 >
-                  {getEditButtonText(opportunity.status)}
+                  {opportunity.status === OpportunityStatus.PENDING ? '查看詳情' : getEditButtonText(opportunity.status)}
                 </button>
 
                 {opportunity.stats?.applications ? (

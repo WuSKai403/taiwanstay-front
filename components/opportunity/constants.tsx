@@ -1,4 +1,5 @@
 import { OpportunityType } from '@/models/enums';
+import { OpportunityStatus } from '@/models/enums';
 
 // 機會類型標籤顏色映射
 export const typeColorMap = {
@@ -48,6 +49,30 @@ export const typeNameMap = {
   [OpportunityType.OTHER]: '其他機會'
 };
 
+// 機會狀態標籤顏色映射
+export const statusColorMap = {
+  [OpportunityStatus.DRAFT]: 'bg-gray-200 text-gray-800',
+  [OpportunityStatus.PENDING]: 'bg-blue-100 text-blue-800',
+  [OpportunityStatus.ACTIVE]: 'bg-green-100 text-green-800',
+  [OpportunityStatus.PAUSED]: 'bg-yellow-100 text-yellow-800',
+  [OpportunityStatus.EXPIRED]: 'bg-gray-100 text-gray-600',
+  [OpportunityStatus.FILLED]: 'bg-purple-100 text-purple-800',
+  [OpportunityStatus.REJECTED]: 'bg-orange-100 text-orange-800',
+  [OpportunityStatus.ARCHIVED]: 'bg-red-100 text-red-800',
+};
+
+// 機會狀態顯示名稱
+export const statusLabelMap = {
+  [OpportunityStatus.DRAFT]: '草稿',
+  [OpportunityStatus.PENDING]: '待審核',
+  [OpportunityStatus.ACTIVE]: '已上架',
+  [OpportunityStatus.PAUSED]: '已暫停',
+  [OpportunityStatus.EXPIRED]: '已過期',
+  [OpportunityStatus.FILLED]: '已滿額',
+  [OpportunityStatus.REJECTED]: '已拒絕',
+  [OpportunityStatus.ARCHIVED]: '已下架',
+};
+
 // TimeSlot 介面定義
 export interface TimeSlot {
   id: string;
@@ -59,6 +84,8 @@ export interface TimeSlot {
   confirmedCount: number;
   status: string;
   description?: string;
+  workDaysPerWeek?: number;
+  workHoursPerDay?: number;
 }
 
 // 定義機會詳情接口
@@ -122,10 +149,8 @@ export interface OpportunityDetail {
     otherRequirements?: string[];
   };
   media: {
-    images?: Array<{
-      url: string;
-      alt?: string;
-    }>;
+    coverImage?: string;
+    images?: string[];
   };
   host: {
     id: string;
@@ -156,6 +181,8 @@ export interface OpportunityDetail {
   timeSlots?: TimeSlot[];
   createdAt?: string;
   updatedAt?: string;
+  publishedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface OpportunityDetailProps {

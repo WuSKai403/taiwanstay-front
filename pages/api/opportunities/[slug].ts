@@ -2,9 +2,55 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/lib/dbConnect';
 import { Opportunity, Host, Application } from '../../../models/index';
 import { isValidObjectId } from '../../../utils/helpers';
-import { ITimeSlot } from '@/models/Opportunity';
+import { IOpportunity, ITimeSlot } from '@/models/Opportunity';
 import { requireAuth, requireOpportunityAccess } from '@/lib/middleware/authMiddleware';
-import { OpportunityStatus } from '@/models/enums';
+import { OpportunityStatus, TimeSlotStatus } from '@/models/enums';
+
+// 定義 API 響應中使用的機會類型
+interface OpportunityResponse {
+  _id: string;
+  hostId: {
+    _id: string;
+    name: string;
+    description?: string;
+    profileImage?: string;
+    responseRate?: number;
+    responseTime?: string;
+    verificationStatus?: string;
+    createdAt: Date;
+    socialMedia?: any;
+  };
+  title: string;
+  slug: string;
+  publicId: string;
+  description: string;
+  shortDescription: string;
+  type: string;
+  status: string;
+  location?: {
+    city?: string;
+    district?: string;
+    country?: string;
+    address?: string;
+    coordinates?: {
+      type: string;
+      coordinates: number[];
+    };
+  };
+  workDetails?: any;
+  benefits?: any;
+  requirements?: any;
+  media?: any;
+  stats?: {
+    views?: number;
+    applications?: number;
+    bookmarks?: number;
+  };
+  hasTimeSlots?: boolean;
+  timeSlots?: any[];
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 // 獲取機會的處理函數
 async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
@@ -18,14 +64,14 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // 嘗試查詢機會
-    let opportunity;
+    let opportunity: OpportunityResponse | null = null;
 
     // 檢查 slug 是否包含 ID 部分
     const idPart = (slug as string).split('-')[0];
 
     // 如果 ID 部分是有效的 MongoDB ObjectId，則使用 _id 查詢
     if (isValidObjectId(idPart)) {
-      opportunity = await Opportunity.findById(idPart).populate('hostId').lean();
+      opportunity = await Opportunity.findById(idPart).populate('hostId').lean() as unknown as OpportunityResponse;
     }
 
     // 如果找不到，嘗試使用 publicId 查詢
@@ -35,7 +81,7 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
           { publicId: idPart },
           { slug: slug }
         ]
-      }).populate('hostId').lean();
+      }).populate('hostId').lean() as unknown as OpportunityResponse;
     }
 
     // 如果仍然找不到對應的機會，返回 404
@@ -48,9 +94,6 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
       { _id: opportunity._id },
       { $inc: { 'stats.views': 1 } }
     ).exec();
-
-    // 應用轉換邏輯 - 將 workTimeSettings 轉換為 timeSlots
-    opportunity = convertToTimeSlots(opportunity);
 
     // 格式化響應數據
     const coordinates = opportunity.location?.coordinates?.coordinates;
@@ -74,7 +117,6 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
         } : undefined
       },
       workDetails: opportunity.workDetails,
-      workTimeSettings: opportunity.workTimeSettings,
       benefits: opportunity.benefits,
       requirements: opportunity.requirements,
       media: opportunity.media,
@@ -101,6 +143,8 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
         endDate: slot.endDate,
         defaultCapacity: slot.defaultCapacity,
         minimumStay: slot.minimumStay,
+        workDaysPerWeek: slot.workDaysPerWeek || 5,
+        workHoursPerDay: slot.workHoursPerDay || 6,
         appliedCount: slot.appliedCount || 0,
         confirmedCount: slot.confirmedCount || 0,
         status: slot.status,

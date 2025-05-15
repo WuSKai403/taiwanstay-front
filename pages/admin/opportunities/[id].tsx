@@ -4,11 +4,13 @@ import { GetServerSideProps } from 'next';
 import { getSession } from 'next-auth/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { OpportunityStatus } from '@/models/enums';
+import { OpportunityStatus, OpportunityType } from '@/models/enums';
 import { UserRole } from '@/models/enums/UserRole';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import Image from 'next/image';
 import Link from 'next/link';
+import AuthGuard from '@/components/auth/AuthGuard';
+import { statusColorMap, statusLabelMap, typeNameMap } from '@/components/opportunity/constants';
 
 // 定義機會詳情類型
 interface OpportunityDetail {
@@ -61,55 +63,8 @@ interface OpportunityDetail {
     bookmarks?: number;
   };
   rejectionReason?: string;
+  type?: OpportunityType;
 }
-
-// 機會狀態標籤顏色映射
-const statusColors = {
-  [OpportunityStatus.DRAFT]: 'bg-gray-200 text-gray-800',
-  [OpportunityStatus.PENDING]: 'bg-blue-100 text-blue-800',
-  [OpportunityStatus.ACTIVE]: 'bg-green-100 text-green-800',
-  [OpportunityStatus.PAUSED]: 'bg-yellow-100 text-yellow-800',
-  [OpportunityStatus.EXPIRED]: 'bg-gray-100 text-gray-600',
-  [OpportunityStatus.FILLED]: 'bg-purple-100 text-purple-800',
-  [OpportunityStatus.REJECTED]: 'bg-orange-100 text-orange-800',
-  [OpportunityStatus.ARCHIVED]: 'bg-red-100 text-red-800',
-};
-
-// 機會狀態顯示名稱
-const statusLabels = {
-  [OpportunityStatus.DRAFT]: '草稿',
-  [OpportunityStatus.PENDING]: '待審核',
-  [OpportunityStatus.ACTIVE]: '已上架',
-  [OpportunityStatus.PAUSED]: '已暫停',
-  [OpportunityStatus.EXPIRED]: '已過期',
-  [OpportunityStatus.FILLED]: '已滿額',
-  [OpportunityStatus.REJECTED]: '已拒絕',
-  [OpportunityStatus.ARCHIVED]: '已下架',
-};
-
-// 工作機會類型中文名稱映射
-const opportunityTypeLabels = {
-  'FARMING': '農場體驗',
-  'GARDENING': '園藝工作',
-  'ANIMAL_CARE': '動物照顧',
-  'CONSTRUCTION': '建築工作',
-  'HOSPITALITY': '接待服務',
-  'COOKING': '烹飪工作',
-  'CLEANING': '清潔工作',
-  'CHILDCARE': '兒童照顧',
-  'ELDERLY_CARE': '老人照顧',
-  'TEACHING': '教學工作',
-  'LANGUAGE_EXCHANGE': '語言交流',
-  'CREATIVE': '創意工作',
-  'DIGITAL_NOMAD': '數位遊牧',
-  'ADMINISTRATION': '行政工作',
-  'MAINTENANCE': '維修工作',
-  'TOURISM': '旅遊工作',
-  'CONSERVATION': '保育工作',
-  'COMMUNITY': '社區工作',
-  'EVENT': '活動工作',
-  'OTHER': '其他機會',
-};
 
 // 獲取機會詳情
 async function fetchOpportunityDetail(id: string) {
@@ -266,9 +221,9 @@ const OpportunityDetailPage = () => {
             <h1 className="text-2xl font-bold">{opportunity.title}</h1>
 
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              statusColors[opportunity.status as OpportunityStatus] || 'bg-gray-100 text-gray-800'
+              statusColorMap[opportunity.status as OpportunityStatus] || 'bg-gray-100 text-gray-800'
             }`}>
-              {statusLabels[opportunity.status as OpportunityStatus] || opportunity.status}
+              {statusLabelMap[opportunity.status as OpportunityStatus] || opportunity.status}
             </span>
           </div>
 
@@ -371,24 +326,46 @@ const OpportunityDetailPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-gray-600"><span className="font-medium">機會 ID:</span> {opportunity._id}</p>
-                <p className="text-gray-600"><span className="font-medium">狀態:</span> {statusLabels[opportunity.status as OpportunityStatus]}</p>
+                <p className="text-gray-600"><span className="font-medium">狀態:</span> {statusLabelMap[opportunity.status as OpportunityStatus]}</p>
                 <p className="text-gray-600"><span className="font-medium">創建時間:</span> {formatDate(opportunity.createdAt)}</p>
                 {opportunity.publishedAt && (
                   <p className="text-gray-600"><span className="font-medium">發布時間:</span> {formatDate(opportunity.publishedAt)}</p>
                 )}
-              </div>
-
-              <div>
-                <p className="text-gray-600"><span className="font-medium">查看次數:</span> {opportunity.stats?.views || 0}</p>
+                <p className="text-gray-600"><span className="font-medium">瀏覽次數:</span> {opportunity.stats?.views || 0}</p>
                 <p className="text-gray-600"><span className="font-medium">申請數量:</span> {opportunity.stats?.applications || 0}</p>
                 <p className="text-gray-600"><span className="font-medium">收藏數量:</span> {opportunity.stats?.bookmarks || 0}</p>
                 <p className="text-gray-600">
-                  <span className="font-medium">類型:</span> {
-                    opportunityTypeLabels[opportunity.workDetails?.type as keyof typeof opportunityTypeLabels] ||
-                    opportunity.workDetails?.type ||
-                    '未指定'
-                  }
+                  <span className="font-medium">機會類型：</span> {opportunity.type ? typeNameMap[opportunity.type as OpportunityType] || opportunity.type : '未指定'}
                 </p>
+              </div>
+
+              <div>
+                {opportunity.hostId && (
+                  <div>
+                    <p className="text-gray-600"><span className="font-medium">主辦方:</span> {opportunity.hostId.name}</p>
+                    <p className="text-gray-600"><span className="font-medium">ID:</span> {opportunity.hostId._id}</p>
+                    {opportunity.hostId.contactEmail && (
+                      <p className="text-gray-600"><span className="font-medium">聯絡信箱:</span> {opportunity.hostId.contactEmail}</p>
+                    )}
+                    {opportunity.hostId.contactPhone && (
+                      <p className="text-gray-600"><span className="font-medium">聯絡電話:</span> {opportunity.hostId.contactPhone}</p>
+                    )}
+                    {opportunity.hostId.description && (
+                      <div className="mt-2">
+                        <p className="font-medium text-gray-600">主辦方簡介:</p>
+                        <p className="text-gray-600 whitespace-pre-line">{opportunity.hostId.description}</p>
+                      </div>
+                    )}
+                    <div className="mt-2">
+                      <Link
+                        href={`/admin/hosts/${opportunity.hostId._id}`}
+                        className="text-blue-600 hover:underline"
+                      >
+                        查看主辦方詳情
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -399,37 +376,6 @@ const OpportunityDetailPage = () => {
               </div>
             )}
           </div>
-
-          {/* 主辦方信息 */}
-          {opportunity.hostId && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 pb-2 border-b">主辦方信息</h2>
-              <div>
-                <p className="text-gray-600"><span className="font-medium">名稱:</span> {opportunity.hostId.name}</p>
-                <p className="text-gray-600"><span className="font-medium">ID:</span> {opportunity.hostId._id}</p>
-                {opportunity.hostId.contactEmail && (
-                  <p className="text-gray-600"><span className="font-medium">聯絡信箱:</span> {opportunity.hostId.contactEmail}</p>
-                )}
-                {opportunity.hostId.contactPhone && (
-                  <p className="text-gray-600"><span className="font-medium">聯絡電話:</span> {opportunity.hostId.contactPhone}</p>
-                )}
-                {opportunity.hostId.description && (
-                  <div className="mt-2">
-                    <p className="font-medium text-gray-600">主辦方簡介:</p>
-                    <p className="text-gray-600 whitespace-pre-line">{opportunity.hostId.description}</p>
-                  </div>
-                )}
-                <div className="mt-2">
-                  <Link
-                    href={`/admin/hosts/${opportunity.hostId._id}`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    查看主辦方詳情
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* 機會描述 */}
           <div className="mb-8">

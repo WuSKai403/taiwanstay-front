@@ -3,6 +3,7 @@ import { getSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
+import { parseISO, format } from 'date-fns';
 
 import AdminLayout from '@/components/layout/AdminLayout';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
@@ -11,6 +12,7 @@ import Pagination from '@/components/common/Pagination';
 import FilterBar from '@/components/host/opportunities/FilterBar';
 import { OpportunityStatus } from '@/models/enums';
 import { UserRole } from '@/models/enums/UserRole';
+import { statusColorMap, statusLabelMap } from '@/components/opportunity/constants';
 
 // 定義機會類型
 interface Opportunity {
@@ -86,30 +88,6 @@ interface OpportunitiesListProps {
   onUpdateStatus: (id: string, newStatus: OpportunityStatus, currentStatus: OpportunityStatus) => Promise<void>;
 }
 
-// 機會狀態標籤顏色映射
-const statusColors = {
-  [OpportunityStatus.DRAFT]: 'bg-gray-200 text-gray-800',
-  [OpportunityStatus.PENDING]: 'bg-blue-100 text-blue-800',
-  [OpportunityStatus.ACTIVE]: 'bg-green-100 text-green-800',
-  [OpportunityStatus.PAUSED]: 'bg-yellow-100 text-yellow-800',
-  [OpportunityStatus.EXPIRED]: 'bg-gray-100 text-gray-600',
-  [OpportunityStatus.FILLED]: 'bg-purple-100 text-purple-800',
-  [OpportunityStatus.REJECTED]: 'bg-orange-100 text-orange-800',
-  [OpportunityStatus.ARCHIVED]: 'bg-red-100 text-red-800',
-};
-
-// 機會狀態顯示名稱
-const statusLabels = {
-  [OpportunityStatus.DRAFT]: '草稿',
-  [OpportunityStatus.PENDING]: '待審核',
-  [OpportunityStatus.ACTIVE]: '已上架',
-  [OpportunityStatus.PAUSED]: '已暫停',
-  [OpportunityStatus.EXPIRED]: '已過期',
-  [OpportunityStatus.FILLED]: '已滿額',
-  [OpportunityStatus.REJECTED]: '已拒絕',
-  [OpportunityStatus.ARCHIVED]: '已下架',
-};
-
 // 機會列表組件
 const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
   opportunities,
@@ -118,6 +96,14 @@ const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
   onDelete,
   onUpdateStatus
 }) => {
+  const renderStatusBadge = (status: OpportunityStatus) => {
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColorMap[status]}`}>
+        {statusLabelMap[status]}
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {opportunities.map((opportunity) => (
@@ -130,11 +116,7 @@ const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
               <h3 className="text-lg font-medium text-gray-900 mb-1">
                 {opportunity.title}
               </h3>
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                statusColors[opportunity.status as OpportunityStatus] || 'bg-gray-100 text-gray-800'
-              }`}>
-                {statusLabels[opportunity.status as OpportunityStatus] || opportunity.status}
-              </span>
+              {renderStatusBadge(opportunity.status)}
             </div>
 
             <p className="text-gray-600 text-sm mb-2 line-clamp-2">

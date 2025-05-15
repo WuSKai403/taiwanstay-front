@@ -112,6 +112,8 @@ export const opportunitySchema = z.object({
     endDate: z.string().min(1, "請選擇結束日期"),
     defaultCapacity: z.number().min(1, "容量至少為1人").optional(),
     minimumStay: z.number().min(1, "最短停留時間至少為1天").optional(),
+    workDaysPerWeek: z.number().min(1, "每週工作天數至少為1天").max(7, "每週工作天數最多為7天").optional(),
+    workHoursPerDay: z.number().min(1, "每日工作時數至少為1小時").optional(),
     appliedCount: z.number().optional(),
     confirmedCount: z.number().optional(),
     status: z.string().optional(),

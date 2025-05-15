@@ -3,6 +3,19 @@ import { Control, useFieldArray } from 'react-hook-form';
 import { OpportunityFormData } from '../OpportunityForm';
 import Button from '@/components/common/Button';
 
+// 擴展 OpportunityFormData 中的 timeSlots 類型定義
+declare module '../OpportunityForm' {
+  interface TimeSlot {
+    startDate: string;
+    endDate: string;
+    defaultCapacity: number;
+    minimumStay: number;
+    workDaysPerWeek: number;
+    workHoursPerDay: number;
+    description?: string;
+  }
+}
+
 interface TimeManagementTabProps {
   control: Control<OpportunityFormData>;
   register: any;
@@ -53,6 +66,8 @@ const TimeManagementTab: React.FC<TimeManagementTabProps> = ({
       endDate: '',
       defaultCapacity: 1,
       minimumStay: 7,
+      workDaysPerWeek: 5, // 默認每週工作5天
+      workHoursPerDay: 6, // 默認每天工作6小時
       description: '',
     });
   };
@@ -156,6 +171,46 @@ const TimeManagementTab: React.FC<TimeManagementTabProps> = ({
                   />
                   {errors.timeSlots?.[index]?.minimumStay && (
                     <p className="mt-1 text-sm text-red-600">{errors.timeSlots[index].minimumStay.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    每週工作天數 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    {...register(`timeSlots.${index}.workDaysPerWeek`, {
+                      valueAsNumber: true,
+                      required: '請輸入每週工作天數',
+                      min: { value: 1, message: '每週工作天數至少為1天' },
+                      max: { value: 7, message: '每週工作天數最多為7天' }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    min={1}
+                    max={7}
+                  />
+                  {errors.timeSlots?.[index]?.workDaysPerWeek && (
+                    <p className="mt-1 text-sm text-red-600">{errors.timeSlots[index].workDaysPerWeek.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    每日工作時數 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    {...register(`timeSlots.${index}.workHoursPerDay`, {
+                      valueAsNumber: true,
+                      required: '請輸入每日工作時數',
+                      min: { value: 1, message: '每日工作時數至少為1小時' }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    min={1}
+                  />
+                  {errors.timeSlots?.[index]?.workHoursPerDay && (
+                    <p className="mt-1 text-sm text-red-600">{errors.timeSlots[index].workHoursPerDay.message}</p>
                   )}
                 </div>
               </div>

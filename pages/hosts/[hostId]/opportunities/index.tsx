@@ -78,6 +78,11 @@ const OpportunitiesPage = ({ hostId }: { hostId: string }) => {
     router.push(`/hosts/${hostId}/opportunities/${opportunityId}`);
   };
 
+  // 處理查看機會詳情
+  const handleView = (opportunityId: string) => {
+    router.push(`/hosts/${hostId}/opportunities/${opportunityId}/view`);
+  };
+
   // 處理查看申請
   const handleViewApplications = (opportunityId: string) => {
     router.push(`/hosts/${hostId}/applications?opportunityId=${opportunityId}`);
@@ -194,6 +199,7 @@ const OpportunitiesPage = ({ hostId }: { hostId: string }) => {
           <OpportunityList
             opportunities={data.opportunities}
             onEdit={handleEdit}
+            onView={handleView}
             onViewApplications={handleViewApplications}
             onUpdateStatus={handleUpdateStatus}
             onDelete={handleDelete}

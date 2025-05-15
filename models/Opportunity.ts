@@ -26,6 +26,8 @@ export interface ITimeSlot {
   endDate: string; // 時段結束年月，格式為 'YYYY-MM'
   defaultCapacity: number; // 默認容量（需求人數）
   minimumStay: number; // 最短停留天數
+  workDaysPerWeek: number; // 每週工作天數
+  workHoursPerDay: number; // 每日工作時數
   appliedCount: number; // 已申請人數
   confirmedCount: number; // 已確認人數
   status: TimeSlotStatus; // 時段狀態
@@ -55,17 +57,6 @@ export interface IOpportunity extends Document {
     physicalDemand: 'low' | 'medium' | 'high';
     languages: string[];
     availableMonths: number[];
-  };
-
-  // 工作時間設置 - 整體時間框架
-  workTimeSettings: {
-    workHoursPerDay: number; // 每日工作時數
-    workDaysPerWeek: number; // 每週工作天數
-    minimumStay: number; // 最短停留天數（以天為單位）
-    maximumStay?: number; // 最長停留天數（以天為單位）
-    startDate?: Date; // 整體開始日期
-    endDate?: Date; // 整體結束日期
-    isOngoing: boolean; // 是否長期有效
   };
 
   // 提供的福利
@@ -212,10 +203,12 @@ const MonthlyCapacitySchema: Schema = new Schema({
 
 // 時段模式定義
 const TimeSlotSchema: Schema = new Schema({
-  startDate: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
-  endDate: { type: String, required: true, match: /^\d{4}-\d{2}$/ }, // 格式為 'YYYY-MM'
+  startDate: { type: String, required: true }, // 修改為接受 YYYY-MM-DD 格式
+  endDate: { type: String, required: true }, // 修改為接受 YYYY-MM-DD 格式
   defaultCapacity: { type: Number, required: true, min: 1 }, // 改名為 defaultCapacity 更清晰
   minimumStay: { type: Number, required: true, min: 1, default: 14 }, // 最短停留天數，默認 14 天
+  workDaysPerWeek: { type: Number, required: true, min: 1, max: 7 }, // 每週工作天數
+  workHoursPerDay: { type: Number, required: true, min: 1 }, // 每日工作時數
   appliedCount: { type: Number, default: 0 },
   confirmedCount: { type: Number, default: 0 },
   status: {
@@ -259,17 +252,6 @@ const OpportunitySchema: Schema = new Schema({
     },
     languages: [{ type: String, required: true }],
     availableMonths: [{ type: Number }]
-  },
-
-  // 工作時間設置 - 整體時間框架
-  workTimeSettings: {
-    workHoursPerDay: { type: Number, required: true }, // 每日工作時數
-    workDaysPerWeek: { type: Number, required: true }, // 每週工作天數
-    minimumStay: { type: Number, required: true }, // 最短停留天數
-    maximumStay: { type: Number }, // 最長停留天數
-    startDate: { type: Date }, // 整體開始日期
-    endDate: { type: Date }, // 整體結束日期
-    isOngoing: { type: Boolean, default: true }, // 是否長期有效
   },
 
   // 提供的福利
@@ -421,9 +403,6 @@ OpportunitySchema.index({ type: 1 });
 OpportunitySchema.index({ 'location.city': 1 });
 OpportunitySchema.index({ 'location.country': 1 });
 OpportunitySchema.index({ 'location.coordinates': '2dsphere' });
-OpportunitySchema.index({ 'workTimeSettings.startDate': 1 });
-OpportunitySchema.index({ 'workTimeSettings.endDate': 1 });
-OpportunitySchema.index({ 'workTimeSettings.isOngoing': 1 });
 OpportunitySchema.index({ 'timeSlots.startDate': 1 });
 OpportunitySchema.index({ 'timeSlots.endDate': 1 });
 OpportunitySchema.index({ 'timeSlots.status': 1 });
@@ -445,7 +424,7 @@ OpportunitySchema.pre('save', function(next) {
   const opportunity = this as unknown as IOpportunity;
 
   if (opportunity.timeSlots && opportunity.timeSlots.length > 0) {
-    opportunity.timeSlots.forEach(slot => {
+    opportunity.timeSlots.forEach((slot: ITimeSlot) => {
       // 如果已申請人數達到默認容量，將狀態設為已滿
       if (slot.appliedCount >= slot.defaultCapacity && slot.status === TimeSlotStatus.OPEN) {
         slot.status = TimeSlotStatus.FILLED;
