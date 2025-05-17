@@ -3,18 +3,36 @@ import dbConnect from '@/lib/dbConnect';
 import Opportunity from '@/models/Opportunity';
 import { OpportunityStatus } from '@/models/enums';
 import { isValidObjectId } from '@/utils/helpers';
-import { requireOpportunityAccess } from '@/lib/middleware/authMiddleware';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { UserRole } from '@/models/enums/UserRole';
+import User from '@/models/User';
 import { isValidStatusTransition } from '@/lib/hooks/useOpportunities';
 
-async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // 只允許 PATCH 方法
   if (req.method !== 'PATCH') {
     return res.status(405).json({ success: false, message: '方法不允許' });
   }
 
   try {
+    // 獲取用戶會話
+    const session = await getServerSession(req, res, authOptions);
+
+    if (!session || !session.user) {
+      return res.status(401).json({ success: false, message: '未授權，請先登入' });
+    }
+
     // 連接數據庫
     await dbConnect();
+
+    // 檢查用戶是否為管理員
+    const user = await User.findById(session.user.id);
+    const isAdmin = user && (user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN);
+
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: '需要管理員權限' });
+    }
 
     const { slug } = req.query;
     const { status } = req.body;
@@ -90,14 +108,3 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     });
   }
 }
-
-// 提取 slug 參數並轉換為 ID
-const extractOpportunityIdFromSlug = (req: NextApiRequest): string => {
-  const { slug } = req.query;
-  if (typeof slug !== 'string') return '';
-
-  const idPart = slug.split('-')[0];
-  return isValidObjectId(idPart) ? idPart : slug;
-};
-
-export default requireOpportunityAccess(extractOpportunityIdFromSlug)(handler);

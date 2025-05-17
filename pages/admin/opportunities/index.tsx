@@ -327,7 +327,7 @@ export async function getServerSideProps(context: any) {
 
   // 檢查訪問權限
   if (!session?.user) {
-    return { redirect: { destination: '/auth/login', permanent: false } };
+    return { redirect: { destination: '/auth/signin', permanent: false } };
   }
 
   // 確保用戶是管理員

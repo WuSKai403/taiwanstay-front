@@ -47,7 +47,7 @@ POST /api/auth/register
 ### 登入
 
 ```
-POST /api/auth/login
+POST /api/auth/signin
 ```
 
 用戶登入並獲取認證令牌。

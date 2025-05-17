@@ -148,6 +148,12 @@ export interface OpportunityDetail {
     };
     otherRequirements?: string[];
   };
+  impact?: {
+    environmentalContribution?: string;
+    socialContribution?: string;
+    culturalExchange?: string;
+    sustainableDevelopmentGoals?: string[];
+  };
   media: {
     coverImage?: string;
     images?: string[];
@@ -171,6 +177,7 @@ export interface OpportunityDetail {
       linkedin?: string;
     };
     contactPhone?: string;
+    contactEmail?: string;
   };
   stats: {
     applications: number;

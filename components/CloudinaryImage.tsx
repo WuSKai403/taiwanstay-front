@@ -6,6 +6,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useQuery } from '@tanstack/react-query';
 import { getCachedImage, cacheImage } from '@/lib/cache/imageCache';
 import { toast } from 'react-hot-toast';
+import Image from 'next/image';
 
 interface CloudinaryImageProps {
   resource: CloudinaryImageResource;
@@ -16,10 +17,21 @@ interface CloudinaryImageProps {
   width?: string | number;
   height?: string | number;
   fallbackText?: string;
+  fallbackImage?: string;
+  imageType?: 'profile' | 'host' | 'cover' | 'opportunity' | 'default';
   isPrivate?: boolean;
   index?: number;
   onError?: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void;
 }
+
+// 預設圖片映射表
+const DEFAULT_IMAGES = {
+  profile: '/images/defaults/profile.jpg',
+  host: '/images/defaults/host.jpg',
+  cover: '/images/defaults/cover.jpg',
+  opportunity: '/images/defaults/opportunity.jpg',
+  default: '/images/defaults/default.jpg'
+};
 
 /**
  * CloudinaryImage 組件
@@ -37,6 +49,8 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
   width,
   height,
   fallbackText = '圖片載入失敗',
+  fallbackImage,
+  imageType = 'default',
   isPrivate = false,
   index,
   onError
@@ -48,10 +62,13 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
   const [loadError, setLoadError] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [loadOriginal, setLoadOriginal] = useState<boolean>(false);
-  const [imageSource, setImageSource] = useState<'cache' | 'network' | 'none'>('none');
+  const [imageSource, setImageSource] = useState<'cache' | 'network' | 'none' | 'fallback'>('none');
   const [imageObjectUrl, setImageObjectUrl] = useState<string | null>(null);
   const [originalObjectUrl, setOriginalObjectUrl] = useState<string | null>(null);
   const [isLoadingHighRes, setIsLoadingHighRes] = useState<boolean>(false);
+
+  // 確定要使用的預設圖片
+  const defaultImageSrc = fallbackImage || DEFAULT_IMAGES[imageType] || DEFAULT_IMAGES.default;
 
   // 定義 localStorage 緩存鍵名
   const localStorageKey = useRef<string>(`cloudinary_${resource?.publicId}_${isPrivate ? 'private' : 'public'}`);
@@ -255,17 +272,23 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
 
       // 非私有資源：直接使用優化的公開URL
       if (!isPrivate) {
-        const optimizedPreviewUrl = getOptimizedImageUrl(
-          resource.previewUrl || resource.secureUrl || '',
-          'preview'
-        );
+        // 檢查 URL 是否為 Cloudinary URL，避免嘗試轉換普通 URL
+        const isCloudinaryUrl = typeof resource.secureUrl === 'string' &&
+                                resource.secureUrl.includes('/upload/');
+
+        const sourceUrl = resource.previewUrl || resource.secureUrl || '';
+        const optimizedPreviewUrl = isCloudinaryUrl
+          ? getOptimizedImageUrl(sourceUrl, 'preview')
+          : sourceUrl;
 
         setImageUrl(optimizedPreviewUrl);
         setIsLoading(false);
         setImageSource('network');
 
-        // 背景緩存圖片
-        cacheImage(resource.publicId, optimizedPreviewUrl, 'preview');
+        // 只對 Cloudinary URL 進行緩存
+        if (isCloudinaryUrl) {
+          cacheImage(resource.publicId, optimizedPreviewUrl, 'preview');
+        }
       }
     };
 
@@ -368,9 +391,11 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
   const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     console.error('圖片載入失敗:', imageUrl);
     setLoadError(true);
+    setImageSource('fallback');
 
-    // 隱藏錯誤的圖片
-    e.currentTarget.style.display = 'none';
+    // 使用預設圖片替代
+    e.currentTarget.src = defaultImageSrc;
+    e.currentTarget.style.display = 'block'; // 確保圖片顯示
 
     // 調用自定義錯誤處理函數
     if (onError) {
@@ -380,7 +405,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
 
   // 打開模態窗
   const openModal = () => {
-    if (!isLoading && !loadError) {
+    if (!isLoading && imageSource !== 'fallback') {
       setIsModalOpen(true);
     }
   };
@@ -410,10 +435,17 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-600"></div>
           </div>
         ) : loadError ? (
-          // 載入錯誤狀態
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-            <span className="text-red-500">{fallbackText}</span>
-          </div>
+          // 載入錯誤狀態 - 顯示預設圖片
+          <img
+            src={defaultImageSrc}
+            alt={alt || fallbackText}
+            className={imageConfig.className}
+            style={{
+              objectFit: imageConfig.style.objectFit as 'cover' | 'contain' | 'fill',
+              width: imageConfig.style.width,
+              height: imageConfig.style.height
+            }}
+          />
         ) : (
           // 圖片載入成功
           <>
@@ -434,7 +466,7 @@ const CloudinaryImage: React.FC<CloudinaryImageProps> = ({
             {/* 圖片來源指示器 - 開發模式下可見 */}
             {process.env.NODE_ENV === 'development' && (
               <div className="absolute bottom-0 right-0 text-xs px-1 rounded bg-black bg-opacity-60 text-white">
-                {imageSource === 'cache' ? '緩存' : '網絡'}
+                {imageSource === 'cache' ? '緩存' : imageSource === 'fallback' ? '預設' : '網絡'}
               </div>
             )}
           </>

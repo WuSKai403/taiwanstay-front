@@ -148,15 +148,6 @@ interface ApiOpportunity {
     maximumStay?: number;
     availableMonths?: number[];
   };
-  workTimeSettings?: {
-    workHoursPerDay?: number;
-    workDaysPerWeek?: number;
-    minimumStay?: number;
-    maximumStay?: number;
-    startDate?: string;
-    endDate?: string;
-    isOngoing?: boolean;
-  };
   benefits?: {
     accommodation?: any;
     meals?: any;

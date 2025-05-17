@@ -13,7 +13,8 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import { UserRole } from '@/models/enums/UserRole';
 import User from '@/models/User';
 import Host from '@/models/Host';
@@ -31,7 +32,7 @@ type MiddlewareFunction = (handler: NextApiHandler) => NextApiHandler;
 export const requireAuth: MiddlewareFunction = (handler) => {
   return async (req: NextApiRequest, res: NextApiResponse) => {
     // 獲取用戶會話
-    const session = await getSession({ req });
+    const session = await getServerSession(req, res, authOptions);
 
     if (!session || !session.user) {
       return res.status(401).json({ success: false, message: '未授權，請先登入' });
@@ -48,7 +49,7 @@ export const requireAuth: MiddlewareFunction = (handler) => {
 export const requireAdmin: MiddlewareFunction = (handler) => {
   return async (req: NextApiRequest, res: NextApiResponse) => {
     // 獲取用戶會話
-    const session = await getSession({ req });
+    const session = await getServerSession(req, res, authOptions);
 
     if (!session || !session.user) {
       return res.status(401).json({ success: false, message: '未授權，請先登入' });
@@ -81,7 +82,7 @@ export const requireHostOwnerOrAdmin = (
   return (handler) => {
     return async (req: NextApiRequest, res: NextApiResponse) => {
       // 獲取用戶會話
-      const session = await getSession({ req });
+      const session = await getServerSession(req, res, authOptions);
 
       if (!session || !session.user) {
         return res.status(401).json({ success: false, message: '未授權，請先登入' });
@@ -133,7 +134,7 @@ export const requireOpportunityAccess = (
   return (handler) => {
     return async (req: NextApiRequest, res: NextApiResponse) => {
       // 獲取用戶會話
-      const session = await getSession({ req });
+      const session = await getServerSession(req, res, authOptions);
 
       if (!session || !session.user) {
         return res.status(401).json({ success: false, message: '未授權，請先登入' });
@@ -335,7 +336,7 @@ export async function checkApplicationAccess(
 export const requireHostAccess: MiddlewareFunction = (handler) => {
   return async (req: NextApiRequest, res: NextApiResponse) => {
     // 獲取用戶會話
-    const session = await getSession({ req });
+    const session = await getServerSession(req, res, authOptions);
 
     if (!session || !session.user) {
       return res.status(401).json({ success: false, message: '未授權，請先登入' });

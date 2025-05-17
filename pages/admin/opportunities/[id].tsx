@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { GetServerSideProps } from 'next';
 import { getSession } from 'next-auth/react';
@@ -9,23 +9,41 @@ import { UserRole } from '@/models/enums/UserRole';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import Image from 'next/image';
 import Link from 'next/link';
-import AuthGuard from '@/components/auth/AuthGuard';
-import { statusColorMap, statusLabelMap, typeNameMap } from '@/components/opportunity/constants';
+import { statusColorMap, statusLabelMap, typeNameMap, OpportunityDetail } from '@/components/opportunity/constants';
+import { CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import dynamic from 'next/dynamic';
+import OpportunityDetailedInfo from '@/components/opportunity/OpportunityDetailedInfo';
+import OpportunityWorkDetails from '@/components/opportunity/OpportunityWorkDetails';
+import OpportunityRequirements from '@/components/opportunity/OpportunityRequirements';
+import OpportunityBenefits from '@/components/opportunity/OpportunityBenefits';
+import OpportunityImpact from '@/components/opportunity/OpportunityImpact';
+import CloudinaryImage from '@/components/CloudinaryImage';
+import { CloudinaryImageResource, createImageResourceFromUrl } from '@/lib/cloudinary/types';
 
-// 定義機會詳情類型
-interface OpportunityDetail {
+// 動態導入地圖組件，避免 SSR 問題
+const MapComponent = dynamic(() => import('@/components/MapComponent'), {
+  ssr: false,
+  loading: () => <div className="h-64 bg-gray-100 flex items-center justify-center">地圖載入中...</div>
+});
+
+// 從API接收到的機會詳情類型 (與 OpportunityDetail 接口不同)
+interface APIOpportunityDetail {
   _id: string;
   title: string;
   slug: string;
+  publicId?: string;
   status: OpportunityStatus;
   description: string;
   shortDescription: string;
   createdAt: string;
+  updatedAt?: string;
   publishedAt?: string;
   location?: {
     city?: string;
     country?: string;
     address?: string;
+    district?: string;
+    region?: string;
     coordinates?: {
       lat: number;
       lng: number;
@@ -45,6 +63,49 @@ interface OpportunityDetail {
       perWeek?: number;
       schedule?: string;
     };
+    tasks?: string[];
+    skills?: string[];
+    learningOpportunities?: string[];
+    physicalDemand?: 'low' | 'medium' | 'high';
+    languages?: string[];
+  };
+  benefits?: {
+    accommodation: {
+      provided: boolean;
+      type?: 'private_room' | 'shared_room' | 'dormitory' | 'camping' | 'other';
+      description?: string;
+    };
+    meals: {
+      provided: boolean;
+      count?: number;
+      description?: string;
+    };
+    stipend?: {
+      provided: boolean;
+      amount?: number;
+      currency?: string;
+      frequency?: string;
+    };
+    otherBenefits?: string[];
+  };
+  requirements?: {
+    minAge?: number;
+    acceptsCouples?: boolean;
+    acceptsFamilies?: boolean;
+    acceptsPets?: boolean;
+    drivingLicense?: {
+      carRequired: boolean;
+      motorcycleRequired: boolean;
+      otherRequired: boolean;
+      otherDescription?: string;
+    };
+    otherRequirements?: string[];
+  };
+  impact?: {
+    environmentalContribution?: string;
+    socialContribution?: string;
+    culturalExchange?: string;
+    sustainableDevelopmentGoals?: string[];
   };
   hostId?: {
     _id: string;
@@ -64,23 +125,50 @@ interface OpportunityDetail {
   };
   rejectionReason?: string;
   type?: OpportunityType;
+  timeSlots?: Array<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    defaultCapacity: number;
+    minimumStay: number;
+    confirmedCount: number;
+    appliedCount: number;
+    status: string;
+  }>;
+  hasTimeSlots?: boolean;
 }
 
 // 獲取機會詳情
 async function fetchOpportunityDetail(id: string) {
+  try {
+    // 檢查 ID 是否是有效的 MongoDB ObjectId (24位十六進制字符串)
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+
+    if (!isValidObjectId) {
+      console.error(`ID 格式錯誤: "${id}" 不是有效的 MongoDB ObjectId`);
+      throw new Error(`ID 格式錯誤: "${id}" 不是有效的 MongoDB ObjectId，請使用24位十六進制字符串ID`);
+    }
+
   // 使用管理員專用的API來獲取機會詳情
   const response = await fetch(`/api/admin/opportunities/${id}`);
   if (!response.ok) {
-    throw new Error('獲取機會詳情失敗');
+      console.error(`API 回應錯誤: ${response.status} ${response.statusText}`);
+      throw new Error(`獲取機會詳情失敗: ${response.status}`);
   }
+
   const data = await response.json();
+    console.log('API 數據:', data);
 
   // 檢查 API 回傳格式並提取 opportunity 數據
   if (data.success && data.opportunity) {
-    return data.opportunity;
+      return data.opportunity as APIOpportunityDetail;
   } else {
     console.error('API回傳格式不正確:', data);
-    throw new Error(data.message || '獲取機會詳情失敗');
+      throw new Error(data.message || '獲取機會詳情失敗: 資料格式錯誤');
+    }
+  } catch (error) {
+    console.error('獲取機會詳情出錯:', error);
+    throw error;
   }
 }
 
@@ -107,6 +195,97 @@ async function updateOpportunityStatus(id: string, status: OpportunityStatus, re
   return response.json();
 }
 
+// 將 API 回傳的詳情轉換為標準 OpportunityDetail 格式
+function convertToOpportunityDetail(apiData: APIOpportunityDetail): OpportunityDetail {
+  // 處理API坐標數據
+  let locationCoordinates;
+
+  if (apiData.location?.coordinates) {
+    // 使用類型斷言處理坐標格式
+    const apiCoordinates = apiData.location.coordinates as any;
+    locationCoordinates = {
+      type: 'Point',
+      coordinates: [
+        apiCoordinates.lng || 0,
+        apiCoordinates.lat || 0
+      ] as [number, number]
+    };
+  }
+
+  const images = apiData.media?.images || [];
+
+  return {
+    id: apiData._id,
+    publicId: apiData.publicId || apiData._id.substring(0, 8),
+    title: apiData.title,
+    slug: apiData.slug,
+    shortDescription: apiData.shortDescription,
+    description: apiData.description,
+    type: apiData.type || OpportunityType.OTHER,
+    status: apiData.status,
+    location: {
+      address: apiData.location?.address,
+      city: apiData.location?.city,
+      district: apiData.location?.district,
+      region: apiData.location?.region || apiData.location?.country,
+      country: apiData.location?.country,
+      coordinates: locationCoordinates
+    },
+    workDetails: {
+      tasks: apiData.workDetails?.tasks ||
+        (apiData.workDetails?.duties as string[] || []),
+      skills: apiData.workDetails?.skills || [],
+      learningOpportunities: apiData.workDetails?.learningOpportunities || [],
+      physicalDemand: apiData.workDetails?.physicalDemand || 'medium',
+      languages: apiData.workDetails?.languages || [],
+    },
+    benefits: apiData.benefits || {
+      accommodation: {
+        provided: apiData.workDetails?.accommodation?.provided || false,
+        type: 'other',
+        description: apiData.workDetails?.accommodation?.details,
+      },
+      meals: {
+        provided: false,
+      },
+    },
+    requirements: apiData.requirements || {
+      acceptsCouples: false,
+      acceptsFamilies: false,
+      acceptsPets: false,
+    },
+    impact: apiData.impact,
+    media: {
+      coverImage: apiData.media?.coverImage,
+      images: images,
+    },
+    host: {
+      id: apiData.hostId?._id || '',
+      name: apiData.hostId?.name || '',
+      description: apiData.hostId?.description,
+      contactPhone: apiData.hostId?.contactPhone,
+      contactEmail: apiData.hostId?.contactEmail,
+      profileImage: undefined,
+      responseRate: undefined,
+      responseTime: undefined,
+      verificationStatus: undefined,
+      memberSince: undefined,
+      socialMedia: undefined,
+    },
+    stats: {
+      applications: apiData.stats?.applications || 0,
+      bookmarks: apiData.stats?.bookmarks || 0,
+      views: apiData.stats?.views || 0,
+    },
+    hasTimeSlots: apiData.hasTimeSlots || false,
+    timeSlots: apiData.timeSlots || [],
+    createdAt: apiData.createdAt,
+    updatedAt: apiData.updatedAt,
+    publishedAt: apiData.publishedAt,
+    rejectionReason: apiData.rejectionReason,
+  };
+}
+
 const OpportunityDetailPage = () => {
   const router = useRouter();
   const { id } = router.query;
@@ -115,11 +294,17 @@ const OpportunityDetailPage = () => {
   const queryClient = useQueryClient();
 
   // 使用 React Query 獲取機會詳情
-  const { data: opportunity, isLoading, error } = useQuery({
+  const { data: apiOpportunity, isLoading, error } = useQuery({
     queryKey: ['opportunity-detail', id],
     queryFn: () => fetchOpportunityDetail(id as string),
     enabled: !!id,
   });
+
+  // 將 API 數據轉換為標準格式
+  const opportunity = useMemo(() => {
+    if (!apiOpportunity) return null;
+    return convertToOpportunityDetail(apiOpportunity);
+  }, [apiOpportunity]);
 
   // 狀態更新 mutation
   const updateStatusMutation = useMutation({
@@ -177,6 +362,59 @@ const OpportunityDetailPage = () => {
     });
   };
 
+  // 地圖相關處理
+  const mapPosition = useMemo(() => {
+    if (opportunity?.location?.coordinates?.coordinates) {
+      // coordinates 是 [lng, lat] 形式，需要轉換為 [lat, lng]
+      return [
+        opportunity.location.coordinates.coordinates[1],
+        opportunity.location.coordinates.coordinates[0]
+      ] as [number, number];
+    }
+    return undefined;
+  }, [opportunity?.location]);
+
+  // 轉換為地圖所需格式
+  const transformedOpportunity = useMemo(() => {
+    if (!opportunity) return null;
+
+    // 使用類型斷言確保我們能夠正確處理類型，避免TypeScript錯誤
+    // 這是安全的，因為我們已在 convertToOpportunityDetail 中確保了數據格式
+    const mapData = {
+      id: opportunity.id,
+      _id: opportunity.id,
+      title: opportunity.title,
+      slug: opportunity.slug,
+      type: opportunity.type,
+      host: {
+        id: opportunity.host.id || '',
+        name: opportunity.host.name || '',
+        avatar: null
+      },
+      location: {
+        region: opportunity.location?.region || '',
+        city: opportunity.location?.city || '',
+        address: opportunity.location?.address || null,
+        coordinates: opportunity.location?.coordinates?.coordinates ? {
+          lat: opportunity.location.coordinates.coordinates[1],
+          lng: opportunity.location.coordinates.coordinates[0]
+        } : null
+      },
+      media: {
+        images: (opportunity.media.images || []).map(url => ({
+          url,
+          alt: opportunity.title
+        }))
+      },
+      hasTimeSlots: opportunity.hasTimeSlots || false,
+      timeSlots: opportunity.timeSlots || [],
+      createdAt: opportunity.createdAt || '',
+      updatedAt: opportunity.updatedAt || ''
+    };
+
+    return mapData as any; // 使用類型斷言處理整個對象
+  }, [opportunity]);
+
   // 加載中狀態
   if (isLoading) {
     return (
@@ -190,10 +428,22 @@ const OpportunityDetailPage = () => {
 
   // 錯誤狀態
   if (error || !opportunity) {
+    // 檢查是否是 ID 格式錯誤
+    const errorMessage = error instanceof Error ? error.message : '獲取機會詳情失敗，請刷新頁面重試';
+    const isIdFormatError = errorMessage.includes('ID 格式錯誤');
+
     return (
       <AdminLayout title="機會詳情">
         <div className="bg-red-50 text-red-600 p-4 rounded-md my-4">
-          獲取機會詳情失敗，請刷新頁面重試
+          {isIdFormatError ? (
+            <>
+              <h3 className="font-bold mb-2">ID 格式錯誤</h3>
+              <p className="mb-2">您嘗試訪問的機會 ID 格式不正確。MongoDB 的 ObjectId 必須是 24 位的十六進制字符串。</p>
+              <p>例如: <code className="bg-red-100 px-2 py-1 rounded">507f1f77bcf86cd799439011</code></p>
+            </>
+          ) : (
+            errorMessage
+          )}
         </div>
         <button
           onClick={handleBackToList}
@@ -209,31 +459,40 @@ const OpportunityDetailPage = () => {
     <AdminLayout title="機會詳情">
       <div className="p-4 md:p-6">
         {/* 頂部操作欄 */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center gap-3 mb-4">
             <button
               onClick={handleBackToList}
-              className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200"
+              className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200"
             >
+              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+              </svg>
               返回列表
             </button>
 
-            <h1 className="text-2xl font-bold">{opportunity.title}</h1>
-
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
               statusColorMap[opportunity.status as OpportunityStatus] || 'bg-gray-100 text-gray-800'
             }`}>
               {statusLabelMap[opportunity.status as OpportunityStatus] || opportunity.status}
             </span>
+
+            <span className={`px-3 py-1 rounded-full text-xs font-medium
+              ${opportunity.type ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+              {opportunity.type ? typeNameMap[opportunity.type as OpportunityType] || opportunity.type : '未指定類型'}
+            </span>
           </div>
 
-          <div className="mt-4 md:mt-0 flex gap-2">
+          <div className="flex flex-wrap justify-between items-center">
+            <h1 className="text-3xl font-bold">{opportunity.title}</h1>
+
+            <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
             {/* 申請管理按鈕 */}
             <button
               onClick={handleViewApplications}
               className="px-4 py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200"
             >
-              申請管理 ({opportunity.stats?.applications || 0})
+                申請管理 ({opportunity.stats.applications || 0})
             </button>
 
             {/* 根據當前狀態顯示不同的操作按鈕 */}
@@ -281,6 +540,7 @@ const OpportunityDetailPage = () => {
                 下架
               </button>
             )}
+            </div>
           </div>
         </div>
 
@@ -318,80 +578,71 @@ const OpportunityDetailPage = () => {
         )}
 
         {/* 主內容區域 */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          {/* 基本信息 */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 pb-2 border-b">基本信息</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-600"><span className="font-medium">機會 ID:</span> {opportunity._id}</p>
-                <p className="text-gray-600"><span className="font-medium">狀態:</span> {statusLabelMap[opportunity.status as OpportunityStatus]}</p>
-                <p className="text-gray-600"><span className="font-medium">創建時間:</span> {formatDate(opportunity.createdAt)}</p>
-                {opportunity.publishedAt && (
-                  <p className="text-gray-600"><span className="font-medium">發布時間:</span> {formatDate(opportunity.publishedAt)}</p>
-                )}
-                <p className="text-gray-600"><span className="font-medium">瀏覽次數:</span> {opportunity.stats?.views || 0}</p>
-                <p className="text-gray-600"><span className="font-medium">申請數量:</span> {opportunity.stats?.applications || 0}</p>
-                <p className="text-gray-600"><span className="font-medium">收藏數量:</span> {opportunity.stats?.bookmarks || 0}</p>
-                <p className="text-gray-600">
-                  <span className="font-medium">機會類型：</span> {opportunity.type ? typeNameMap[opportunity.type as OpportunityType] || opportunity.type : '未指定'}
-                </p>
-              </div>
-
-              <div>
-                {opportunity.hostId && (
-                  <div>
-                    <p className="text-gray-600"><span className="font-medium">主辦方:</span> {opportunity.hostId.name}</p>
-                    <p className="text-gray-600"><span className="font-medium">ID:</span> {opportunity.hostId._id}</p>
-                    {opportunity.hostId.contactEmail && (
-                      <p className="text-gray-600"><span className="font-medium">聯絡信箱:</span> {opportunity.hostId.contactEmail}</p>
-                    )}
-                    {opportunity.hostId.contactPhone && (
-                      <p className="text-gray-600"><span className="font-medium">聯絡電話:</span> {opportunity.hostId.contactPhone}</p>
-                    )}
-                    {opportunity.hostId.description && (
-                      <div className="mt-2">
-                        <p className="font-medium text-gray-600">主辦方簡介:</p>
-                        <p className="text-gray-600 whitespace-pre-line">{opportunity.hostId.description}</p>
-                      </div>
-                    )}
-                    <div className="mt-2">
-                      <Link
-                        href={`/admin/hosts/${opportunity.hostId._id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        查看主辦方詳情
-                      </Link>
-                    </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* 左側主要內容 */}
+          <div className="lg:col-span-2">
+            {/* 封面圖片 */}
+            <div className="bg-white shadow-sm rounded-lg overflow-hidden mb-8">
+              <div className="relative h-80">
+                {opportunity.media.coverImage ? (
+                  <CloudinaryImage
+                    resource={createImageResourceFromUrl(opportunity.media.coverImage, 'cover_' + opportunity.id)}
+                    alt={opportunity.title}
+                    imageType="cover"
+                    className="h-80 w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-80 w-full flex items-center justify-center bg-gray-100">
+                    <span className="text-gray-400">無封面圖片</span>
                   </div>
                 )}
+              </div>
+
+              <div className="p-6">
+                <div className="border-b border-gray-200 pb-4 mb-4">
+                  <div className="flex items-center justify-between">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      statusColorMap[opportunity.status as OpportunityStatus]
+                    }`}>
+                      {statusLabelMap[opportunity.status as OpportunityStatus]}
+                    </span>
+                    <div className="flex items-center text-gray-500 text-sm">
+                      <CalendarIcon className="w-4 h-4 mr-1" />
+                      <span>發布於 {formatDate(opportunity.createdAt)}</span>
+                    </div>
+                  </div>
+                  <h2 className="text-2xl font-bold mt-2">{opportunity.title}</h2>
+                  <div className="flex items-center mt-2 text-gray-600">
+                    <MapPinIcon className="w-4 h-4 mr-1" />
+                    <span>{`${opportunity.location?.city || ''} ${opportunity.location?.district || ''}`}</span>
               </div>
             </div>
 
             {opportunity.status === OpportunityStatus.REJECTED && opportunity.rejectionReason && (
-              <div className="mt-4 p-3 bg-red-50 text-red-800 rounded-md">
-                <p className="font-medium">拒絕原因:</p>
-                <p>{opportunity.rejectionReason}</p>
+                  <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-md">
+                    <h3 className="font-medium text-orange-800 mb-1">拒絕原因</h3>
+                    <p className="text-orange-700">{opportunity.rejectionReason}</p>
               </div>
             )}
-          </div>
+
+                {/* 詳細信息 */}
+                <OpportunityDetailedInfo opportunity={opportunity} />
 
           {/* 機會描述 */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 pb-2 border-b">機會描述</h2>
+                <div className="mb-6">
+                  <h3 className="text-xl font-bold mb-2">機會介紹</h3>
 
             {opportunity.shortDescription && (
               <div className="mb-4">
-                <p className="font-medium text-gray-600">簡短描述:</p>
-                <p className="text-gray-600">{opportunity.shortDescription}</p>
+                      <p className="font-medium text-gray-700 mb-1">簡短描述:</p>
+                      <p className="text-gray-700">{opportunity.shortDescription}</p>
               </div>
             )}
 
             {opportunity.description && (
               <div>
-                <p className="font-medium text-gray-600">詳細描述:</p>
-                <div className="prose max-w-none text-gray-600 whitespace-pre-line">
+                      <p className="font-medium text-gray-700 mb-1">詳細描述:</p>
+                      <div className="prose max-w-none text-gray-700 whitespace-pre-line">
                   {opportunity.description}
                 </div>
               </div>
@@ -399,144 +650,199 @@ const OpportunityDetailPage = () => {
           </div>
 
           {/* 工作詳情 */}
-          {opportunity.workDetails && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 pb-2 border-b">工作詳情</h2>
+                <OpportunityWorkDetails opportunity={opportunity} />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                {/* 工作職責 */}
-                {opportunity.workDetails.duties && opportunity.workDetails.duties.length > 0 && (
-                  <div>
-                    <p className="font-medium text-gray-600 mb-2">工作職責:</p>
-                    <ul className="list-disc list-inside text-gray-600">
-                      {opportunity.workDetails.duties.map((duty: string, index: number) => (
-                        <li key={index}>{duty}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {/* 申請要求 */}
+                <OpportunityRequirements opportunity={opportunity} />
 
-                {/* 工作要求 */}
-                {opportunity.workDetails.requirements && opportunity.workDetails.requirements.length > 0 && (
-                  <div>
-                    <p className="font-medium text-gray-600 mb-2">工作要求:</p>
-                    <ul className="list-disc list-inside text-gray-600">
-                      {opportunity.workDetails.requirements.map((req: string, index: number) => (
-                        <li key={index}>{req}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {/* 福利與待遇 */}
+                <OpportunityBenefits opportunity={opportunity} />
 
-                {/* 福利 */}
-                {opportunity.workDetails.benefits && opportunity.workDetails.benefits.length > 0 && (
-                  <div>
-                    <p className="font-medium text-gray-600 mb-2">提供福利:</p>
-                    <ul className="list-disc list-inside text-gray-600">
-                      {opportunity.workDetails.benefits.map((benefit: string, index: number) => (
-                        <li key={index}>{benefit}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {/* 影響與永續發展 */}
+                {opportunity.impact && <OpportunityImpact opportunity={opportunity} />}
 
-                {/* 工作時間 */}
-                {opportunity.workDetails.hours && (
-                  <div>
-                    <p className="font-medium text-gray-600 mb-2">工作時間:</p>
-                    <ul className="text-gray-600 space-y-1">
-                      {opportunity.workDetails.hours.perDay && (
-                        <li>每日時數: {opportunity.workDetails.hours.perDay} 小時</li>
-                      )}
-                      {opportunity.workDetails.hours.perWeek && (
-                        <li>每週時數: {opportunity.workDetails.hours.perWeek} 小時</li>
-                      )}
-                      {opportunity.workDetails.hours.schedule && (
-                        <li>排班方式: {opportunity.workDetails.hours.schedule}</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-
-                {/* 住宿安排 */}
-                {opportunity.workDetails.accommodation && (
-                  <div>
-                    <p className="font-medium text-gray-600 mb-2">住宿安排:</p>
-                    <p className="text-gray-600">
-                      {opportunity.workDetails.accommodation.provided ? '提供住宿' : '不提供住宿'}
-                    </p>
-                    {opportunity.workDetails.accommodation.details && (
-                      <p className="text-gray-600 mt-1">{opportunity.workDetails.accommodation.details}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 地點 */}
-          {opportunity.location && (
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 pb-2 border-b">工作地點</h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  {opportunity.location.country && (
-                    <p className="text-gray-600"><span className="font-medium">國家:</span> {opportunity.location.country}</p>
-                  )}
-                  {opportunity.location.city && (
-                    <p className="text-gray-600"><span className="font-medium">城市:</span> {opportunity.location.city}</p>
-                  )}
-                  {opportunity.location.address && (
-                    <p className="text-gray-600"><span className="font-medium">地址:</span> {opportunity.location.address}</p>
-                  )}
-                </div>
-
-                {opportunity.location.coordinates && (
-                  <div>
-                    <p className="text-gray-600">
-                      <span className="font-medium">座標:</span>
-                      {opportunity.location.coordinates.lat}, {opportunity.location.coordinates.lng}
+                {/* 地圖組件 */}
+                {mapPosition && (
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold mb-4">地點</h3>
+                    <div className="h-72 rounded-lg overflow-hidden">
+                      <MapComponent
+                        position={mapPosition}
+                        opportunities={transformedOpportunity ? [transformedOpportunity] : []}
+                        zoom={14}
+                        readOnly={true}
+                      />
+                    </div>
+                    <p className="mt-2 text-sm text-gray-600">
+                      {opportunity.location?.address ||
+                       `${opportunity.location?.city || ''} ${opportunity.location?.district || ''}`}
                     </p>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
 
-          {/* 媒體 */}
-          {opportunity.media && (opportunity.media.coverImage || (opportunity.media.images && opportunity.media.images.length > 0)) && (
-            <div>
-              <h2 className="text-xl font-semibold mb-4 pb-2 border-b">媒體資源</h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {opportunity.media.coverImage && (
-                  <div className="relative h-48 rounded-lg overflow-hidden">
-                    <Image
-                      src={opportunity.media.coverImage}
-                      alt="封面圖片"
-                      layout="fill"
-                      objectFit="cover"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1">
-                      封面圖片
+                {/* 時間段 */}
+                {opportunity.timeSlots && opportunity.timeSlots.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold mb-4">可申請時間段</h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">開始日期</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">結束日期</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">可用名額</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最短停留</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {opportunity.timeSlots.map((slot, index) => (
+                            <tr key={index}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{slot.startDate}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{slot.endDate}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{slot.defaultCapacity - (slot.confirmedCount || 0)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{slot.minimumStay} 天</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{slot.status}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}
 
-                {opportunity.media.images && opportunity.media.images.map((image: string, index: number) => (
-                  <div key={index} className="relative h-48 rounded-lg overflow-hidden">
-                    <Image
-                      src={image}
-                      alt={`機會圖片 ${index + 1}`}
-                      layout="fill"
-                      objectFit="cover"
-                    />
+                {/* 圖片集 */}
+                {opportunity.media.images && opportunity.media.images.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold mb-4">圖片集</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {opportunity.media.images.map((image, index) => (
+                        <div key={index} className="relative aspect-square rounded-md overflow-hidden">
+                          <CloudinaryImage
+                            resource={createImageResourceFromUrl(image, `opportunity_${opportunity.id}_${index}`)}
+                            alt={`${opportunity.title} 圖片 ${index + 1}`}
+                            imageType="opportunity"
+                            className="h-full w-full object-cover"
+                            index={index}
+                          />
+                        </div>
+                      ))}
                   </div>
-                ))}
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
+
+          {/* 右側邊欄 */}
+          <div className="lg:col-span-1">
+            {/* 主辦方信息 */}
+            <div className="bg-white shadow-sm rounded-lg p-6 mb-6">
+              <h3 className="text-xl font-bold mb-4 pb-2 border-b">主辦方資訊</h3>
+
+              {opportunity.host && (
+                <div>
+                  <h4 className="text-lg font-semibold mb-2">{opportunity.host.name}</h4>
+                  <p className="text-gray-600 mb-3"><span className="font-medium">ID:</span> {opportunity.host.id}</p>
+
+                  {opportunity.host.contactEmail && (
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-medium">聯絡信箱:</span> {opportunity.host.contactEmail}
+                    </p>
+                  )}
+
+                  {opportunity.host.contactPhone && (
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-medium">聯絡電話:</span> {opportunity.host.contactPhone}
+                    </p>
+                  )}
+
+                  {opportunity.host.description && (
+                    <div className="mt-3">
+                      <p className="font-medium text-gray-700 mb-1">主辦方簡介:</p>
+                      <p className="text-gray-600 whitespace-pre-line">{opportunity.host.description}</p>
+                    </div>
+                  )}
+
+                  <div className="mt-4">
+                    <Link
+                      href={`/admin/hosts/${opportunity.host.id}`}
+                      className="inline-flex items-center text-blue-600 hover:text-blue-800"
+                    >
+                      <span className="mr-2">查看主辦方詳情</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 統計資訊 */}
+            <div className="bg-white shadow-sm rounded-lg p-6 mb-6">
+              <h3 className="text-xl font-bold mb-4 pb-2 border-b">統計資訊</h3>
+
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="text-gray-500 text-sm">瀏覽</div>
+                  <div className="font-semibold text-lg">{opportunity.stats.views || 0}</div>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <div className="text-gray-500 text-sm">申請</div>
+                  <div className="font-semibold text-lg">{opportunity.stats.applications || 0}</div>
+                </div>
+                <div className="p-3 bg-yellow-50 rounded-lg">
+                  <div className="text-gray-500 text-sm">收藏</div>
+                  <div className="font-semibold text-lg">{opportunity.stats.bookmarks || 0}</div>
+                </div>
+                </div>
+
+              <div className="mt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="text-gray-500 text-sm">創建時間</div>
+                    <div className="font-semibold">{formatDate(opportunity.createdAt).split(' ')[0]}</div>
+                  </div>
+                  {opportunity.publishedAt && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="text-gray-500 text-sm">發布時間</div>
+                      <div className="font-semibold">{formatDate(opportunity.publishedAt).split(' ')[0]}</div>
+                  </div>
+                )}
+                </div>
+              </div>
+            </div>
+
+            {/* 快速操作 */}
+            <div className="bg-white shadow-sm rounded-lg p-6">
+              <h3 className="text-xl font-bold mb-4 pb-2 border-b">快速操作</h3>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleViewApplications}
+                  className="w-full px-4 py-2 bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 flex items-center justify-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                  </svg>
+                  查看申請 ({opportunity.stats.applications || 0})
+                </button>
+
+                <Link
+                  href={`/opportunities/${opportunity.slug}`}
+                  target="_blank"
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 flex items-center justify-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                  </svg>
+                  前台預覽
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </AdminLayout>
@@ -548,7 +854,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   // 檢查訪問權限
   if (!session?.user) {
-    return { redirect: { destination: '/auth/login', permanent: false } };
+    return { redirect: { destination: '/auth/signin', permanent: false } };
   }
 
   // 確保用戶是管理員

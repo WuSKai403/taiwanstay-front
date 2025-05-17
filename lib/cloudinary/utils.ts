@@ -286,6 +286,12 @@ export const getSignedUrls = async (publicId: string, type?: 'thumbnail' | 'prev
 export const getOptimizedImageUrl = (url: string, type: 'thumbnail' | 'preview' | 'original'): string => {
   if (!url) return '';
 
+  // 檢查是否為 Cloudinary URL (含有 /upload/ 路徑)
+  const isCloudinaryUrl = typeof url === 'string' && url.includes('/upload/');
+
+  // 如果不是 Cloudinary URL，直接返回原始 URL
+  if (!isCloudinaryUrl) return url;
+
   switch (type) {
     case 'thumbnail':
       // 使用 c_fill 確保裁剪到正確尺寸，q_auto:eco 提供較小文件大小

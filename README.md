@@ -43,7 +43,7 @@ npm test
 ### 認證API
 
 - `POST /api/auth/register` - 用戶註冊
-- `POST /api/auth/login` - 用戶登入
+- `POST /api/auth/signin` - 用戶登入
 - `GET/POST /api/auth/[...nextauth]` - NextAuth.js認證
 
 ### 用戶API

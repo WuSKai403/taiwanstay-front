@@ -42,7 +42,7 @@ apiClient.interceptors.response.use(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('auth_token');
           // 如果需要，可以重定向到登入頁面
-          // window.location.href = '/auth/login';
+          // window.location.href = '/auth/signin';
         }
       }
     } else if (error.request) {

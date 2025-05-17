@@ -144,7 +144,7 @@ export const authOptions: NextAuthOptions = {
  * 使用示例:
  * ```
  * if (!(await isAuthenticated(req))) {
- *   return { redirect: { destination: '/auth/login', permanent: false } };
+ *   return { redirect: { destination: '/auth/signin', permanent: false } };
  * }
  * ```
  */

@@ -370,17 +370,16 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
         return res.status(400).json({ success: false, message: '該時段已不開放申請' });
       }
 
-      // 檢查申請的月份是否在時段範圍內
-      // 將 YYYY-MM 格式轉換為 Date 對象用於比較
-      const startDate = new Date(`${applicationDetails.startDate}-01`);
+      // 檢查申請的日期是否在時段範圍內
+      const startDate = new Date(applicationDetails.startDate);
       const endDate = applicationDetails.endDate
-        ? new Date(`${applicationDetails.endDate}-01`)
-        : new Date(startDate.getFullYear(), startDate.getMonth() + Math.floor(applicationDetails.duration / 30), 1);
+        ? new Date(applicationDetails.endDate)
+        : new Date(startDate.getTime() + applicationDetails.duration * 24 * 60 * 60 * 1000);
 
-      const timeSlotstartDate = new Date(`${timeSlot.startDate}-01`);
-      const timeSlotendDate = new Date(`${timeSlot.endDate}-01`);
+      const timeSlotstartDate = new Date(timeSlot.startDate);
+      const timeSlotendDate = new Date(timeSlot.endDate);
 
-      console.log('月份範圍檢查:', {
+      console.log('日期範圍檢查:', {
         startDate,
         endDate,
         timeSlotstartDate,
@@ -390,18 +389,25 @@ async function createApplication(req: NextApiRequest, res: NextApiResponse, user
       });
 
       if (startDate < timeSlotstartDate || endDate > timeSlotendDate) {
-        return res.status(400).json({ success: false, message: '申請的月份範圍超出了時段的有效期' });
+        return res.status(400).json({ success: false, message: '申請的日期範圍超出了時段的有效期' });
       }
 
       // 檢查停留時間是否符合最短要求
+      const durationDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000));
+
       console.log('停留時間檢查:', {
-        duration: applicationDetails.duration,
+        duration: durationDays,
         minimumStay: timeSlot.minimumStay,
-        isValid: applicationDetails.duration >= timeSlot.minimumStay
+        isValid: durationDays >= timeSlot.minimumStay
       });
 
-      if (applicationDetails.duration < timeSlot.minimumStay) {
+      if (durationDays < timeSlot.minimumStay) {
         return res.status(400).json({ success: false, message: `停留時間不得少於 ${timeSlot.minimumStay} 天` });
+      }
+
+      // 檢查是否超過最長停留時間
+      if (timeSlot.maximumStay && durationDays > timeSlot.maximumStay) {
+        return res.status(400).json({ success: false, message: `停留時間不得超過 ${timeSlot.maximumStay} 天` });
       }
     }
 

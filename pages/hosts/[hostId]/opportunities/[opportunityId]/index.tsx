@@ -172,13 +172,13 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   // 檢查訪問權限
   if (!session?.user) {
-    return { redirect: { destination: '/auth/login', permanent: false } };
+    return { redirect: { destination: '/auth/signin', permanent: false } };
   }
 
   // 確保用戶ID存在
   const userId = session.user.id;
   if (!userId) {
-    return { redirect: { destination: '/auth/login', permanent: false } };
+    return { redirect: { destination: '/auth/signin', permanent: false } };
   }
 
   // 使用服務端函數檢查是否有此主人的訪問權限

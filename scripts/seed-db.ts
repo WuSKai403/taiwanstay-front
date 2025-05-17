@@ -14,7 +14,34 @@ import { TimeSlotStatus } from '../models/enums/TimeSlotStatus';
 import { generatePublicId } from '../utils/helpers';
 import dotenv from 'dotenv';
 
-// 將 YYYY-MM 轉換為 Date 對象
+// 定義 TimeSlot 介面
+interface TimeSlot {
+  _id: mongoose.Types.ObjectId;
+  startDate: string;
+  endDate: string;
+  defaultCapacity: number;
+  minimumStay: number;
+  maximumStay: number;
+  workHoursPerDay: number;
+  workDaysPerWeek: number;
+  appliedCount: number;
+  confirmedCount: number;
+  status: TimeSlotStatus;
+  description: string;
+  capacityOverrides: any[];
+  monthlyCapacities: {
+    month: string;
+    capacity: number;
+    bookedCount: number;
+  }[];
+}
+
+// 將 YYYY-MM-DD 轉換為 Date 對象
+function parseFullDateToDate(dateStr: string): Date {
+  return new Date(dateStr);
+}
+
+// 將 YYYY-MM 轉換為 Date 對象 (保留這個函數以向後兼容)
 function parseYearMonthToDate(yearMonth: string, isEndOfMonth: boolean = false): Date {
   const [year, month] = yearMonth.split('-').map(num => parseInt(num, 10));
   const date = new Date(year, month - 1, isEndOfMonth ? getLastDayOfMonth(year, month) : 1);
@@ -26,15 +53,20 @@ function getLastDayOfMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
 
-// 從 YYYY-MM 格式的起止月份生成可用月份數組
-function generateAvailableMonthsFromYearMonth(startDate: string, endDate: string): number[] {
+// 從 YYYY-MM-DD 格式的起止日期生成可用月份數組
+function generateAvailableMonthsFromFullDate(startDate: string, endDate: string): number[] {
   if (!startDate || !endDate) {
-    // 如果沒有提供月份範圍，返回所有月份
+    // 如果沒有提供日期範圍，返回所有月份
     return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   }
 
-  const [startYear, startDateNum] = startDate.split('-').map(num => parseInt(num, 10));
-  const [endYear, endDateNum] = endDate.split('-').map(num => parseInt(num, 10));
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const startYear = start.getFullYear();
+  const startDateNum = start.getMonth() + 1; // JavaScript 月份從 0 開始
+  const endYear = end.getFullYear();
+  const endDateNum = end.getMonth() + 1;
 
   const months = new Set<number>();
 
@@ -452,13 +484,17 @@ async function importOpportunities() {
 
     // 處理時段相關欄位
     const hasTimeSlots = opp.hasTimeSlots === 'true';
-    let timeSlots: any[] = [];
+    let timeSlots: TimeSlot[] = [];
 
     if (hasTimeSlots) {
       // 創建時段
-      const startDate = opp.timeSlotstartDate; // 直接使用 YYYY-MM 格式
-      const endDate = opp.timeSlotendDate; // 直接使用 YYYY-MM 格式
+      const startDate = opp.timeSlotstartDate; // 直接使用 YYYY-MM-DD 格式
+      const endDate = opp.timeSlotendDate; // 直接使用 YYYY-MM-DD 格式
       const defaultCapacity = parseInt(opp.timeSlotDefaultCapacity) || 2;
+      const minimumStay = parseInt(opp.timeSlotMinimumStay) || 14;
+      const maximumStay = parseInt(opp.maximumStay) || 90;
+      const workHoursPerDay = parseInt(opp.workHoursPerWeek) / parseInt(opp.workDaysPerWeek);
+      const workDaysPerWeek = parseInt(opp.workDaysPerWeek);
 
       // 生成月份範圍
       const months = generateMonthRange(startDate, endDate);
@@ -470,12 +506,15 @@ async function importOpportunities() {
         bookedCount: 0
       }));
 
-      const timeSlot = {
+      const timeSlot: TimeSlot = {
         _id: new mongoose.Types.ObjectId(),
         startDate,
         endDate,
         defaultCapacity,
-        minimumStay: parseInt(opp.timeSlotMinimumStay) || 14,
+        minimumStay,
+        maximumStay,
+        workHoursPerDay,
+        workDaysPerWeek,
         appliedCount: 0,
         confirmedCount: 0,
         status: TimeSlotStatus.OPEN,
@@ -489,7 +528,7 @@ async function importOpportunities() {
 
     // 從 timeSlotstartDate 和 timeSlotendDate 生成 availableMonths
     const availableMonths = hasTimeSlots
-      ? generateAvailableMonthsFromYearMonth(opp.timeSlotstartDate, opp.timeSlotendDate)
+      ? generateAvailableMonthsFromFullDate(opp.timeSlotstartDate, opp.timeSlotendDate)
       : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // 如果沒有時段，預設全年可用
 
     // 創建機會
@@ -512,17 +551,6 @@ async function importOpportunities() {
         languages: ['中文', '英文'],
         // 添加可用月份 - 使用新的函數生成
         availableMonths: availableMonths
-      },
-
-      // 工作時間設置 - 整體時間框架
-      workTimeSettings: {
-        workHoursPerDay: parseInt(opp.workHoursPerWeek) / parseInt(opp.workDaysPerWeek),
-        workDaysPerWeek: parseInt(opp.workDaysPerWeek),
-        minimumStay: parseInt(opp.minimumStay) || 7,
-        maximumStay: parseInt(opp.maximumStay) || 90,
-        startDate: hasTimeSlots ? parseYearMonthToDate(opp.timeSlotstartDate) : new Date(),
-        endDate: hasTimeSlots ? parseYearMonthToDate(opp.timeSlotendDate, true) : new Date(Date.now() + 180 * 24 * 60 * 60 * 1000),
-        isOngoing: true,
       },
 
       benefits: {
@@ -623,25 +651,25 @@ async function importDateCapacities() {
 
 /**
  * 生成月份範圍
- * @param startDate 開始月份 (YYYY-MM)
- * @param endDate 結束月份 (YYYY-MM)
+ * @param startDate 開始日期 (YYYY-MM-DD)
+ * @param endDate 結束日期 (YYYY-MM-DD)
  * @returns 月份列表 (YYYY-MM 格式)
  */
 function generateMonthRange(startDate: string, endDate: string): string[] {
   const months: string[] = [];
 
-  // 解析開始月份
-  const [startYear, startDateNum] = startDate.split('-').map(Number);
-  const [endYear, endDateNum] = endDate.split('-').map(Number);
+  // 解析開始和結束日期
+  const start = new Date(startDate);
+  const end = new Date(endDate);
 
   // 設置初始月份
-  let currentYear = startYear;
-  let currentMonth = startDateNum;
+  let currentYear = start.getFullYear();
+  let currentMonth = start.getMonth() + 1; // JavaScript 月份從 0 開始
 
   // 生成每個月份
   while (
-    currentYear < endYear ||
-    (currentYear === endYear && currentMonth <= endDateNum)
+    currentYear < end.getFullYear() ||
+    (currentYear === end.getFullYear() && currentMonth <= end.getMonth() + 1)
   ) {
     // 格式化為 YYYY-MM
     const formattedMonth = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
@@ -662,7 +690,7 @@ function generateMonthRange(startDate: string, endDate: string): string[] {
 // 導入申請資料
 async function importApplications() {
   console.log('導入申請資料...');
-  const applications = readCsvFile(path.join(process.cwd(), 'data/seed/applications.csv'));
+  const applications = readCsvFile(path.join(process.cwd(), 'data/seed/applications_new.csv'));
 
   // 獲取 Application 模型
   const ApplicationModel = mongoose.model('Application');
@@ -692,14 +720,35 @@ async function importApplications() {
       continue;
     }
 
-    // 處理時段ID
+    // 處理時段ID - 如果CSV中未提供時段ID，則嘗試自動匹配合適的時段
     let timeSlotId = null;
-    if (app.timeSlotId && app.timeSlotId.trim() !== '') {
-      // 如果提供了時段ID，查找對應的時段
-      if (opportunity.timeSlots && opportunity.timeSlots.length > 0) {
-        timeSlotId = opportunity.timeSlots[0]._id;
+    if (opportunity.hasTimeSlots && opportunity.timeSlots && opportunity.timeSlots.length > 0) {
+      // 如果CSV中有時段ID並且不為空，則使用它
+      if (app.timeSlotId && app.timeSlotId.trim() !== '') {
+        timeSlotId = opportunity.timeSlots.find((ts: TimeSlot) => ts._id.toString() === app.timeSlotId)?.id || opportunity.timeSlots[0]._id;
+      } else {
+        // 否則，根據申請的時間範圍找尋匹配的時段
+        const startDate = new Date(app.startDate);
+
+        // 尋找匹配申請日期的時段
+        const matchingTimeSlot = opportunity.timeSlots.find((ts: TimeSlot) => {
+          // 解析時段的 startDate 和 endDate (現在為 YYYY-MM-DD 格式)
+          const tsStartDate = new Date(ts.startDate);
+          const tsEndDate = new Date(ts.endDate);
+
+          // 檢查申請的日期是否在時段範圍內
+          return startDate >= tsStartDate && startDate <= tsEndDate;
+        });
+
+        // 如果找到匹配的時段，使用它的ID，否則使用第一個時段的ID
+        timeSlotId = matchingTimeSlot?._id || opportunity.timeSlots[0]._id;
       }
     }
+
+    // 計算申請時間範圍和持續時間
+    let startDate = app.startDate;
+    let endDate = app.endDate;
+    let duration = parseInt(app.duration) || 30;
 
     // 處理飲食限制
     const dietaryRestrictionsType = app.dietaryRestrictions_type ? app.dietaryRestrictions_type.split(',') : [];
@@ -740,9 +789,9 @@ async function importApplications() {
       status: app.status || 'PENDING',
       applicationDetails: {
         message: app.message || '',
-        startDate: app.startDate,
-        endDate: app.endDate,
-        duration: parseInt(app.duration) || 30,
+        startDate,
+        endDate,
+        duration,
         dietaryRestrictions,
         languages,
         relevantExperience: app.relevantExperience || '',
@@ -797,6 +846,8 @@ async function importApplications() {
           );
         }
       }
+
+      console.log(`已導入申請: ${user.email} -> ${opportunity.title}${timeSlotId ? ' (時段ID: ' + timeSlotId + ')' : ' (無時段)'}`);
     } catch (error) {
       console.error(`導入申請資料失敗: ${app.userEmail} - ${app.opportunitySlug}`, error);
     }

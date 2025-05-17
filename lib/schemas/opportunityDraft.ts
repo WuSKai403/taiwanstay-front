@@ -34,16 +34,6 @@ export const opportunityDraftSchema = z.object({
     availableMonths: z.array(z.number()).optional(),
   }).optional(),
 
-  workTimeSettings: z.object({
-    workHoursPerDay: z.number().optional(),
-    workDaysPerWeek: z.number().optional(),
-    minimumStay: z.number().optional(),
-    maximumStay: z.number().optional(),
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
-    isOngoing: z.boolean().optional(),
-  }).optional(),
-
   benefits: z.object({
     accommodation: z.object({
       provided: z.boolean().optional(),

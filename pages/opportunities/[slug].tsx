@@ -119,15 +119,6 @@ interface OpportunityDetail {
     physicalDemand?: 'low' | 'medium' | 'high';
     languages?: string[];
   };
-  workTimeSettings?: {
-    workHoursPerDay?: number;
-    workDaysPerWeek?: number;
-    minimumStay?: number;
-    maximumStay?: number;
-    startDate?: string;
-    endDate?: string;
-    isOngoing?: boolean;
-  };
   benefits: {
     accommodation: {
       provided: boolean;
@@ -386,12 +377,6 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
       },
       hasTimeSlots: opp.hasTimeSlots || false,
       timeSlots: opp.timeSlots || [],
-      workTimeSettings: {
-        hoursPerDay: opp.workTimeSettings?.workHoursPerDay || 0,
-        daysPerWeek: opp.workTimeSettings?.workDaysPerWeek || 0,
-        minimumStay: opp.workTimeSettings?.minimumStay || null,
-        availableMonths: null
-      },
       createdAt: opp.createdAt || '',
       updatedAt: opp.updatedAt || ''
     };

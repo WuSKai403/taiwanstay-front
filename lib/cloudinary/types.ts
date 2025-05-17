@@ -89,6 +89,17 @@ export interface CloudinaryImageResource extends CloudinaryResource {
   displayOrder?: number;
 }
 
+// 從普通 URL 創建 CloudinaryImageResource 的輔助函數
+export function createImageResourceFromUrl(url: string, publicId?: string): CloudinaryImageResource {
+  return {
+    publicId: publicId || `resource_${Date.now()}`,
+    secureUrl: url,
+    thumbnailUrl: url,
+    previewUrl: url,
+    originalUrl: url
+  };
+}
+
 // 上傳元件 Props 介面
 export interface CloudinaryUploaderProps {
   onUploadSuccess: (result: CloudinaryUploadResult) => void;
