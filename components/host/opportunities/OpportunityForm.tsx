@@ -3,11 +3,10 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { Tab } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { OpportunityType } from '@/models/enums';
+import { OpportunityType, OpportunityStatus } from '@/models/enums';
 
 import Button from '@/components/common/Button';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
-import { OpportunityStatus } from '@/models/enums';
 import { typeNameMap } from '@/components/opportunity/constants';
 
 // 導入標籤組件
@@ -25,6 +24,7 @@ export const opportunitySchema = z.object({
   shortDescription: z.string().min(10, { message: '簡短描述至少需要10個字符' }).max(200, { message: '簡短描述不能超過200個字符' }),
   description: z.string().min(20, { message: '詳細描述至少需要20個字符' }),
   type: z.nativeEnum(OpportunityType),
+  status: z.nativeEnum(OpportunityStatus).optional(),
   location: z.object({
     address: z.string().optional(),
     city: z.string().min(1, { message: '請選擇城市' }),
@@ -775,13 +775,17 @@ export default function OpportunityForm({
                   ? 'bg-green-100 text-green-800'
                   : opportunity.status === OpportunityStatus.PENDING
                     ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-gray-100 text-gray-800'
+                    : opportunity.status === OpportunityStatus.REJECTED
+                      ? 'bg-orange-100 text-orange-800'
+                      : 'bg-gray-100 text-gray-800'
               }`}>
                 {opportunity.status === OpportunityStatus.ACTIVE
                   ? '已發布'
                   : opportunity.status === OpportunityStatus.PENDING
                     ? '審核中'
-                    : '草稿'}
+                    : opportunity.status === OpportunityStatus.REJECTED
+                      ? '已拒絕'
+                      : '草稿'}
               </span>
             </div>
           )}

@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const { slug } = req.query;
-    const { status } = req.body;
+    const { status, reason } = req.body;
 
     if (!status || !Object.values(OpportunityStatus).includes(status)) {
       return res.status(400).json({ success: false, message: '無效的狀態值' });
@@ -78,15 +78,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updateData.publishedAt = new Date();
     }
 
-    // 如果是被拒絕的狀態，可能需要包含拒絕原因
-    if (status === OpportunityStatus.REJECTED && req.body.rejectionReason) {
-      updateData.rejectionReason = req.body.rejectionReason;
+    // 創建狀態變更歷史記錄
+    const statusHistoryItem = {
+      status,
+      reason,
+      changedBy: user._id,
+      changedAt: new Date()
+    };
+
+    // 如果有提供原因（特別是拒絕原因），加入歷史記錄
+    if (reason) {
+      statusHistoryItem.reason = reason;
     }
 
-    // 更新狀態
+    // 更新狀態並添加狀態歷史記錄
     const updatedOpportunity = await Opportunity.findByIdAndUpdate(
       opportunityId,
-      { $set: updateData },
+      {
+        $set: updateData,
+        $push: { statusHistory: statusHistoryItem }
+      },
       { new: true }
     );
 
@@ -96,7 +107,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       opportunity: {
         id: updatedOpportunity._id,
         status: updatedOpportunity.status,
-        publishedAt: updatedOpportunity.publishedAt
+        publishedAt: updatedOpportunity.publishedAt,
+        statusHistory: updatedOpportunity.statusHistory
       }
     });
   } catch (error) {

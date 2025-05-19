@@ -15,6 +15,8 @@ import { checkHostAccess } from '@/lib/middleware/authMiddleware';
 import { OpportunityStatus } from '@/models/enums';
 import { statusColorMap, statusLabelMap, TimeSlot } from '@/components/opportunity/constants';
 import { CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import { getLatestStatusReason, hasStatusReason } from '@/utils/opportunityUtils';
+import StatusReasonBadge from '@/components/opportunity/StatusReasonBadge';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
@@ -188,11 +190,14 @@ const OpportunityViewPage = ({ hostId, opportunityId }: { hostId: string, opport
           </div>
         </div>
 
-        {/* 拒絕原因（如果有） */}
-        {opportunity.status === OpportunityStatus.REJECTED && opportunity.rejectionReason && (
-          <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-md">
-            <h3 className="font-medium text-orange-800 mb-1">拒絕原因</h3>
-            <p className="text-orange-700">{opportunity.rejectionReason}</p>
+        {/* 如果是被拒絕的機會，顯示拒絕原因 */}
+        {opportunity.status === OpportunityStatus.REJECTED && (
+          <div className="mb-6">
+            <StatusReasonBadge
+              opportunity={opportunity}
+              showLabel={true}
+              className="mt-2"
+            />
           </div>
         )}
 

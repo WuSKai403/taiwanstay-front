@@ -63,7 +63,7 @@ async function getOpportunityById(req: NextApiRequest, res: NextApiResponse) {
       createdAt: opportunity.createdAt,
       publishedAt: opportunity.publishedAt,
       updatedAt: opportunity.updatedAt,
-      rejectionReason: opportunity.rejectionReason
+      statusHistory: opportunity.statusHistory || []
     };
 
     return res.status(200).json({

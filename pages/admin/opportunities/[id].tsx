@@ -19,6 +19,8 @@ import OpportunityBenefits from '@/components/opportunity/OpportunityBenefits';
 import OpportunityImpact from '@/components/opportunity/OpportunityImpact';
 import CloudinaryImage from '@/components/CloudinaryImage';
 import { CloudinaryImageResource, createImageResourceFromUrl } from '@/lib/cloudinary/types';
+import { getLatestStatusReason, hasStatusReason } from '@/utils/opportunityUtils';
+import StatusReasonBadge from '@/components/opportunity/StatusReasonBadge';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
@@ -123,7 +125,12 @@ interface APIOpportunityDetail {
     views?: number;
     bookmarks?: number;
   };
-  rejectionReason?: string;
+  statusHistory?: Array<{
+    status: OpportunityStatus;
+    reason?: string;
+    changedBy?: string;
+    changedAt: string;
+  }>;
   type?: OpportunityType;
   timeSlots?: Array<{
     id: string;
@@ -173,11 +180,11 @@ async function fetchOpportunityDetail(id: string) {
 }
 
 // 更新機會狀態
-async function updateOpportunityStatus(id: string, status: OpportunityStatus, rejectionReason?: string) {
-  const body: { status: OpportunityStatus; rejectionReason?: string } = { status };
+async function updateOpportunityStatus(id: string, status: OpportunityStatus, reason?: string) {
+  const body: { status: OpportunityStatus; reason?: string } = { status };
 
-  if (rejectionReason) {
-    body.rejectionReason = rejectionReason;
+  if (reason) {
+    body.reason = reason;
   }
 
   const response = await fetch(`/api/opportunities/${id}/status`, {
@@ -282,7 +289,7 @@ function convertToOpportunityDetail(apiData: APIOpportunityDetail): OpportunityD
     createdAt: apiData.createdAt,
     updatedAt: apiData.updatedAt,
     publishedAt: apiData.publishedAt,
-    rejectionReason: apiData.rejectionReason,
+    statusHistory: apiData.statusHistory || [],
   };
 }
 
@@ -618,10 +625,13 @@ const OpportunityDetailPage = () => {
               </div>
             </div>
 
-            {opportunity.status === OpportunityStatus.REJECTED && opportunity.rejectionReason && (
-                  <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-md">
-                    <h3 className="font-medium text-orange-800 mb-1">拒絕原因</h3>
-                    <p className="text-orange-700">{opportunity.rejectionReason}</p>
+            {opportunity.status === OpportunityStatus.REJECTED && (
+              <div className="mb-6">
+                <StatusReasonBadge
+                  opportunity={opportunity}
+                  showLabel={true}
+                  className="mt-2"
+                />
               </div>
             )}
 

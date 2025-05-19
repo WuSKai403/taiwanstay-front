@@ -31,41 +31,16 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     setIsClient(true);
   }, []);
 
-  // 初始化地圖 - 將依賴項簡化，避免重複初始化
+  // 初始化地圖
   useEffect(() => {
-    if (!isClient || !mapContainerRef.current || mapInitializedRef.current) return;
+    if (!isClient || mapInitializedRef.current) return;
 
-    // 設置初始化標誌
-    mapInitializedRef.current = true;
-
-    // 動態載入 Leaflet
     const loadLeaflet = async () => {
       try {
-        // 載入 Leaflet CSS
-        if (!document.querySelector('link[href*="leaflet.css"]')) {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://unpkg.com/leaflet@1.7.1/dist/leaflet.css';
-          link.integrity = 'sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A==';
-          link.crossOrigin = '';
-          document.head.appendChild(link);
-        }
-
-        // 確保 Leaflet CSS 完全載入
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        // 載入 Leaflet JS
+        // 動態導入 Leaflet
         const L = await import('leaflet');
 
-        // 修復標記圖標問題
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-          iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-          shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png'
-        });
-
-        // 確保 DOM 已完全準備好
+        // 檢查地圖容器是否存在
         if (!mapContainerRef.current) {
           console.error('地圖容器不存在');
           return;
@@ -78,13 +53,30 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         // 延遲初始化地圖，確保 DOM 已渲染
         setTimeout(() => {
           try {
+            // 檢查默認位置是否有效
+            let validPosition: [number, number] = [25.0330, 121.5654]; // 台北市中心作為默認位置
+
+            if (defaultPosition &&
+                defaultPosition.length === 2 &&
+                typeof defaultPosition[0] === 'number' &&
+                typeof defaultPosition[1] === 'number' &&
+                !isNaN(defaultPosition[0]) &&
+                !isNaN(defaultPosition[1])) {
+              validPosition = defaultPosition;
+            } else {
+              console.warn('提供的默認位置無效，使用台北市中心作為默認位置');
+            }
+
+            // 確保位置在有效範圍內
+            setMarkerPosition(validPosition);
+
             // 創建地圖實例
             const map = L.map(mapId, {
               // 禁用緩存以避免初始化問題
               preferCanvas: true,
               // 禁用縮放動畫以避免轉換錯誤
               zoomAnimation: false
-            }).setView(markerPosition, 13);
+            }).setView(validPosition, 13);
 
             // 添加底圖圖層
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -92,7 +84,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
             }).addTo(map);
 
             // 添加標記
-            const newMarker = L.marker(markerPosition, {
+            const newMarker = L.marker(validPosition, {
               draggable: true
             }).addTo(map);
 

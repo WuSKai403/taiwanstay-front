@@ -189,7 +189,12 @@ export interface OpportunityDetail {
   createdAt?: string;
   updatedAt?: string;
   publishedAt?: string;
-  rejectionReason?: string;
+  statusHistory: Array<{
+    status: string;
+    reason?: string;
+    changedBy?: string;
+    changedAt: string;
+  }>;
 }
 
 export interface OpportunityDetailProps {

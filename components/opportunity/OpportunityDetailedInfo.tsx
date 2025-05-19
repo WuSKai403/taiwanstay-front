@@ -62,16 +62,20 @@ const OpportunityDetailedInfo: React.FC<OpportunityDetailedInfoProps> = ({ oppor
               </td>
             </tr>
 
-            {opportunity.rejectionReason && (
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap bg-gray-50">
-                  <span className="text-sm font-medium text-gray-900">拒絕原因</span>
-                </td>
-                <td className="px-6 py-4 whitespace-normal">
-                  <span className="text-sm text-red-600">{opportunity.rejectionReason}</span>
-                </td>
-              </tr>
-            )}
+            {/* 拒絕原因顯示 */}
+            {(() => {
+              const lastRejected = opportunity.statusHistory?.slice().reverse().find(h => h.status === 'REJECTED');
+              return lastRejected?.reason ? (
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap bg-gray-50">
+                    <span className="text-sm font-medium text-gray-900">拒絕原因</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-normal">
+                    <span className="text-sm text-red-600">{lastRejected.reason}</span>
+                  </td>
+                </tr>
+              ) : null;
+            })()}
 
             <tr>
               <td className="px-6 py-4 whitespace-nowrap bg-gray-50">

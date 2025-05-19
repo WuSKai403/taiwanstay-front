@@ -13,6 +13,7 @@ import FilterBar from '@/components/host/opportunities/FilterBar';
 import { OpportunityStatus } from '@/models/enums';
 import { UserRole } from '@/models/enums/UserRole';
 import { statusColorMap, statusLabelMap } from '@/components/opportunity/constants';
+import StatusReasonBadge from '@/components/opportunity/StatusReasonBadge';
 
 // 定義機會類型
 interface Opportunity {
@@ -36,7 +37,12 @@ interface Opportunity {
     name: string;
     _id: string;
   };
-  rejectionReason?: string;
+  statusHistory?: Array<{
+    status: OpportunityStatus;
+    reason?: string;
+    changedBy?: string;
+    changedAt: string;
+  }>;
 }
 
 // 獲取選項類型
@@ -122,6 +128,18 @@ const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
             <p className="text-gray-600 text-sm mb-2 line-clamp-2">
               {opportunity.shortDescription || '無描述'}
             </p>
+
+            {/* 狀態原因顯示 - 使用StatusReasonBadge */}
+            {(opportunity.status === OpportunityStatus.REJECTED ||
+              opportunity.status === OpportunityStatus.PAUSED ||
+              opportunity.status === OpportunityStatus.ARCHIVED) && (
+              <div className="my-2">
+                <StatusReasonBadge
+                  opportunity={opportunity}
+                  showLabel={false}
+                />
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-3">
               <span>主辦方: {opportunity.hostId?.name || '未知主辦方'}</span>

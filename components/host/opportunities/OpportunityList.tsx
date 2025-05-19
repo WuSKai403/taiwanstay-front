@@ -9,6 +9,7 @@ import {
   getStatusUpdateMessage
 } from '@/lib/hooks/useOpportunities';
 import { statusColorMap, statusLabelMap } from '@/components/opportunity/constants';
+import StatusReasonBadge from '@/components/opportunity/StatusReasonBadge';
 
 interface Opportunity {
   _id: string;
@@ -27,7 +28,12 @@ interface Opportunity {
     views?: number;
     bookmarks?: number;
   };
-  rejectionReason?: string;
+  statusHistory: Array<{
+    status: OpportunityStatus;
+    reason?: string;
+    changedBy?: string;
+    changedAt: string;
+  }>;
 }
 
 interface OpportunityListProps {
@@ -119,7 +125,7 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
     if (opportunity.media?.images && opportunity.media.images.length > 0) {
       return opportunity.media.images[0];
     }
-    return '/images/opportunity-placeholder.jpg';
+    return '/images/defaults/opportunity.jpg';
   };
 
   // 取得編輯按鈕文字
@@ -188,10 +194,14 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
                 {opportunity.shortDescription || '無描述'}
               </p>
 
-              {opportunity.status === OpportunityStatus.REJECTED && opportunity.rejectionReason && (
-                <p className="text-orange-600 text-sm mb-2">
-                  拒絕原因: {opportunity.rejectionReason}
-                </p>
+              {/* 使用StatusReasonBadge顯示拒絕原因 */}
+              {opportunity.status === OpportunityStatus.REJECTED && (
+                <div className="my-2">
+                  <StatusReasonBadge
+                    opportunity={opportunity}
+                    showLabel={false}
+                  />
+                </div>
               )}
 
               <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-3">

@@ -110,7 +110,7 @@ const OpportunitiesPage = ({ hostId }: { hostId: string }) => {
   };
 
   // 處理更新機會狀態
-  const handleUpdateStatus = async (opportunityId: string, newStatus: OpportunityStatus) => {
+  const handleUpdateStatus = async (opportunityId: string, newStatus: OpportunityStatus, currentStatus: OpportunityStatus) => {
     try {
       const response = await fetch(`/api/opportunities/${opportunityId}/status`, {
         method: 'PATCH',
@@ -202,7 +202,6 @@ const OpportunitiesPage = ({ hostId }: { hostId: string }) => {
             onView={handleView}
             onViewApplications={handleViewApplications}
             onUpdateStatus={handleUpdateStatus}
-            onDelete={handleDelete}
           />
         )}
 

@@ -49,6 +49,14 @@ export interface IOpportunity extends Document {
   statusNote?: string;
   type: OpportunityType;
 
+  // 狀態歷史紀錄
+  statusHistory: Array<{
+    status: OpportunityStatus;
+    reason?: string;
+    changedBy?: mongoose.Types.ObjectId;
+    changedAt: Date;
+  }>;
+
   // 工作詳情 - 移除時間相關欄位
   workDetails: {
     tasks: string[];
@@ -239,6 +247,15 @@ const OpportunitySchema: Schema = new Schema({
     enum: Object.values(OpportunityType),
     required: true
   },
+  // 狀態歷史紀錄
+  statusHistory: [
+    {
+      status: { type: String, enum: Object.values(OpportunityStatus), required: true },
+      reason: { type: String },
+      changedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+      changedAt: { type: Date, default: Date.now }
+    }
+  ],
 
   // 工作詳情 - 移除時間相關欄位
   workDetails: {

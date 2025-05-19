@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import { OpportunityStatus } from '@/models/enums';
+
+// 狀態歷史紀錄的驗證
+export const statusHistoryItemSchema = z.object({
+  status: z.nativeEnum(OpportunityStatus),
+  reason: z.string().optional(),
+  changedBy: z.string().optional(),
+  changedAt: z.date().default(() => new Date())
+});
 
 // 地理位置驗證
 export const opportunityLocationSchema = z.object({
@@ -32,6 +41,7 @@ const baseOpportunitySchema = z.object({
   status: z.enum(['draft', 'published', 'closed'], {
     errorMap: () => ({ message: '請選擇有效的狀態' })
   }),
+  statusHistory: z.array(statusHistoryItemSchema).optional(),
   applicants: z.array(z.string()), // 申請者 ID 列表
   createdAt: z.date(),
   updatedAt: z.date()
@@ -59,7 +69,8 @@ export const opportunityCreateSchema = baseOpportunitySchema
     updatedAt: true
   })
   .extend({
-    applicants: z.array(z.string()).optional()
+    applicants: z.array(z.string()).optional(),
+    statusHistory: z.array(statusHistoryItemSchema).optional()
   });
 
 // 工作機會更新表單驗證
@@ -101,3 +112,4 @@ export type OpportunityCreateFormData = z.infer<typeof opportunityCreateSchema>;
 export type OpportunityUpdateFormData = z.infer<typeof opportunityUpdateSchema>;
 export type OpportunitySearchParams = z.infer<typeof opportunitySearchSchema>;
 export type OpportunityLocationFormData = z.infer<typeof opportunityLocationSchema>;
+export type StatusHistoryItem = z.infer<typeof statusHistoryItemSchema>;
