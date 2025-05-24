@@ -13,16 +13,16 @@ const OpportunityContent: React.FC<OpportunityContentProps> = ({ opportunity }) 
       {/* 封面圖片 */}
       <div className="bg-white shadow-sm rounded-lg overflow-hidden mb-8">
         <div className="relative h-96">
-          {opportunity.media?.images && opportunity.media.images[0] ? (
+          {opportunity.media?.images && opportunity.media.images[0]?.url ? (
             <Image
               src={opportunity.media.images[0].url}
               alt={opportunity.title}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              style={{ objectFit: 'cover' }}
+              className="object-cover"
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <div className="flex items-center justify-center h-full bg-gray-100">
               <span className="text-gray-400">無圖片</span>
             </div>
           )}

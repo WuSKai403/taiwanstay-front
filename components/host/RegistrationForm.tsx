@@ -12,7 +12,7 @@ import ContactInfoStep from './steps/ContactInfoStep';
 import AmenitiesStep from './steps/AmenitiesStep';
 import FeaturesStep from './steps/FeaturesStep';
 import PreviewStep from './steps/PreviewStep';
-import { HostType } from '@/types/host';
+import { HostType } from '@/models/enums/HostType';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/router';
 

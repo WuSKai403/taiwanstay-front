@@ -15,7 +15,7 @@ const OpportunityListContainer: React.FC = () => {
   });
 
   // 獲取狀態更新動作
-  const { onUpdateStatus, isUpdating } = useOpportunityStatusActions();
+  const { onUpdateStatus } = useOpportunityStatusActions();
 
   // 處理編輯機會
   const handleEdit = (id: string) => {
@@ -25,6 +25,11 @@ const OpportunityListContainer: React.FC = () => {
   // 處理查看申請
   const handleViewApplications = (id: string) => {
     router.push(`/hosts/${hostId}/opportunities/${id}/applications`);
+  };
+
+  // 處理查看機會
+  const handleView = (id: string) => {
+    router.push(`/opportunities/${id}`);
   };
 
   // 處理狀態更新
@@ -113,7 +118,7 @@ const OpportunityListContainer: React.FC = () => {
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-semibold text-gray-900">工作機會列表</h2>
         <button
@@ -127,9 +132,9 @@ const OpportunityListContainer: React.FC = () => {
       <OpportunityList
         opportunities={opportunities}
         onEdit={handleEdit}
+        onView={handleView}
         onViewApplications={handleViewApplications}
         onUpdateStatus={handleUpdateStatus}
-        isUpdating={isUpdating}
       />
     </div>
   );

@@ -54,9 +54,9 @@ export async function isOrganizationAdmin(
   }
 
   // 如果是組織管理員，檢查是否為該組織的管理員
-  if (checkOrgAdmin(session.user)) {
-    return session.user.organizationId === organizationId;
-  }
+  // if (checkOrgAdmin(session.user)) {
+  //   return session.user.organizationId === organizationId;
+  // }
 
   return false;
 }

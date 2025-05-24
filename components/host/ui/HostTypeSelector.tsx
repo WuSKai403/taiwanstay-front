@@ -1,5 +1,5 @@
 import React from 'react';
-import { HostType } from '@/types/host';
+import { HostType } from '@/models/enums/HostType';
 
 // 類型圖標映射
 const TYPE_ICONS: Record<HostType, string> = {

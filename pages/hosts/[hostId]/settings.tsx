@@ -53,13 +53,16 @@ const HostSettings = ({ hostId }: HostSettingsProps) => {
   // 初始化表單資料
   useEffect(() => {
     if (hostData) {
+      // 適配新的 HostData 結構
       reset({
-        name: hostData.name,
+        name: hostData.name || '',
         description: hostData.description || '',
         contactEmail: hostData.contactInfo?.contactEmail || hostData.email || '',
-        contactPhone: hostData.contactInfo?.contactMobile || hostData.contactInfo?.phone || '',
-        address: hostData.location?.address || hostData.address || '',
-        website: hostData.contactInfo?.website || hostData.website || '',
+        contactPhone: hostData.contactInfo?.contactMobile ||
+                     (hostData.contactInfo?.phone ? hostData.contactInfo.phone : '') ||
+                     hostData.mobile || '',
+        address: hostData.location?.address || '',
+        website: hostData.contactInfo?.website || '',
       });
     }
   }, [hostData, reset]);

@@ -1,19 +1,5 @@
 import axios from 'axios';
-
-// 主人資料類型定義
-export interface HostData {
-  _id: string;
-  name: string;
-  description?: string;
-  contactEmail: string;
-  contactPhone?: string;
-  address?: string;
-  website?: string;
-  status: string;
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { HostData } from '@/types/host';
 
 // 更新主人資料的表單類型
 export interface HostUpdateForm {
@@ -70,7 +56,21 @@ export async function updateHost(hostId: string, data: HostUpdateForm): Promise<
  */
 export async function updateHostSettings(hostId: string, data: HostUpdateForm): Promise<HostData> {
   try {
-    const response = await axios.put(`/api/hosts/${hostId}/settings`, data);
+    // 將表單數據轉換為 API 期望的格式
+    const apiData = {
+      name: data.name,
+      description: data.description,
+      contactInfo: {
+        contactEmail: data.contactEmail,
+        contactMobile: data.contactPhone,
+        website: data.website
+      },
+      location: {
+        address: data.address
+      }
+    };
+
+    const response = await axios.put(`/api/hosts/${hostId}/settings`, apiData);
     if (response.data.success) {
       return response.data.host;
     } else {

@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -52,7 +52,7 @@ const HostLayout = ({ children }: HostLayoutProps) => {
   };
 
   // 側邊欄導航項目 - 根據新的流程圖更新
-  const navItems = [
+  const navItems = useMemo(() => [
     {
       key: 'dashboard',
       label: '儀表板',
@@ -152,7 +152,7 @@ const HostLayout = ({ children }: HostLayoutProps) => {
       ),
       children: []
     },
-  ];
+  ], [hostId]);
 
   // 檢查當前路徑是否匹配導航項目
   const isPathActive = (path: string) => {

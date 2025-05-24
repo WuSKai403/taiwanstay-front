@@ -139,32 +139,17 @@ export default async function handler(
           }
         }
 
-        // 計算開始月份和結束月份（YYYY-MM格式）
-        const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
-        const endDate = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}`;
-
-        // 生成月份容量
-        const months = generateMonthRange(startDate, endDate);
-        const monthlyCapacities = months.map(month => ({
-          month,
-          capacity: defaultCapacity,
-          bookedCount: 0
-        }));
-
         // 創建新時段
         const newTimeSlot: Omit<TimeSlot, '_id'> = {
           startDate: start.toISOString(),
           endDate: end.toISOString(),
-          startDate,
-          endDate,
           defaultCapacity,
           minimumStay: minStay,
           appliedCount: 0,
           confirmedCount: 0,
           status: TimeSlotStatus.OPEN,
           description: description || '',
-          capacityOverrides: capacityOverrides || [],
-          monthlyCapacities: monthlyCapacities
+          capacityOverrides: capacityOverrides || []
         };
 
         // 添加到工作機會

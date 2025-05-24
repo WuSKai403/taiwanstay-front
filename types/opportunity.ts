@@ -14,8 +14,6 @@ export interface IMonthlyCapacity {
 
 export interface TimeSlot {
   _id: string;
-  startDate: string;
-  endDate: string;
   startDate: string; // 格式為 YYYY-MM
   endDate: string; // 格式為 YYYY-MM
   defaultCapacity: number;
