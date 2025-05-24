@@ -225,13 +225,6 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
   const { data: session, status } = useSession();
   const { slug } = router.query;
 
-  // 格式化日期的輔助函數
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '未知日期';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-TW');
-  };
-
   // 檢查用戶是否已收藏此機會
   useEffect(() => {
     const checkBookmarkStatus = async () => {
@@ -335,16 +328,35 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
   // 修改地圖相關部分
   const mapPosition = useMemo(() => {
     if (opportunity.location?.coordinates) {
-      // 處理兩種可能的座標格式
-      if (opportunity.location.coordinates.coordinates) {
-        const [lng, lat] = opportunity.location.coordinates.coordinates;
-        return [lat, lng] as [number, number];
-      } else if (opportunity.location.coordinates.lat && opportunity.location.coordinates.lng) {
-        return [opportunity.location.coordinates.lat, opportunity.location.coordinates.lng] as [number, number];
+      // 使用 GeoJSON 格式座標
+      if (opportunity.location.coordinates.type === 'Point' &&
+          Array.isArray(opportunity.location.coordinates.coordinates) &&
+          opportunity.location.coordinates.coordinates.length === 2) {
+        // 從 GeoJSON [lng, lat] 轉換為 Leaflet [lat, lng] 格式
+        const [longitude, latitude] = opportunity.location.coordinates.coordinates;
+        return [latitude, longitude] as [number, number];
       }
     }
-    return undefined;
+    // 預設位置 (台北市中心)
+    return [25.0330, 121.5654] as [number, number];
   }, [opportunity.location]);
+
+  // 默認位置（台北市中心）
+  const DEFAULT_POSITION: [number, number] = [25.0330, 121.5654];
+
+  // 創建地圖配置 (預設都顯示精確位置，移除 showExactLocation 檢查)
+  const mapConfig = useMemo(() => {
+    return {
+      position: mapPosition,
+      showMarker: true,
+      markerProps: {
+        lat: opportunity.location.coordinates?.coordinates ? opportunity.location.coordinates.coordinates[1] : DEFAULT_POSITION[0],
+        lng: opportunity.location.coordinates?.coordinates ? opportunity.location.coordinates.coordinates[0] : DEFAULT_POSITION[1],
+        title: opportunity.title || '',
+        type: opportunity.type || 'OTHER',
+      }
+    };
+  }, [opportunity, mapPosition]);
 
   // 將機會詳情轉換為地圖需要的 TransformedOpportunity 格式
   const convertToTransformedOpportunity = (opp: OpportunityDetail) => {
@@ -363,13 +375,9 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
         region: opp.location?.region || '',
         city: opp.location?.city || '',
         address: opp.location?.address || null,
-        coordinates: opp.location?.coordinates ? {
-          lat: opp.location.coordinates.lat ||
-               (opp.location.coordinates.coordinates && opp.location.coordinates.coordinates.length >= 2
-                ? opp.location.coordinates.coordinates[1] : null),
-          lng: opp.location.coordinates.lng ||
-               (opp.location.coordinates.coordinates && opp.location.coordinates.coordinates.length >= 2
-                ? opp.location.coordinates.coordinates[0] : null)
+        coordinates: opp.location?.coordinates?.coordinates ? {
+          type: 'Point',
+          coordinates: opp.location.coordinates.coordinates
         } : null
       },
       media: {
@@ -472,7 +480,7 @@ const OpportunityDetail: NextPage<OpportunityDetailProps> = ({ opportunity }) =>
                       </span>
                       <div className="flex items-center text-gray-500 text-sm">
                         <CalendarIcon className="w-4 h-4 mr-1" />
-                        <span>發布於 {formatDate(opportunity.createdAt)}</span>
+                        <span>發布於 {opportunity.createdAt}</span>
                       </div>
                     </div>
                     <h1 className="text-2xl font-bold mt-2">{opportunity.title}</h1>

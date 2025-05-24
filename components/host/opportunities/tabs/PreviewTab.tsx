@@ -1,20 +1,38 @@
 import React from 'react';
 import { Control, useFormContext } from 'react-hook-form';
 import { OpportunityFormData } from '../OpportunityForm';
-import { OpportunityType } from '@/models/enums';
-import { typeNameMap, typeColorMap } from '@/components/opportunity/constants';
+import { OpportunityStatus, OpportunityType } from '@/models/enums';
+import { typeNameMap, typeColorMap, TimeSlot } from '@/components/opportunity/constants';
 import CloudinaryImage from '@/components/CloudinaryImage';
 import { CloudinaryImageResource } from '@/lib/cloudinary/types';
 import LocationMapViewer from '@/components/LocationMapViewer';
+import OpportunityRequirements from '@/components/opportunity/OpportunityRequirements';
+import OpportunityMedia from '@/components/opportunity/OpportunityMedia';
+import { OpportunityMedia as OpportunityMediaType } from '@/lib/types/media';
+import {
+  statusColorMap,
+  statusLabelMap,
+  statusActions,
+  getPrimaryAction,
+  getSecondaryActions,
+  needsConfirmation,
+  getConfirmationMessage
+} from '@/lib/opportunities/statusManager';
 
 interface PreviewTabProps {
   control: Control<OpportunityFormData>;
   watch: any;
+  status?: OpportunityStatus;
+  onStatusChange?: (newStatus: OpportunityStatus | null) => void;
+  onSave?: () => void;
 }
 
 const PreviewTab: React.FC<PreviewTabProps> = ({
   control,
   watch,
+  status = OpportunityStatus.DRAFT,
+  onStatusChange,
+  onSave,
 }) => {
   const { getValues } = useFormContext<OpportunityFormData>();
 
@@ -39,100 +57,102 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
     return typeColorMap[oppType] || 'bg-gray-100 text-gray-800';
   };
 
-  // 呈現圖片
-  const renderImages = () => {
-    // 優先使用 coverImage，如果沒有則使用 images 中的第一張
-    const coverImage = media?.coverImage;
-    const images = media?.images || [];
+  // 處理時間槽數據，確保每個時間槽都有一個 id
+  const processedTimeSlots: TimeSlot[] = (timeSlots || []).map(slot => ({
+    ...slot,
+    id: slot.id || `preview-slot-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    startDate: slot.startDate || '',
+    endDate: slot.endDate || '',
+    defaultCapacity: slot.defaultCapacity || 1,
+    minimumStay: slot.minimumStay || 1,
+    appliedCount: slot.appliedCount || 0,
+    confirmedCount: slot.confirmedCount || 0,
+    status: slot.status || 'active'
+  }));
 
-    if (coverImage) {
-      return (
-        <div className="relative rounded-lg overflow-hidden aspect-[2/1]">
-          <CloudinaryImage
-            resource={coverImage as CloudinaryImageResource}
-            alt={coverImage.alt || title}
-            className="w-full h-full object-cover"
-            objectFit="cover"
-            isPrivate={false}
-            index={0}
-          />
-        </div>
-      );
-    } else if (images.length > 0) {
-      return (
-        <div className="relative rounded-lg overflow-hidden h-64">
-          <CloudinaryImage
-            resource={images[0] as CloudinaryImageResource}
-            alt={images[0].alt || title}
-            className="w-full h-full object-cover"
-            objectFit="cover"
-            isPrivate={false}
-            index={0}
-          />
-        </div>
-      );
-    } else {
-      return (
-        <div className="bg-gray-100 rounded-lg h-64 flex items-center justify-center">
-          <p className="text-gray-500">無圖片</p>
-        </div>
-      );
-    }
+  // 將表單數據轉換為 OpportunityDetail 格式以兼容組件
+  const opportunityPreview = {
+    id: 'preview',
+    publicId: 'preview',
+    title: title || '未設置標題',
+    slug: '',
+    shortDescription: shortDescription || '未設置簡短描述',
+    description: description || '未設置工作描述',
+    type: type,
+    status: status,
+    location: {
+      city: location?.city,
+      district: location?.district,
+      address: location?.showExactLocation ? location?.address : undefined,
+      region: location?.region,
+      coordinates: location?.coordinates ? {
+        type: location.coordinates.type || "Point",
+        coordinates: location.coordinates.coordinates
+      } : undefined,  // 使用 undefined 替代 null
+    },
+    workDetails: workDetails || {
+      tasks: [],
+    },
+    benefits: benefits || {
+      accommodation: {
+        provided: false
+      },
+      meals: {
+        provided: false
+      }
+    },
+    requirements: requirements || {},
+    media: {
+      // 確保 media 屬性符合 OpportunityMedia 類型
+      coverImage: media?.coverImage || undefined,
+      images: media?.images || [],
+      videoUrl: media?.videoUrl || undefined,
+      videoDescription: media?.videoDescription || undefined,
+      virtualTour: media?.virtualTour || undefined,
+      descriptions: media?.descriptions || []
+    } as OpportunityMediaType,
+    host: {
+      id: '',
+      name: '',
+    },
+    stats: {
+      applications: 0,
+      bookmarks: 0,
+      views: 0
+    },
+    hasTimeSlots: hasTimeSlots,
+    timeSlots: processedTimeSlots,
+    statusHistory: []
   };
 
-  // 呈現所有圖片
-  const renderAllImages = () => {
-    const images = media?.images || [];
-    if (images.length === 0) {
-      return (
-        <div className="bg-gray-100 rounded-lg h-32 flex items-center justify-center">
-          <p className="text-gray-500">無圖片</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-        {images.map((image, index) => (
-          <div key={index} className="relative h-48 bg-gray-100 rounded-lg overflow-hidden">
-            <CloudinaryImage
-              resource={image as CloudinaryImageResource}
-              alt={image.alt || `照片 ${index + 1}`}
-              className="h-full w-full object-cover"
-              objectFit="cover"
-              isPrivate={false}
-              index={index}
-            />
-            {media?.descriptions && media.descriptions[index] && (
-              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 p-2">
-                <p className="text-xs text-white">{media.descriptions[index]}</p>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    );
-  };
+  // 獲取當前狀態的操作按鈕 (僅用於顯示說明文字)
+  const primaryAction = getPrimaryAction(status);
+  const secondaryActions = getSecondaryActions(status);
 
   return (
     <div className="space-y-8">
-      <h3 className="text-lg font-medium text-gray-900">資料預覽</h3>
+      <div className="flex items-center">
+        <h3 className="text-lg font-medium text-gray-900">資料預覽</h3>
+        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColorMap[status]}`}>
+          {statusLabelMap[status]}
+        </span>
+      </div>
+
       <p className="text-sm text-gray-500">
         以下顯示您填寫的機會資訊，請確認內容正確無誤。
       </p>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-        {/* 主要圖片 */}
-        {renderImages()}
-
         {/* 主要信息 */}
         <div className="p-6">
           {/* 標題和類型 */}
           <div className="flex items-start justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-900">{title || '未設置標題'}</h2>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(type)}`}>
-              {typeNameMap[type] || '其他類型'}
-            </span>
+            <div className="flex items-center space-x-2">
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTypeColor(type)}`}>
+                {typeNameMap[type] || '其他類型'}
+              </span>
+            </div>
           </div>
 
           {/* 地點 */}
@@ -157,7 +177,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
               </svg>
               <span>
-                座標: {location.coordinates[1].toFixed(6)}, {location.coordinates[0].toFixed(6)}
+                座標: {location.coordinates.coordinates[1].toFixed(6)}, {location.coordinates.coordinates[0].toFixed(6)}
               </span>
             </div>
           )}
@@ -173,7 +193,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
                 <h3 className="text-lg font-semibold mb-3">地點位置</h3>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <LocationMapViewer
-                    position={[location.coordinates[1], location.coordinates[0]]}
+                    position={[location.coordinates.coordinates[1], location.coordinates.coordinates[0]]}
                     address={location?.address}
                     city={location?.city}
                     district={location?.district}
@@ -212,7 +232,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
               </div>
             )}
 
-            {/* 時間段管理 - 取代原本的 workTimeSettings 段落 */}
+            {/* 時間段管理 */}
             {hasTimeSlots && timeSlots && timeSlots.length > 0 && (
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-3">工作時間段</h3>
@@ -250,13 +270,10 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
               </div>
             )}
 
-            {/* 圖片展示區 */}
-            {media?.images && media.images.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3">場所照片</h3>
-                {renderAllImages()}
-              </div>
-            )}
+            {/* 媒體內容 */}
+            <div className="mb-6">
+              <OpportunityMedia opportunity={opportunityPreview} isPreview={true} />
+            </div>
 
             {/* 福利 */}
             {benefits && (
@@ -294,7 +311,7 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
                     </div>
                   )}
 
-                  {benefits.stipend && benefits.stipend.provided && (
+                  {benefits.stipend && (
                     <div className="flex items-start">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mt-0.5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
@@ -303,11 +320,26 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
                       <div>
                         <h4 className="font-medium">津貼</h4>
                         <p className="text-sm text-gray-600">
-                          {benefits.stipend.amount && benefits.stipend.currency
-                            ? `${benefits.stipend.amount} ${benefits.stipend.currency}`
-                            : '提供津貼'}
-                          {benefits.stipend.frequency && ` - ${benefits.stipend.frequency}`}
+                          {benefits.stipend.provided ? '提供津貼' : '不提供津貼'}
+                          {benefits.stipend.amount && benefits.stipend.currency ? ` - ${benefits.stipend.amount} ${benefits.stipend.currency}` : ''}
+                          {benefits.stipend.frequency && ` (${benefits.stipend.frequency})`}
                         </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {benefits.otherBenefits && benefits.otherBenefits.length > 0 && (
+                    <div className="flex items-start">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mt-0.5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <h4 className="font-medium">其他福利</h4>
+                        <ul className="text-sm text-gray-600 list-disc pl-4">
+                          {benefits.otherBenefits.map((benefit, index) => (
+                            <li key={index}>{benefit}</li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
                   )}
@@ -315,44 +347,12 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
               </div>
             )}
 
-            {/* 駕照需求 */}
-            {requirements?.drivingLicense && (
-              (requirements.drivingLicense.carRequired ||
-               requirements.drivingLicense.motorcycleRequired ||
-               requirements.drivingLicense.otherRequired) && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3">駕照需求</h3>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <ul className="space-y-2">
-                      {requirements.drivingLicense.carRequired && (
-                        <li className="flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                            <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-1h3a1 1 0 00.9-.579l2.7-5.4A1 1 0 0017 7h-1.42l-.9-2.7A1 1 0 0014 3.5h-8a1 1 0 00-.9.621L4.2 7H3a1 1 0 00-1 1v3h1V8h1.05a2.5 2.5 0 014.9 0H13a1 1 0 001-1v-1h1l-2 4H8v5h2.05a2.5 2.5 0 014.9 0H15a1 1 0 001-1v-1h1a1 1 0 001-1V8a1 1 0 00-1-1h-1V5a1 1 0 00-1-1H3z" />
-                          </svg>
-                          <span>需要汽車駕照</span>
-                        </li>
-                      )}
-                      {requirements.drivingLicense.motorcycleRequired && (
-                        <li className="flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 00.5.5h4a.5.5 0 00.5-.5v-7a.5.5 0 00-.146-.354L13 5.793V2.5a.5.5 0 00-.5-.5h-1a.5.5 0 00-.5.5v1.293L8.354 1.146a.5.5 0 00-.708 0l-6 6A.5.5 0 001.5 7.5v7a.5.5 0 00.5.5h4a.5.5 0 00.5-.5z" />
-                          </svg>
-                          <span>需要機車駕照</span>
-                        </li>
-                      )}
-                      {requirements.drivingLicense.otherRequired && (
-                        <li className="flex items-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                          <span>其他駕照需求: {requirements.drivingLicense.otherDescription || '未指定'}</span>
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-              )
+            {/* 要求 */}
+            {requirements && Object.keys(requirements).length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-3">條件與要求</h3>
+                <OpportunityRequirements opportunity={opportunityPreview} />
+              </div>
             )}
           </div>
         </div>
@@ -374,6 +374,25 @@ const PreviewTab: React.FC<PreviewTabProps> = ({
             <li>審核通過後，工作機會將自動發布並對外開放申請</li>
             <li>如果審核未通過，您將收到通知並可修改後重新提交</li>
           </ol>
+        </div>
+      </div>
+
+      {/* 底部狀態說明 */}
+      <div className="mt-8 pt-6 border-t border-gray-200">
+        <div className="flex flex-col">
+          <h4 className="font-medium text-gray-900 mb-2">可用操作說明</h4>
+          <div className="text-sm text-gray-600">
+            {primaryAction && (
+              <p className="mb-2">
+                <span className="font-medium">{primaryAction.actionLabel}:</span> {primaryAction.description}
+              </p>
+            )}
+            {secondaryActions.map((action, index) => (
+              <p key={index} className="mb-2">
+                <span className="font-medium">{action.actionLabel}:</span> {action.description}
+              </p>
+            ))}
+          </div>
         </div>
       </div>
     </div>

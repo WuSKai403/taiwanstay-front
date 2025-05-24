@@ -21,7 +21,13 @@ export const opportunityDraftSchema = z.object({
     region: z.string().optional(),
     country: z.string().optional(),
     zipCode: z.string().optional(),
-    coordinates: z.array(z.number()).optional().or(z.null()),
+    coordinates: z.object({
+      type: z.literal('Point'),
+      coordinates: z.tuple([
+        z.number().min(-180).max(180, '經度必須在 -180 到 180 之間'),
+        z.number().min(-90).max(90, '緯度必須在 -90 到 90 之間')
+      ])
+    }).optional().or(z.null()),
     showExactLocation: z.boolean().optional(),
   }).optional(),
 

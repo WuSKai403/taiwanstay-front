@@ -72,6 +72,25 @@ const OpportunitiesPage: NextPage<OpportunitiesPageProps> = ({
     }
   };
 
+  // 將機會詳情轉換為地圖需要的格式
+  const convertToMapMarkers = (opp: any) => {
+    if (!opp.location?.coordinates) return null;
+
+    // 檢查是否為 GeoJSON 格式並轉換
+    if (opp.location.coordinates.type === 'Point' && Array.isArray(opp.location.coordinates.coordinates)) {
+      const [longitude, latitude] = opp.location.coordinates.coordinates;
+      return {
+        id: opp.id || opp._id,
+        position: [latitude, longitude] as [number, number], // Leaflet 需要 [lat, lng] 格式
+        title: opp.title || '未命名',
+        slug: opp.slug || '',
+        type: opp.type || 'OTHER'
+      };
+    }
+
+    return null;
+  };
+
   return (
     <Layout title="機會探索">
       <OpportunityList

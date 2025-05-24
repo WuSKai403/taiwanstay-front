@@ -95,44 +95,79 @@ const OpportunityDetailPage = ({ hostId, opportunityId }: { hostId: string, oppo
 
   // 提交機會更新
   const mutation = useMutation({
-    mutationFn: (data: OpportunityFormData) => {
+    mutationFn: async (data: OpportunityFormData & { submitForReview?: boolean }) => {
       const url = isNewOpportunity
         ? '/api/opportunities'
         : `/api/opportunities/${opportunityId}`;
 
       const method = isNewOpportunity ? 'POST' : 'PUT';
 
-      // 將表單資料轉換為 API 期望的格式
+      // 從數據中提取是否需要送審的標記，然後從API數據中移除
+      const shouldSubmitForReview = data.submitForReview === true;
       const apiData: any = { ...data };
+      delete apiData.submitForReview;
 
-      // 如果是從拒絕狀態進行編輯，則更改狀態為待審核
-      if (opportunity && opportunity.status === OpportunityStatus.REJECTED) {
-        console.log('檢測到機會處於拒絕狀態，更改為待審核狀態');
-        apiData.status = OpportunityStatus.PENDING;
-      }
+      // 如果有狀態字段，確保將其刪除，防止API錯誤
+      delete apiData.status;
+      delete apiData.statusHistory;
 
-      console.log('提交的機會資料:', apiData);
+      console.log('提交的機會資料 (不含狀態):', apiData);
+      console.log('操作類型:', shouldSubmitForReview ? '重新送審' : '僅儲存');
 
-      return fetch(url, {
+      // 先儲存機會內容
+      const saveResponse = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(apiData),
-      }).then(response => {
-        if (!response.ok) {
-          throw new Error('儲存機會失敗');
-        }
-        return response.json();
       });
+
+      if (!saveResponse.ok) {
+        console.error('儲存失敗:', await saveResponse.json());
+        throw new Error('儲存機會失敗');
+      }
+
+      const saveResult = await saveResponse.json();
+
+      // 如果是從拒絕狀態進行編輯，且用戶選擇重新送審，才更新狀態
+      if (!isNewOpportunity && opportunity && opportunity.status === OpportunityStatus.REJECTED && shouldSubmitForReview) {
+        console.log('檢測到機會處於拒絕狀態，且用戶選擇重新送審，使用狀態API更改為待審核狀態');
+
+        // 使用專門的狀態更新API
+        const statusResponse = await fetch(`/api/opportunities/${opportunityId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: OpportunityStatus.PENDING }),
+        });
+
+        if (!statusResponse.ok) {
+          console.error('狀態更新失敗:', await statusResponse.json());
+          // 雖然內容已更新，但狀態更新失敗，仍然返回內容更新結果
+          return saveResult;
+        }
+
+        // 狀態已更新，合併兩個結果
+        const statusResult = await statusResponse.json();
+        return {
+          ...saveResult,
+          status: statusResult.opportunity.status,
+          needRedirect: true // 標記需要重定向
+        };
+      }
+
+      return saveResult;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['opportunity', opportunityId] });
       queryClient.invalidateQueries({ queryKey: ['host-opportunities', hostId] });
+
       if (isNewOpportunity) {
-        router.push(`/hosts/${hostId}/opportunities/${data._id}`);
-      } else if (opportunity && opportunity.status === OpportunityStatus.REJECTED) {
-        // 如果是從拒絕狀態更新，重定向回列表頁，顯示已送審的訊息
+        router.push(`/hosts/${hostId}/opportunities/${data.opportunity?._id || data._id}`);
+      } else if (data.needRedirect) {
+        // 只有當明確標記需要重定向時（即重新送審時）才重定向並顯示提示
         router.push(`/hosts/${hostId}/opportunities`);
         alert('已重新送出審核！');
       }
@@ -161,12 +196,23 @@ const OpportunityDetailPage = ({ hostId, opportunityId }: { hostId: string, oppo
     },
   });
 
-  // 表單提交處理
+  // 表單提交處理 - 機會狀態不會被重設為PENDING
   const onSubmit = async (data: OpportunityFormData) => {
     try {
-      await mutation.mutateAsync(data);
+      // 傳遞submitForReview=false標記，表示這是僅儲存操作
+      await mutation.mutateAsync({...data, submitForReview: false});
     } catch (error) {
       console.error('提交表單時出錯:', error);
+    }
+  };
+
+  // 送出審核處理 - 機會狀態會被重設為PENDING
+  const onSubmitForReview = async (data: OpportunityFormData) => {
+    try {
+      // 傳遞submitForReview=true標記，表示這是送審操作
+      await mutation.mutateAsync({...data, submitForReview: true});
+    } catch (error) {
+      console.error('送出審核時出錯:', error);
     }
   };
 
@@ -270,6 +316,7 @@ const OpportunityDetailPage = ({ hostId, opportunityId }: { hostId: string, oppo
               initialData={opportunity as OpportunityFormData}
               isNewOpportunity={isNewOpportunity}
               onSubmit={onSubmit}
+              onSubmitForReview={onSubmitForReview}
               onPublish={handlePublish}
               onPreview={handlePreview}
               onCancel={handleCancel}

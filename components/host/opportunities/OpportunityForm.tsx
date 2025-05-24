@@ -8,6 +8,7 @@ import { OpportunityType, OpportunityStatus } from '@/models/enums';
 import Button from '@/components/common/Button';
 import LoadingSpinner from '@/components/common/LoadingSpinner';
 import { typeNameMap } from '@/components/opportunity/constants';
+import { statusActions, StatusAction } from '@/lib/opportunities/statusManager';
 
 // 導入標籤組件
 import BasicInfoTab from '@/components/host/opportunities/tabs/BasicInfoTab';
@@ -32,7 +33,13 @@ export const opportunitySchema = z.object({
     region: z.string().optional(),
     country: z.string().default('Taiwan'),
     zipCode: z.string().optional(),
-    coordinates: z.array(z.number()).length(2).optional().or(z.null()),
+    coordinates: z.object({
+      type: z.literal('Point'),
+      coordinates: z.tuple([
+        z.number().min(-180).max(180), // 經度 (lng)
+        z.number().min(-90).max(90)     // 緯度 (lat)
+      ])
+    }).optional().or(z.null()),
     showExactLocation: z.boolean().default(false).optional(),
   }),
   workDetails: z.object({
@@ -121,7 +128,9 @@ export const opportunitySchema = z.object({
   })).min(1, "請至少添加一個時間段"),
 });
 
-export type OpportunityFormData = z.infer<typeof opportunitySchema>;
+export type OpportunityFormData = z.infer<typeof opportunitySchema> & {
+  submitForReview?: boolean;
+};
 
 // 定義 OpportunityForm 組件的 props
 interface OpportunityFormProps {
@@ -130,14 +139,14 @@ interface OpportunityFormProps {
   onSubmit: (data: OpportunityFormData) => Promise<void>;
   onPublish?: () => Promise<void>; // 可選的發布功能
   onPreview?: (opportunitySlug: string) => void; // 可選的預覽功能
-  onSubmitForReview?: (data: OpportunityFormData) => Promise<void>; // 修改 - 送出審核功能接收表單數據
+  onSubmitForReview?: (data: OpportunityFormData & { submitForReview?: boolean }) => Promise<void>; // 修改 - 送出審核功能接收表單數據
   saveDraft?: (data: Partial<OpportunityFormData>) => Promise<void>; // 新增 - 儲存草稿功能
   onCancel: () => void; // 取消操作
   isSubmitting: boolean; // 是否正在提交
   isPublishing?: boolean; // 是否正在發布
   isSubmittingForReview?: boolean; // 新增 - 是否正在送出審核
   isSubmittingDraft?: boolean; // 新增 - 是否正在儲存草稿
-  opportunity?: any; // 機會數據（用於顯示狀態等）
+  opportunity?: { status?: OpportunityStatus }; // 修改 opportunity 的類型定義
 }
 
 // OpportunityForm 組件
@@ -147,20 +156,22 @@ export default function OpportunityForm({
   onSubmit,
   onPublish,
   onPreview,
-  onSubmitForReview, // 新增 - 送出審核功能
-  saveDraft, // 新增 - 儲存草稿功能
+  onSubmitForReview,
+  saveDraft,
   onCancel,
   isSubmitting,
   isPublishing,
-  isSubmittingForReview, // 新增 - 是否正在送出審核
-  isSubmittingDraft, // 新增 - 是否正在儲存草稿
+  isSubmittingForReview,
+  isSubmittingDraft,
   opportunity,
 }: OpportunityFormProps) {
   const [activeTab, setActiveTab] = useState(0);
-  // 新增錯誤通知狀態
   const [showErrorNotification, setShowErrorNotification] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [errorFields, setErrorFields] = useState<string[]>([]);
+
+  // 添加 isProcessing 狀態來追蹤所有操作
+  const isProcessing = isSubmitting || isPublishing || isSubmittingForReview || isSubmittingDraft;
 
   // 統一使用同一個表單邏輯，不再區分新增/編輯
   const methods = useForm<OpportunityFormData>({
@@ -581,7 +592,12 @@ export default function OpportunityForm({
               });
             }
 
-            await onSubmitForReview(finalData);
+            // 添加submitForReview標記，表示這是重新送審操作
+            const dataWithFlag = {
+              ...finalData,
+              submitForReview: true
+            };
+            await onSubmitForReview(dataWithFlag);
             console.log('送出審核處理完成');
           } catch (error) {
             console.error('送出審核時發生錯誤:', error);
@@ -643,93 +659,60 @@ export default function OpportunityForm({
     return activeTab;
   };
 
-  // 渲染導航按鈕
-  const renderTabNavigation = () => {
-    // 獲取表單數據的函數
-    const getFormData = () => {
-      return methods.getValues();
-    };
-
-    // 處理儲存草稿
-    const handleSaveDraft = () => {
-      if (saveDraft) {
-        const currentData = getFormData();
-        saveDraft(currentData);
-      }
-    };
+  // 修改按鈕渲染邏輯
+  const renderActionButtons = () => {
+    const currentStatus: OpportunityStatus = opportunity?.status || OpportunityStatus.DRAFT;
+    const currentActions = statusActions[currentStatus] || [];
 
     return (
-      <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
-        <Button
-          type="button"
-          variant="white"
-          onClick={activeTab === 0 ? onCancel : handlePrevTab}
-        >
-          {activeTab === 0 ? '返回' : '上一步'}
-        </Button>
-        <div className="flex space-x-2">
-          {/* 儲存草稿按鈕 - 不需要表單驗證 */}
-          {isNewOpportunity && saveDraft && (
+      <div className="flex justify-between items-center mt-6 space-x-4">
+        <div className="flex space-x-4">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={onCancel}
+            disabled={isProcessing}
+          >
+            返回列表
+          </Button>
+        </div>
+        <div className="flex space-x-4">
+          {currentActions.map((action: StatusAction) => (
             <Button
-              type="button"
-              variant="outline"
-              onClick={handleSaveDraft}
-              loading={isSubmittingDraft}
+              key={action.actionLabel}
+              type={action.isPrimary ? 'submit' : 'button'}
+              variant={action.buttonType}
+              onClick={() => !action.isPrimary && handleStatusAction(action.targetStatus)}
+              disabled={isProcessing}
+              className={action.buttonType === 'danger' ? 'bg-red-600 hover:bg-red-700' : ''}
             >
-              儲存草稿
+              {isProcessing ? <LoadingSpinner size="sm" /> : action.actionLabel}
             </Button>
-          )}
-
-          {/* 完整儲存按鈕 - 需要表單驗證 */}
-          {(!isNewOpportunity || !saveDraft) && (
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleSubmit(onSubmit)}
-              loading={isSubmitting}
-            >
-              儲存
-            </Button>
-          )}
-          {activeTab === tabs.length - 1 && (
-            <>
-              {/* 新增 - 送出審核按鈕，直接使用表單數據 */}
-              {isNewOpportunity && onSubmitForReview && (
-                <Button
-                  type="button"
-                  variant="success"
-                  onClick={handleSubmitForReview}
-                  loading={isSubmittingForReview}
-                >
-                  送出審核
-                </Button>
-              )}
-
-              {/* 已有機會的發佈按鈕 */}
-              {!isNewOpportunity && opportunity?.status === OpportunityStatus.DRAFT && onPublish && (
-                <Button
-                  type="button"
-                  variant="success"
-                  onClick={onPublish}
-                  loading={isPublishing}
-                >
-                  發布
-                </Button>
-              )}
-            </>
-          )}
-          {activeTab < tabs.length - 1 && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleNextTab}
-            >
-              下一步
-            </Button>
-          )}
+          ))}
         </div>
       </div>
     );
+  };
+
+  // 修改狀態操作處理函數
+  const handleStatusAction = async (targetStatus: OpportunityStatus | null) => {
+    if (isProcessing) return; // 如果正在處理其他操作，直接返回
+
+    try {
+      const formData = methods.getValues();
+      if (targetStatus === null) {
+        // 儲存操作
+        await onSubmit(formData);
+      } else if (targetStatus === OpportunityStatus.PENDING) {
+        // 送審操作
+        await onSubmitForReview?.({ ...formData, submitForReview: true });
+      }
+      // 其他狀態變更操作...
+    } catch (error) {
+      console.error('狀態操作失敗:', error);
+      setErrorMessage('操作失敗，請稍後重試');
+      setShowErrorNotification(true);
+    }
   };
 
   // 錯誤通知組件
@@ -826,7 +809,7 @@ export default function OpportunityForm({
                 watch={watch}
                 setValue={setValue}
               />
-              {renderTabNavigation()}
+              {renderActionButtons()}
             </Tab.Panel>
 
             {/* 詳細資訊表單 */}
@@ -839,7 +822,7 @@ export default function OpportunityForm({
                 watch={watch}
                 setValue={setValue}
               />
-              {renderTabNavigation()}
+              {renderActionButtons()}
             </Tab.Panel>
 
             {/* 時間管理表單 */}
@@ -852,7 +835,7 @@ export default function OpportunityForm({
                 watch={watch}
                 setValue={setValue}
               />
-              {renderTabNavigation()}
+              {renderActionButtons()}
             </Tab.Panel>
 
             {/* 圖片上傳表單 */}
@@ -865,7 +848,7 @@ export default function OpportunityForm({
                 watch={watch}
                 setValue={setValue}
               />
-              {renderTabNavigation()}
+              {renderActionButtons()}
             </Tab.Panel>
 
             {/* 預覽頁面 */}
@@ -874,7 +857,7 @@ export default function OpportunityForm({
                 control={control}
                 watch={watch}
               />
-              {renderTabNavigation()}
+              {renderActionButtons()}
             </Tab.Panel>
           </Tab.Panels>
         </Tab.Group>

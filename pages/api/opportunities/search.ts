@@ -294,8 +294,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             city: opp.location?.city,
             country: opp.location?.country,
             coordinates: coordinates ? {
-              lat: coordinates[1],
-              lng: coordinates[0]
+              type: 'Point',
+              coordinates: coordinates
             } : undefined
           },
           workDetails: {

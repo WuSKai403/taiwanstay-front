@@ -1,5 +1,6 @@
 import { OpportunityType } from '@/models/enums';
 import { OpportunityStatus } from '@/models/enums';
+import { OpportunityMedia } from '@/lib/types/media';
 
 // 機會類型標籤顏色映射
 export const typeColorMap = {
@@ -58,7 +59,7 @@ export const statusColorMap = {
   [OpportunityStatus.EXPIRED]: 'bg-gray-100 text-gray-600',
   [OpportunityStatus.FILLED]: 'bg-purple-100 text-purple-800',
   [OpportunityStatus.REJECTED]: 'bg-orange-100 text-orange-800',
-  [OpportunityStatus.ARCHIVED]: 'bg-red-100 text-red-800',
+  [OpportunityStatus.ADMIN_PAUSED]: 'bg-red-100 text-red-800'
 };
 
 // 機會狀態顯示名稱
@@ -66,11 +67,11 @@ export const statusLabelMap = {
   [OpportunityStatus.DRAFT]: '草稿',
   [OpportunityStatus.PENDING]: '待審核',
   [OpportunityStatus.ACTIVE]: '已上架',
-  [OpportunityStatus.PAUSED]: '已暫停',
+  [OpportunityStatus.PAUSED]: '已下架',
   [OpportunityStatus.EXPIRED]: '已過期',
   [OpportunityStatus.FILLED]: '已滿額',
   [OpportunityStatus.REJECTED]: '已拒絕',
-  [OpportunityStatus.ARCHIVED]: '已下架',
+  [OpportunityStatus.ADMIN_PAUSED]: '管理員暫停'
 };
 
 // TimeSlot 介面定義
@@ -154,10 +155,7 @@ export interface OpportunityDetail {
     culturalExchange?: string;
     sustainableDevelopmentGoals?: string[];
   };
-  media: {
-    coverImage?: string;
-    images?: string[];
-  };
+  media: OpportunityMedia;
   host: {
     id: string;
     name: string;

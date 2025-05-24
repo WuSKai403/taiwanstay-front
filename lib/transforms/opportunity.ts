@@ -1,5 +1,11 @@
 import { OpportunityType } from '@/models/enums/OpportunityType';
 
+// GeoJSON Point 格式定義
+export interface GeoJSONPoint {
+  type: 'Point';
+  coordinates: [number, number]; // [經度, 緯度]
+}
+
 export interface Opportunity {
   _id: string;
   title: string;
@@ -16,10 +22,7 @@ export interface Opportunity {
     region: string;
     city: string;
     address?: string;
-    coordinates?: {
-      lat: number;
-      lng: number;
-    };
+    coordinates?: GeoJSONPoint;
   };
   media?: {
     images: {
@@ -64,10 +67,7 @@ export interface TransformedOpportunity {
     region: string;
     city: string;
     address?: string | null;
-    coordinates?: {
-      lat: number;
-      lng: number;
-    } | null;
+    coordinates?: GeoJSONPoint | null;
   };
   media?: {
     images: {
@@ -93,10 +93,7 @@ export interface TransformedOpportunity {
 
 export interface OpportunityMarker {
   id: string;
-  position: {
-    lat: number;
-    lng: number;
-  };
+  position: [number, number]; // [緯度, 經度] 用於 Leaflet
   title: string;
   type: string;
   slug: string;
@@ -172,8 +169,10 @@ export function transformToMarkers(opportunities: Opportunity[] | TransformedOpp
     const opportunity = opportunities[i];
     if (
       opportunity &&
-      opportunity.location?.coordinates?.lat !== undefined &&
-      opportunity.location.coordinates?.lng !== undefined
+      opportunity.location?.coordinates?.type === 'Point' &&
+      opportunity.location.coordinates?.coordinates &&
+      Array.isArray(opportunity.location.coordinates.coordinates) &&
+      opportunity.location.coordinates.coordinates.length === 2
     ) {
       validOpportunities.push(opportunity);
     }
@@ -184,12 +183,12 @@ export function transformToMarkers(opportunities: Opportunity[] | TransformedOpp
     // 安全獲取 ID
     const id = opportunity._id || (opportunity as any).id || `marker-${Math.random().toString(36).substr(2, 9)}`;
 
+    // 從 GeoJSON 格式取出座標 [經度, 緯度] 並轉換為 Leaflet 所需的 [緯度, 經度] 格式
+    const [longitude, latitude] = opportunity.location.coordinates!.coordinates;
+
     return {
       id,
-      position: {
-        lat: opportunity.location.coordinates!.lat,
-        lng: opportunity.location.coordinates!.lng
-      },
+      position: [latitude, longitude], // 轉換為 Leaflet 格式 [緯度, 經度]
       title: opportunity.title || '未命名機會',
       type: opportunity.type || 'OTHER',
       slug: opportunity.slug || ''

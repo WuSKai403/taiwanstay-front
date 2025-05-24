@@ -29,15 +29,13 @@ const OpportunityMap: React.FC<OpportunityMapProps> = ({ opportunity }) => {
     );
   }
 
-  // 提取座標 - 同時支援兩種格式
+  // 提取座標 - 使用標準 GeoJSON 格式
   let position: [number, number];
-  if (opportunity.location.coordinates.coordinates) {
-    const coordinates = opportunity.location.coordinates.coordinates;
-    position = [coordinates[1], coordinates[0]];
-  } else if (opportunity.location.coordinates.lat && opportunity.location.coordinates.lng) {
-    position = [opportunity.location.coordinates.lat, opportunity.location.coordinates.lng];
+  if (opportunity.location.coordinates && opportunity.location.coordinates.type === 'Point') {
+    const [longitude, latitude] = opportunity.location.coordinates.coordinates;
+    position = [latitude, longitude]; // 轉換為 Leaflet [lat, lng] 格式
   } else {
-    // 如果兩種格式都不存在，顯示默認位置（台北市中心）
+    // 如果座標格式不正確，顯示默認位置（台北市中心）
     position = [25.0330, 121.5654];
   }
 

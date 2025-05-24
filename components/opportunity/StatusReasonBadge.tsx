@@ -18,9 +18,9 @@ const isNegativeStatus = (status: OpportunityStatus | string): boolean => {
   return [
     OpportunityStatus.REJECTED,
     OpportunityStatus.PAUSED,
-    OpportunityStatus.ARCHIVED,
     OpportunityStatus.EXPIRED,
-    OpportunityStatus.FILLED
+    OpportunityStatus.FILLED,
+    OpportunityStatus.ADMIN_PAUSED
   ].includes(status as OpportunityStatus);
 };
 

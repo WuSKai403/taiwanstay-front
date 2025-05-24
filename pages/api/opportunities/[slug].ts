@@ -112,9 +112,10 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
         country: opportunity.location?.country,
         address: opportunity.location?.address,
         coordinates: coordinates ? {
-          lat: coordinates[1],
-          lng: coordinates[0]
-        } : undefined
+          type: 'Point',
+          coordinates: coordinates
+        } : undefined,
+        showExactLocation: true
       },
       workDetails: opportunity.workDetails,
       benefits: opportunity.benefits,
@@ -201,6 +202,16 @@ async function updateOpportunity(req: NextApiRequest, res: NextApiResponse) {
     delete updateData.hostId;
     delete updateData.createdAt;
 
+    // 防止在此 API 直接修改狀態和狀態歷史
+    if (updateData.status) {
+      return res.status(400).json({
+        success: false,
+        message: '請使用 /api/opportunities/[slug]/status API 來更新狀態'
+      });
+    }
+    delete updateData.status;
+    delete updateData.statusHistory;
+
     // 更新時間戳
     updateData.updatedAt = new Date();
 
@@ -222,46 +233,17 @@ async function updateOpportunity(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-// 封存機會（代替刪除）處理函數
+// 封存機會（代替刪除）處理函數 - 轉為使用狀態 API
 async function archiveOpportunity(req: NextApiRequest, res: NextApiResponse) {
   try {
-    await dbConnect();
-    const { slug } = req.query;
-
-    // 查找機會
-    let opportunity;
-    let opportunityId;
-
-    // 如果是有效的 MongoDB ObjectId，直接用來查詢
-    if (isValidObjectId(slug as string)) {
-      opportunityId = slug;
-      opportunity = await Opportunity.findById(opportunityId);
-    } else {
-      // 否則嘗試通過 slug 查詢
-      opportunity = await Opportunity.findOne({ slug: slug });
-      opportunityId = opportunity?._id;
-    }
-
-    if (!opportunity) {
-      return res.status(404).json({ success: false, message: '機會不存在' });
-    }
-
-    // 更新機會狀態為已封存
-    opportunity.status = OpportunityStatus.ARCHIVED;
-    opportunity.updatedAt = new Date();
-    await opportunity.save();
-
-    return res.status(200).json({
-      success: true,
-      message: '機會已成功封存',
-      archived: true,
-      opportunity: {
-        id: opportunity._id,
-        status: opportunity.status
-      }
+    // 返回提示信息，不再直接執行修改操作
+    return res.status(400).json({
+      success: false,
+      message: '請使用 /api/opportunities/[slug]/status 將狀態設置為 PAUSED 來下架機會',
+      redirectTo: `/api/opportunities/${req.query.slug}/status`
     });
   } catch (error) {
-    console.error('封存機會時出錯:', error);
+    console.error('處理下架機會請求時出錯:', error);
     return res.status(500).json({ success: false, message: '服務器錯誤' });
   }
 }

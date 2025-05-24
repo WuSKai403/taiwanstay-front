@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { OrganizationStatus } from './enums/OrganizationStatus';
 import { OrganizationType } from './enums/OrganizationType';
+import { MediaImage } from '@/lib/types/media';
 
 export interface IOrganization extends Document {
   name: string;
@@ -50,9 +51,9 @@ export interface IOrganization extends Document {
 
   // 媒體資訊
   media: {
-    logo?: string;
-    coverImage?: string;
-    gallery?: string[];
+    logo?: MediaImage;
+    coverImage?: MediaImage;
+    gallery?: MediaImage[];
     videos?: string[];
   };
 
@@ -132,9 +133,9 @@ const OrganizationSchema: Schema = new Schema({
 
   // 媒體資訊
   media: {
-    logo: { type: String },
-    coverImage: { type: String },
-    gallery: [{ type: String }],
+    logo: { type: Object },
+    coverImage: { type: Object },
+    gallery: [{ type: Object }],
     videos: [{ type: String }]
   },
 

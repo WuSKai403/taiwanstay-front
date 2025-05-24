@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Control } from 'react-hook-form';
-import { OpportunityFormData } from '../OpportunityForm';
+import { Controller, Control, UseFormRegister, FieldErrors, UseFormWatch, UseFormSetValue } from 'react-hook-form';
+import { OpportunityFormData } from '@/components/host/opportunities/OpportunityForm';
 import { typeNameMap } from '@/components/opportunity/constants';
+import { OpportunityType } from '@/models/enums';
+import { GeoJSONPoint } from '@/lib/transforms/opportunity';
 import LocationSelector from '@/components/common/LocationSelector';
 
 interface BasicInfoTabProps {
@@ -66,7 +68,7 @@ const BasicInfoTab: React.FC<BasicInfoTabProps> = ({
     setValue('location.zipCode', value);
   }, [setValue]);
 
-  const handleCoordinatesChange = useCallback((value: [number, number]) => {
+  const handleCoordinatesChange = useCallback((value: GeoJSONPoint) => {
     setValue('location.coordinates', value, { shouldValidate: true });
 
     // 儲存使用者互動狀態到 localStorage

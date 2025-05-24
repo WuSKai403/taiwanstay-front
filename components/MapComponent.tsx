@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { useLeafletMap } from './hooks/useLeafletMap';
 import { useMapMarkers } from './hooks/useMapMarkers';
 import { TAIWAN_CENTER, DEFAULT_ZOOM } from './hooks/useLeaflet';
-import { TransformedOpportunity } from '@/lib/transforms/opportunity';
+import { TransformedOpportunity, GeoJSONPoint } from '@/lib/transforms/opportunity';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
@@ -57,24 +57,35 @@ const convertOpportunitiesToMarkers = (opportunities: TransformedOpportunity[] =
         console.warn('機會缺少位置坐標:', opp.id || opp._id, opp.title);
         return false;
       }
-      if (!opp.location.coordinates.lat || !opp.location.coordinates.lng) {
-        console.warn('機會坐標不完整:', opp.id || opp._id, opp.title, opp.location.coordinates);
+
+      // 檢查是否為 GeoJSON 格式座標
+      const coordinates = opp.location.coordinates;
+      if (!coordinates.type || !coordinates.coordinates ||
+          !Array.isArray(coordinates.coordinates) ||
+          coordinates.coordinates.length !== 2) {
+        console.warn('機會座標格式不正確:', opp.id || opp._id, opp.title, coordinates);
         return false;
       }
+
       return true;
     })
-    .map(opp => ({
-      id: opp.id || opp._id || `marker-${Math.random().toString(36).substr(2, 9)}`,
-      position: [
-        opp.location!.coordinates!.lat,
-        opp.location!.coordinates!.lng
-      ] as [number, number],
-      title: opp.title || '未命名機會',
-      type: opp.type || 'OTHER',
-      slug: opp.slug || '',
-      city: opp.location?.city || '未知地點',
-      typeName: getTypeDisplayName(opp.type || 'unknown')
-    }));
+    .map(opp => {
+      // 從 GeoJSON 格式取得經緯度 (注意 GeoJSON 順序是 [lng, lat])
+      const [longitude, latitude] = opp.location!.coordinates!.coordinates;
+
+      return {
+        id: opp.id || opp._id || `marker-${Math.random().toString(36).substr(2, 9)}`,
+        position: [
+          latitude,  // 緯度用於 Leaflet 的 [lat, lng] 格式
+          longitude  // 經度用於 Leaflet 的 [lat, lng] 格式
+        ] as [number, number],
+        title: opp.title || '未命名機會',
+        type: opp.type || 'OTHER',
+        slug: opp.slug || '',
+        city: opp.location?.city || '未知地點',
+        typeName: getTypeDisplayName(opp.type || 'unknown')
+      };
+    });
 
   console.log('轉換完成，生成有效標記數量:', markers.length);
   return markers;

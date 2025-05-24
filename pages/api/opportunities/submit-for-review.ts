@@ -304,33 +304,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 確保地理位置座標格式正確
     if (processedOpportunityData.location && processedOpportunityData.location.coordinates) {
-      console.log('處理地理位置座標...');
-      // 檢查座標格式
+      console.log('檢查地理位置座標...');
+
+      // 檢查座標格式是否為標準的 GeoJSON
       if (processedOpportunityData.location.coordinates.type === 'Point' &&
-          !Array.isArray(processedOpportunityData.location.coordinates.coordinates)) {
-        // 如果有原始座標值但格式不正確，嘗試修復
-        if (processedOpportunityData.location.coordinates.lat && processedOpportunityData.location.coordinates.lng) {
-          console.log(`修正座標格式: [${processedOpportunityData.location.coordinates.lng}, ${processedOpportunityData.location.coordinates.lat}]`);
-          processedOpportunityData.location.coordinates = {
-            type: 'Point',
-            coordinates: [
-              parseFloat(processedOpportunityData.location.coordinates.lng),
-              parseFloat(processedOpportunityData.location.coordinates.lat)
-            ]
-          };
-        } else {
-          // 如果沒有座標值，設置一個默認值或移除座標
-          console.log('座標資料不完整，移除座標欄位');
-          delete processedOpportunityData.location.coordinates;
-        }
-      } else if (Array.isArray(processedOpportunityData.location.coordinates) && processedOpportunityData.location.coordinates.length === 2) {
-        // 如果座標是數組但沒有 type 字段，添加 type
-        console.log(`座標是數組格式，添加 type: 'Point'`);
+          Array.isArray(processedOpportunityData.location.coordinates.coordinates) &&
+          processedOpportunityData.location.coordinates.coordinates.length === 2) {
+        console.log('座標格式正確 (GeoJSON Point)');
+      } else if (processedOpportunityData.location.coordinates.lat && processedOpportunityData.location.coordinates.lng) {
+        // 兼容舊格式：從 {lat, lng} 轉換為 GeoJSON Point 格式
+        console.log(`轉換座標到 GeoJSON 格式: { type: "Point", coordinates: [${processedOpportunityData.location.coordinates.lng}, ${processedOpportunityData.location.coordinates.lat}] }`);
         processedOpportunityData.location.coordinates = {
           type: 'Point',
-          coordinates: processedOpportunityData.location.coordinates
+          coordinates: [
+            parseFloat(processedOpportunityData.location.coordinates.lng.toString()),
+            parseFloat(processedOpportunityData.location.coordinates.lat.toString())
+          ]
         };
+      } else {
+        // 座標格式無效，移除座標欄位
+        console.log('座標格式無效，移除座標欄位');
+        delete processedOpportunityData.location.coordinates;
       }
+
+      // 確保 showExactLocation 為 true
+      processedOpportunityData.location.showExactLocation = true;
     }
 
     const opportunity = new Opportunity({

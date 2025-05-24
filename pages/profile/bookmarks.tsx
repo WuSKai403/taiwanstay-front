@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import ProfileLayout from '@/components/layout/ProfileLayout';
+import { MediaImage } from '@/lib/types/media';
 
 // 收藏項目類型
 interface BookmarkItem {
@@ -16,7 +17,7 @@ interface BookmarkItem {
     _id: string;
     title: string;
     slug: string;
-    coverImage?: string;
+    coverImage?: MediaImage;
     location?: {
       city?: string;
       district?: string;
@@ -24,7 +25,7 @@ interface BookmarkItem {
     hostId: {
       _id: string;
       name: string;
-      profileImage?: string;
+      profileImage?: MediaImage;
     };
   };
   createdAt: string;
@@ -130,8 +131,8 @@ const BookmarksPage: NextPage = () => {
                   <div className="relative h-48 w-full">
                     {bookmark.opportunityId.coverImage ? (
                       <Image
-                        src={bookmark.opportunityId.coverImage}
-                        alt={bookmark.opportunityId.title}
+                        src={bookmark.opportunityId.coverImage.secureUrl || bookmark.opportunityId.coverImage.url || ''}
+                        alt={bookmark.opportunityId.coverImage.alt || bookmark.opportunityId.title}
                         layout="fill"
                         objectFit="cover"
                       />
@@ -155,8 +156,8 @@ const BookmarksPage: NextPage = () => {
                       <div className="flex-shrink-0 h-8 w-8 relative overflow-hidden rounded-full mr-2">
                         {bookmark.opportunityId.hostId.profileImage ? (
                           <Image
-                            src={bookmark.opportunityId.hostId.profileImage}
-                            alt={bookmark.opportunityId.hostId.name}
+                            src={bookmark.opportunityId.hostId.profileImage.secureUrl || bookmark.opportunityId.hostId.profileImage.url || ''}
+                            alt={bookmark.opportunityId.hostId.profileImage.alt || bookmark.opportunityId.hostId.name}
                             layout="fill"
                             objectFit="cover"
                           />

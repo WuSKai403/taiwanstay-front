@@ -5,34 +5,50 @@ import { OpportunityStatus } from '@/models/enums';
 import { isValidObjectId } from '@/utils/helpers';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import { UserRole } from '@/models/enums/UserRole';
-import User from '@/models/User';
-import { isValidStatusTransition } from '@/lib/hooks/useOpportunities';
+import { isTransitionAllowed } from '@/lib/opportunities/statusManager';
+import { requireOpportunityAccess } from '@/lib/middleware/authMiddleware';
+import mongoose from 'mongoose';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+// Host 允許的狀態轉換列表
+const HOST_ALLOWED_TRANSITIONS: Partial<Record<OpportunityStatus, OpportunityStatus[]>> = {
+  [OpportunityStatus.DRAFT]: [OpportunityStatus.PENDING],
+  [OpportunityStatus.PENDING]: [OpportunityStatus.DRAFT], // 撤回審核
+  [OpportunityStatus.ACTIVE]: [OpportunityStatus.PAUSED], // 暫停刊登
+  [OpportunityStatus.PAUSED]: [OpportunityStatus.ACTIVE], // 重新開放
+  [OpportunityStatus.REJECTED]: [OpportunityStatus.PENDING], // 重新送審
+  [OpportunityStatus.EXPIRED]: [], // Host 不能從過期狀態變更
+  [OpportunityStatus.FILLED]: []  // Host 不能從已滿狀態變更
+};
+
+// 檢查 host 是否允許執行此狀態轉換
+function isHostAllowedTransition(currentStatus: OpportunityStatus, newStatus: OpportunityStatus): boolean {
+  return HOST_ALLOWED_TRANSITIONS[currentStatus]?.includes(newStatus) || false;
+}
+
+// 提取 slug 參數並轉換為 ID
+const extractOpportunityIdFromSlug = (req: NextApiRequest): string => {
+  const { slug } = req.query;
+  const idPart = (slug as string).split('-')[0];
+  return isValidObjectId(idPart) ? idPart : slug as string;
+};
+
+// 狀態歷史記錄介面
+interface StatusHistoryItem {
+  status: OpportunityStatus;
+  reason?: string;
+  changedBy: mongoose.Types.ObjectId;
+  changedAt: Date;
+}
+
+async function updateStatus(req: NextApiRequest, res: NextApiResponse) {
   // 只允許 PATCH 方法
   if (req.method !== 'PATCH') {
     return res.status(405).json({ success: false, message: '方法不允許' });
   }
 
   try {
-    // 獲取用戶會話
-    const session = await getServerSession(req, res, authOptions);
-
-    if (!session || !session.user) {
-      return res.status(401).json({ success: false, message: '未授權，請先登入' });
-    }
-
     // 連接數據庫
     await dbConnect();
-
-    // 檢查用戶是否為管理員
-    const user = await User.findById(session.user.id);
-    const isAdmin = user && (user.role === UserRole.ADMIN || user.role === UserRole.SUPER_ADMIN);
-
-    if (!isAdmin) {
-      return res.status(403).json({ success: false, message: '需要管理員權限' });
-    }
 
     const { slug } = req.query;
     const { status, reason } = req.body;
@@ -59,37 +75,46 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ success: false, message: '機會不存在' });
     }
 
+    // 取得當前用戶會話
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || !session.user) {
+      return res.status(401).json({ success: false, message: '未授權，請先登入' });
+    }
+
     // 檢查狀態轉換是否有效
-    const currentStatus = opportunity.status;
-    if (!isValidStatusTransition(currentStatus, status)) {
+    const currentStatus = opportunity.status as OpportunityStatus;
+    const newStatus = status as OpportunityStatus;
+
+    // 首先檢查是否是可能的狀態轉換
+    if (!isTransitionAllowed(currentStatus, newStatus)) {
       return res.status(400).json({
         success: false,
         message: '無效的狀態轉換',
         currentStatus,
-        requestedStatus: status
+        requestedStatus: newStatus
+      });
+    }
+
+    // 再檢查是否是 host 允許的轉換
+    if (!isHostAllowedTransition(currentStatus, newStatus)) {
+      return res.status(403).json({
+        success: false,
+        message: '您沒有權限執行此狀態變更，請聯繫管理員',
+        currentStatus,
+        requestedStatus: newStatus
       });
     }
 
     // 添加特殊處理邏輯
-    const updateData: any = { status };
-
-    // 如果從非活躍狀態變為活躍狀態，設置發布日期
-    if (status === OpportunityStatus.ACTIVE && currentStatus !== OpportunityStatus.ACTIVE) {
-      updateData.publishedAt = new Date();
-    }
+    const updateData: any = { status: newStatus };
 
     // 創建狀態變更歷史記錄
-    const statusHistoryItem = {
-      status,
-      reason,
-      changedBy: user._id,
+    const statusHistoryItem: StatusHistoryItem = {
+      status: newStatus,
+      reason: reason || '主辦方主動變更',
+      changedBy: new mongoose.Types.ObjectId(session.user.id),
       changedAt: new Date()
     };
-
-    // 如果有提供原因（特別是拒絕原因），加入歷史記錄
-    if (reason) {
-      statusHistoryItem.reason = reason;
-    }
 
     // 更新狀態並添加狀態歷史記錄
     const updatedOpportunity = await Opportunity.findByIdAndUpdate(
@@ -107,7 +132,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       opportunity: {
         id: updatedOpportunity._id,
         status: updatedOpportunity.status,
-        publishedAt: updatedOpportunity.publishedAt,
         statusHistory: updatedOpportunity.statusHistory
       }
     });
@@ -120,3 +144,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 }
+
+export default requireOpportunityAccess(extractOpportunityIdFromSlug)(updateStatus);

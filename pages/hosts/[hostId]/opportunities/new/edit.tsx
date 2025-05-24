@@ -90,15 +90,18 @@ const OpportunityEditPage = ({ hostId }: { hostId: string }) => {
   // 送出審核 Mutation
   const submitForReviewMutation = useMutation({
     mutationFn: (data: OpportunityFormData) => {
+      // 清理數據，刪除不應由客戶端直接設置的字段
+      const { status, statusHistory, ...cleanData } = data as any;
+
       return fetch('/api/opportunities/submit-for-review', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...data,
+          ...cleanData,
           hostId, // 確保傳遞主人 ID
-          status: 'PENDING' // 設置為待審核狀態
+          // 不在客戶端直接設置狀態，由API負責處理
         }),
       }).then(async response => {
         // 增強錯誤處理，處理不同的HTTP狀態碼

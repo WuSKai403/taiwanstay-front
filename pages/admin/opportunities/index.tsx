@@ -10,10 +10,21 @@ import LoadingSpinner from '@/components/common/LoadingSpinner';
 import EmptyState from '@/components/common/EmptyState';
 import Pagination from '@/components/common/Pagination';
 import FilterBar from '@/components/host/opportunities/FilterBar';
+import ReasonDialog from '@/components/common/ReasonDialog';
 import { OpportunityStatus } from '@/models/enums';
 import { UserRole } from '@/models/enums/UserRole';
 import { statusColorMap, statusLabelMap } from '@/components/opportunity/constants';
 import StatusReasonBadge from '@/components/opportunity/StatusReasonBadge';
+import { OpportunityMedia } from '@/lib/types/media';
+import {
+  requiresReason,
+  getReasonConfig,
+  statusTransitions,
+  statusActions,
+  StatusAction,
+  getStatusUpdateMessage
+} from '@/lib/opportunities/statusManager';
+import StatusActionDropdown from '@/components/opportunity/StatusActionDropdown';
 
 // 定義機會類型
 interface Opportunity {
@@ -24,10 +35,7 @@ interface Opportunity {
   shortDescription?: string;
   createdAt: string;
   publishedAt?: string;
-  media?: {
-    coverImage?: string;
-    images?: string[];
-  };
+  media?: OpportunityMedia;
   stats?: {
     applications?: number;
     views?: number;
@@ -91,7 +99,7 @@ interface OpportunitiesListProps {
   onEdit: (id: string) => void;
   onViewApplications: (id: string) => void;
   onDelete: (id: string) => void;
-  onUpdateStatus: (id: string, newStatus: OpportunityStatus, currentStatus: OpportunityStatus) => Promise<void>;
+  onUpdateStatus: (id: string, newStatus: OpportunityStatus, currentStatus: OpportunityStatus, reason: string) => Promise<void>;
 }
 
 // 機會列表組件
@@ -102,6 +110,50 @@ const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
   onDelete,
   onUpdateStatus
 }) => {
+  const [reasonDialog, setReasonDialog] = useState<{
+    isOpen: boolean;
+    opportunityId: string;
+    currentStatus: OpportunityStatus;
+    newStatus: OpportunityStatus;
+    config: ReturnType<typeof getReasonConfig>;
+  } | null>(null);
+
+  // 獲取可用的狀態操作
+  const getAvailableActions = (currentStatus: OpportunityStatus): StatusAction[] => {
+    // 從 statusTransitions 中獲取可能的下一個狀態
+    const possibleNextStates = statusTransitions[currentStatus]?.possibleNextStates || [];
+
+    // 從 statusActions 中獲取當前狀態的所有操作
+    const allActions = statusActions[currentStatus] || [];
+
+    // 過濾出有效的狀態轉換操作：
+    // 1. 必須有目標狀態（排除儲存操作）
+    // 2. 目標狀態必須在允許的轉換列表中
+    return allActions.filter(action =>
+      action.targetStatus !== null &&
+      possibleNextStates.includes(action.targetStatus)
+    );
+  };
+
+  const handleStatusUpdate = (
+    opportunityId: string,
+    newStatus: OpportunityStatus,
+    currentStatus: OpportunityStatus
+  ) => {
+    const config = getReasonConfig(currentStatus, newStatus);
+    if (requiresReason(currentStatus, newStatus)) {
+      setReasonDialog({
+        isOpen: true,
+        opportunityId,
+        currentStatus,
+        newStatus,
+        config
+      });
+    } else {
+      onUpdateStatus(opportunityId, newStatus, currentStatus, '');
+    }
+  };
+
   const renderStatusBadge = (status: OpportunityStatus) => {
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColorMap[status]}`}>
@@ -111,78 +163,92 @@ const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {opportunities.map((opportunity) => (
-        <div
-          key={opportunity._id}
-          className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow"
-        >
-          <div className="p-4">
-            <div className="flex justify-between items-start">
-              <h3 className="text-lg font-medium text-gray-900 mb-1">
-                {opportunity.title}
-              </h3>
-              {renderStatusBadge(opportunity.status)}
-            </div>
+    <>
+      <div className="space-y-4">
+        {opportunities.map((opportunity) => (
+          <div
+            key={opportunity._id}
+            className="bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow"
+          >
+            <div className="p-4">
+              <div className="flex justify-between items-start">
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                  {opportunity.title}
+                </h3>
+                {renderStatusBadge(opportunity.status)}
+              </div>
 
-            <p className="text-gray-600 text-sm mb-2 line-clamp-2">
-              {opportunity.shortDescription || '無描述'}
-            </p>
+              <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                {opportunity.shortDescription || '無描述'}
+              </p>
 
-            {/* 狀態原因顯示 - 使用StatusReasonBadge */}
-            {(opportunity.status === OpportunityStatus.REJECTED ||
-              opportunity.status === OpportunityStatus.PAUSED ||
-              opportunity.status === OpportunityStatus.ARCHIVED) && (
-              <div className="my-2">
-                <StatusReasonBadge
-                  opportunity={opportunity}
-                  showLabel={false}
+              {/* 狀態原因顯示 - 使用StatusReasonBadge */}
+              {(opportunity.status === OpportunityStatus.REJECTED ||
+                opportunity.status === OpportunityStatus.PAUSED) && (
+                <div className="my-2">
+                  <StatusReasonBadge
+                    opportunity={opportunity}
+                    showLabel={false}
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-3">
+                <span>主辦方: {opportunity.hostId?.name || '未知主辦方'}</span>
+                <span>申請數: {opportunity.stats?.applications || 0}</span>
+                <span>查看數: {opportunity.stats?.views || 0}</span>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mt-4">
+                <button
+                  onClick={() => onEdit(opportunity._id)}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-800 text-sm rounded-md hover:bg-gray-200 transition-colors"
+                >
+                  查看詳情
+                </button>
+
+                <button
+                  onClick={() => onViewApplications(opportunity._id)}
+                  className="px-3 py-1.5 bg-blue-100 text-blue-800 text-sm rounded-md hover:bg-blue-200 transition-colors"
+                >
+                  查看申請
+                </button>
+
+                {/* 使用新的狀態操作下拉選單 */}
+                <StatusActionDropdown
+                  currentStatus={opportunity.status as OpportunityStatus}
+                  onStatusUpdate={(newStatus, reason) =>
+                    onUpdateStatus(opportunity._id, newStatus, opportunity.status as OpportunityStatus, reason || '')
+                  }
+                  showSaveAction={false}
+                  userRole={UserRole.ADMIN}
                 />
               </div>
-            )}
-
-            <div className="flex flex-wrap gap-4 text-sm text-gray-500 mt-3">
-              <span>主辦方: {opportunity.hostId?.name || '未知主辦方'}</span>
-              <span>申請數: {opportunity.stats?.applications || 0}</span>
-              <span>查看數: {opportunity.stats?.views || 0}</span>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mt-4">
-              <button
-                onClick={() => onEdit(opportunity._id)}
-                className="px-3 py-1.5 bg-gray-100 text-gray-800 text-sm rounded-md hover:bg-gray-200 transition-colors"
-              >
-                查看詳情
-              </button>
-
-              <button
-                onClick={() => onViewApplications(opportunity._id)}
-                className="px-3 py-1.5 bg-blue-100 text-blue-800 text-sm rounded-md hover:bg-blue-200 transition-colors"
-              >
-                查看申請
-              </button>
-
-              {opportunity.status === OpportunityStatus.PENDING && (
-                <>
-                  <button
-                    onClick={() => onUpdateStatus(opportunity._id, OpportunityStatus.ACTIVE, opportunity.status as OpportunityStatus)}
-                    className="px-3 py-1.5 bg-green-100 text-green-800 text-sm rounded-md hover:bg-green-200 transition-colors"
-                  >
-                    批准上架
-                  </button>
-                  <button
-                    onClick={() => onUpdateStatus(opportunity._id, OpportunityStatus.REJECTED, opportunity.status as OpportunityStatus)}
-                    className="px-3 py-1.5 bg-red-100 text-red-800 text-sm rounded-md hover:bg-red-200 transition-colors"
-                  >
-                    拒絕
-                  </button>
-                </>
-              )}
             </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      {/* 理由對話框 */}
+      {reasonDialog && (
+        <ReasonDialog
+          isOpen={reasonDialog.isOpen}
+          onClose={() => setReasonDialog(null)}
+          onConfirm={(reason) => {
+            onUpdateStatus(
+              reasonDialog.opportunityId,
+              reasonDialog.newStatus,
+              reasonDialog.currentStatus,
+              reason
+            );
+            setReasonDialog(null);
+          }}
+          title={reasonDialog.config.reasonTitle || '請輸入原因'}
+          placeholder={reasonDialog.config.reasonPlaceholder}
+          isRequired={true}
+        />
+      )}
+    </>
   );
 };
 
@@ -236,14 +302,19 @@ const AdminOpportunitiesPage = () => {
   };
 
   // 處理更新機會狀態
-  const handleUpdateStatus = async (opportunityId: string, newStatus: OpportunityStatus, currentStatus: OpportunityStatus) => {
+  const handleUpdateStatus = async (
+    opportunityId: string,
+    newStatus: OpportunityStatus,
+    currentStatus: OpportunityStatus,
+    reason: string
+  ) => {
     try {
-      const response = await fetch(`/api/opportunities/${opportunityId}/status`, {
+      const response = await fetch(`/api/admin/opportunities/${opportunityId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, reason })
       });
 
       if (!response.ok) {
@@ -251,7 +322,10 @@ const AdminOpportunitiesPage = () => {
       }
 
       // 重新獲取數據
-      refetch();
+      await refetch();
+
+      // 顯示狀態更新訊息
+      alert(getStatusUpdateMessage(newStatus));
     } catch (error) {
       console.error('更新機會狀態時出錯:', error);
       alert('更新機會狀態失敗，請稍後再試');

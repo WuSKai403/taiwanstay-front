@@ -17,10 +17,15 @@ import OpportunityWorkDetails from '@/components/opportunity/OpportunityWorkDeta
 import OpportunityRequirements from '@/components/opportunity/OpportunityRequirements';
 import OpportunityBenefits from '@/components/opportunity/OpportunityBenefits';
 import OpportunityImpact from '@/components/opportunity/OpportunityImpact';
+import OpportunityMedia from '@/components/opportunity/OpportunityMedia';
+import OpportunityStatusHistory from '@/components/opportunity/OpportunityStatusHistory';
 import CloudinaryImage from '@/components/CloudinaryImage';
 import { CloudinaryImageResource, createImageResourceFromUrl } from '@/lib/cloudinary/types';
 import { getLatestStatusReason, hasStatusReason } from '@/utils/opportunityUtils';
 import StatusReasonBadge from '@/components/opportunity/StatusReasonBadge';
+import { OpportunityMedia as MediaType } from '@/lib/types/media';
+import ReasonDialog from '@/components/common/ReasonDialog';
+import { requiresReason, getReasonConfig, getStatusUpdateMessage } from '@/lib/opportunities/statusManager';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
@@ -47,8 +52,8 @@ interface APIOpportunityDetail {
     district?: string;
     region?: string;
     coordinates?: {
-      lat: number;
-      lng: number;
+      type: 'Point';
+      coordinates: [number, number]; // [lng, lat]
     };
   };
   workDetails?: {
@@ -116,10 +121,7 @@ interface APIOpportunityDetail {
     contactEmail?: string;
     contactPhone?: string;
   };
-  media?: {
-    coverImage?: string;
-    images?: string[];
-  };
+  media?: MediaType;
   stats?: {
     applications?: number;
     views?: number;
@@ -181,25 +183,26 @@ async function fetchOpportunityDetail(id: string) {
 
 // 更新機會狀態
 async function updateOpportunityStatus(id: string, status: OpportunityStatus, reason?: string) {
-  const body: { status: OpportunityStatus; reason?: string } = { status };
-
-  if (reason) {
-    body.reason = reason;
-  }
-
-  const response = await fetch(`/api/opportunities/${id}/status`, {
+  const response = await fetch(`/api/admin/opportunities/${id}/status`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ status, reason }),
   });
 
   if (!response.ok) {
     throw new Error('更新機會狀態失敗');
   }
 
-  return response.json();
+  const data = await response.json();
+  return {
+    ...data,
+    opportunity: {
+      ...data.opportunity,
+      status: data.opportunity.status as OpportunityStatus
+    }
+  };
 }
 
 // 將 API 回傳的詳情轉換為標準 OpportunityDetail 格式
@@ -208,14 +211,10 @@ function convertToOpportunityDetail(apiData: APIOpportunityDetail): OpportunityD
   let locationCoordinates;
 
   if (apiData.location?.coordinates) {
-    // 使用類型斷言處理坐標格式
-    const apiCoordinates = apiData.location.coordinates as any;
+    // 直接使用 GeoJSON 格式
     locationCoordinates = {
       type: 'Point',
-      coordinates: [
-        apiCoordinates.lng || 0,
-        apiCoordinates.lat || 0
-      ] as [number, number]
+      coordinates: apiData.location.coordinates.coordinates
     };
   }
 
@@ -264,7 +263,11 @@ function convertToOpportunityDetail(apiData: APIOpportunityDetail): OpportunityD
     impact: apiData.impact,
     media: {
       coverImage: apiData.media?.coverImage,
-      images: images,
+      images: apiData.media?.images || [],
+      videoUrl: apiData.media?.videoUrl,
+      videoDescription: apiData.media?.videoDescription,
+      virtualTour: apiData.media?.virtualTour,
+      descriptions: apiData.media?.descriptions || []
     },
     host: {
       id: apiData.hostId?._id || '',
@@ -299,6 +302,11 @@ const OpportunityDetailPage = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionDialog, setShowRejectionDialog] = useState(false);
   const queryClient = useQueryClient();
+  const [reasonDialog, setReasonDialog] = useState<{
+    isOpen: boolean;
+    newStatus: OpportunityStatus;
+    config: ReturnType<typeof getReasonConfig>;
+  } | null>(null);
 
   // 使用 React Query 獲取機會詳情
   const { data: apiOpportunity, isLoading, error } = useQuery({
@@ -317,19 +325,28 @@ const OpportunityDetailPage = () => {
   const updateStatusMutation = useMutation({
     mutationFn: ({ status, reason }: { status: OpportunityStatus; reason?: string }) =>
       updateOpportunityStatus(id as string, status, reason),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['opportunity-detail', id] });
-      setShowRejectionDialog(false);
-      setRejectionReason('');
+      setReasonDialog(null);
+      alert(getStatusUpdateMessage(data.opportunity.status));
     },
   });
 
   // 處理狀態更新
-  const handleStatusUpdate = (status: OpportunityStatus) => {
-    if (status === OpportunityStatus.REJECTED) {
-      setShowRejectionDialog(true);
+  const handleStatusUpdate = (newStatus: OpportunityStatus) => {
+    if (!opportunity) return;
+
+    const currentStatus = opportunity.status as OpportunityStatus;
+    const config = getReasonConfig(currentStatus, newStatus);
+
+    if (requiresReason(currentStatus, newStatus)) {
+      setReasonDialog({
+        isOpen: true,
+        newStatus,
+        config
+      });
     } else {
-      updateStatusMutation.mutate({ status });
+      updateStatusMutation.mutate({ status: newStatus });
     }
   };
 
@@ -402,9 +419,9 @@ const OpportunityDetailPage = () => {
         region: opportunity.location?.region || '',
         city: opportunity.location?.city || '',
         address: opportunity.location?.address || null,
-        coordinates: opportunity.location?.coordinates?.coordinates ? {
-          lat: opportunity.location.coordinates.coordinates[1],
-          lng: opportunity.location.coordinates.coordinates[0]
+        coordinates: opportunity.location?.coordinates ? {
+          type: 'Point' as const,
+          coordinates: opportunity.location.coordinates.coordinates
         } : null
       },
       media: {
@@ -538,10 +555,9 @@ const OpportunityDetailPage = () => {
               </button>
             )}
 
-            {(opportunity.status === OpportunityStatus.ACTIVE ||
-              opportunity.status === OpportunityStatus.PAUSED) && (
+            {(opportunity.status === OpportunityStatus.ACTIVE) && (
               <button
-                onClick={() => handleStatusUpdate(OpportunityStatus.ARCHIVED)}
+                onClick={() => handleStatusUpdate(OpportunityStatus.PAUSED)}
                 className="px-4 py-2 bg-red-100 text-red-800 rounded-md hover:bg-red-200"
               >
                 下架
@@ -551,59 +567,30 @@ const OpportunityDetailPage = () => {
           </div>
         </div>
 
-        {/* 拒絕對話框 */}
-        {showRejectionDialog && (
-          <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-              <h2 className="text-lg font-semibold mb-4">拒絕原因</h2>
-              <p className="text-gray-600 mb-4">請提供拒絕此機會的原因，這將會顯示給主辦方。</p>
-
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md min-h-[120px]"
-                placeholder="請輸入拒絕原因..."
-              />
-
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  onClick={() => setShowRejectionDialog(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleSubmitRejection}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-                  disabled={updateStatusMutation.isPending}
-                >
-                  {updateStatusMutation.isPending ? '處理中...' : '提交'}
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* 理由對話框 */}
+        {reasonDialog && (
+          <ReasonDialog
+            isOpen={reasonDialog.isOpen}
+            onClose={() => setReasonDialog(null)}
+            onConfirm={(reason) => {
+              updateStatusMutation.mutate({
+                status: reasonDialog.newStatus,
+                reason
+              });
+            }}
+            title={reasonDialog.config.reasonTitle || '請輸入原因'}
+            placeholder={reasonDialog.config.reasonPlaceholder}
+            isRequired={true}
+          />
         )}
 
         {/* 主內容區域 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* 左側主要內容 */}
           <div className="lg:col-span-2">
-            {/* 封面圖片 */}
+            {/* 媒體內容 */}
             <div className="bg-white shadow-sm rounded-lg overflow-hidden mb-8">
-              <div className="relative h-80">
-                {opportunity.media.coverImage ? (
-                  <CloudinaryImage
-                    resource={createImageResourceFromUrl(opportunity.media.coverImage, 'cover_' + opportunity.id)}
-                    alt={opportunity.title}
-                    imageType="cover"
-                    className="h-80 w-full object-cover"
-                  />
-                ) : (
-                  <div className="h-80 w-full flex items-center justify-center bg-gray-100">
-                    <span className="text-gray-400">無封面圖片</span>
-                  </div>
-                )}
-              </div>
+              <OpportunityMedia opportunity={opportunity} isPreview={false} />
 
               <div className="p-6">
                 <div className="border-b border-gray-200 pb-4 mb-4">
@@ -721,25 +708,7 @@ const OpportunityDetailPage = () => {
                   </div>
                 )}
 
-                {/* 圖片集 */}
-                {opportunity.media.images && opportunity.media.images.length > 0 && (
-                  <div className="mb-6">
-                    <h3 className="text-xl font-bold mb-4">圖片集</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                      {opportunity.media.images.map((image, index) => (
-                        <div key={index} className="relative aspect-square rounded-md overflow-hidden">
-                          <CloudinaryImage
-                            resource={createImageResourceFromUrl(image, `opportunity_${opportunity.id}_${index}`)}
-                            alt={`${opportunity.title} 圖片 ${index + 1}`}
-                            imageType="opportunity"
-                            className="h-full w-full object-cover"
-                            index={index}
-                          />
-                        </div>
-                      ))}
-                  </div>
-                  </div>
-                )}
+
               </div>
             </div>
           </div>
@@ -823,6 +792,15 @@ const OpportunityDetailPage = () => {
                 </div>
               </div>
             </div>
+
+            {/* 狀態歷史記錄 */}
+            <OpportunityStatusHistory
+              statusHistory={opportunity.statusHistory.map(item => ({
+                ...item,
+                status: item.status as OpportunityStatus
+              }))}
+              className="mb-6"
+            />
 
             {/* 快速操作 */}
             <div className="bg-white shadow-sm rounded-lg p-6">

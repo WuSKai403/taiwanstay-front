@@ -17,8 +17,11 @@ export const opportunityLocationSchema = z.object({
   country: z.string().max(50, '國家名稱不能超過50個字符'),
   postalCode: z.string().max(10, '郵遞區號不能超過10個字符').optional(),
   coordinates: z.object({
-    lat: z.number().min(-90).max(90, '緯度必須在 -90 到 90 之間'),
-    lng: z.number().min(-180).max(180, '經度必須在 -180 到 180 之間')
+    type: z.literal('Point'),
+    coordinates: z.tuple([
+      z.number().min(-180).max(180, '經度必須在 -180 到 180 之間'),
+      z.number().min(-90).max(90, '緯度必須在 -90 到 90 之間')
+    ])
   }).optional()
 });
 

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 // @ts-ignore
 import twzipcode from 'twzipcode-data';
+import { GeoJSONPoint } from '@/lib/transforms/opportunity';
 
 // 從 host/ui 組件引用現有的組件，確保功能一致
 import TaiwanAddressSelect from '@/components/host/ui/TaiwanAddressSelect';
@@ -31,7 +32,7 @@ interface LocationSelectorProps {
   district: string;
   address: string;
   zipCode?: string;
-  coordinates?: [number, number] | null;
+  coordinates?: GeoJSONPoint | null;
   showExactLocation?: boolean;
 
   // 錯誤訊息
@@ -47,7 +48,7 @@ interface LocationSelectorProps {
   onDistrictChange: (district: string) => void;
   onAddressChange: (address: string) => void;
   onZipCodeChange?: (zipCode: string) => void;
-  onCoordinatesChange: (coordinates: [number, number]) => void;
+  onCoordinatesChange: (coordinates: GeoJSONPoint) => void;
   onShowExactLocationChange?: (show: boolean) => void;
 
   // 其他選項
@@ -125,9 +126,14 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     }
   }, [city, district, onZipCodeChange]);
 
-  // 處理地圖位置選擇
+  // 處理地圖位置選擇 - 更新為 GeoJSON 格式
   const handleLocationSelected = useCallback((lat: number, lng: number) => {
-    onCoordinatesChange([lng, lat]);
+    const geoJsonPoint: GeoJSONPoint = {
+      type: 'Point',
+      coordinates: [lng, lat] // GeoJSON 使用 [經度, 緯度] 順序
+    };
+    onCoordinatesChange(geoJsonPoint);
+
     // 使用者在地圖上交互後，標記為已交互 - 僅當未提供外部狀態時處理
     if (externalUserInteracted === undefined) {
       setInternalUserInteracted(true);
@@ -145,6 +151,17 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
       onShowExactLocationChange(e.target.checked);
     }
   }, [onShowExactLocationChange]);
+
+  // 獲取用於地圖顯示的位置座標 (Leaflet 格式 [lat, lng])
+  const getMapPosition = useCallback((): [number, number] => {
+    if (coordinates && coordinates.type === 'Point' && coordinates.coordinates.length === 2) {
+      // 從 GeoJSON [lng, lat] 轉換到 Leaflet [lat, lng]
+      const [lng, lat] = coordinates.coordinates;
+      return [lat, lng];
+    }
+    // 預設返回台北市中心
+    return [25.0, 121.5];
+  }, [coordinates]);
 
   return (
     <div className="space-y-4">
@@ -215,7 +232,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
           </label>
           <div className="border border-gray-300 rounded-md overflow-hidden h-80">
             <LocationPicker
-              defaultPosition={coordinates ? [coordinates[1], coordinates[0]] : [25.0, 121.5]}
+              defaultPosition={getMapPosition()}
               onPositionChange={handleLocationSelected}
               address={address}
               city={userInteracted ? undefined : city}

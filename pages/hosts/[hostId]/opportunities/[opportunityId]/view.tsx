@@ -17,6 +17,8 @@ import { statusColorMap, statusLabelMap, TimeSlot } from '@/components/opportuni
 import { CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline';
 import { getLatestStatusReason, hasStatusReason } from '@/utils/opportunityUtils';
 import StatusReasonBadge from '@/components/opportunity/StatusReasonBadge';
+import OpportunityRequirements from '@/components/opportunity/OpportunityRequirements';
+import OpportunityMedia from '@/components/opportunity/OpportunityMedia';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
@@ -101,16 +103,17 @@ const OpportunityViewPage = ({ hostId, opportunityId }: { hostId: string, opport
         city: opportunity.location?.city || '',
         address: opportunity.location?.address || null,
         coordinates: opportunity.location?.coordinates ? {
-          lat: opportunity.location.coordinates.lat ||
-               (opportunity.location.coordinates.coordinates && opportunity.location.coordinates.coordinates.length >= 2
-                ? opportunity.location.coordinates.coordinates[1] : null),
-          lng: opportunity.location.coordinates.lng ||
-               (opportunity.location.coordinates.coordinates && opportunity.location.coordinates.coordinates.length >= 2
-                ? opportunity.location.coordinates.coordinates[0] : null)
+          type: "Point" as const,
+          coordinates: opportunity.location.coordinates.coordinates ?
+            opportunity.location.coordinates.coordinates :
+            [opportunity.location.coordinates.lng, opportunity.location.coordinates.lat]
         } : null
       },
       media: {
-        images: opportunity.media?.images || []
+        images: opportunity.media?.images || [],
+        videoUrl: opportunity.media?.videoUrl,
+        videoDescription: opportunity.media?.videoDescription,
+        virtualTour: opportunity.media?.virtualTour
       },
       hasTimeSlots: opportunity.hasTimeSlots || false,
       timeSlots: opportunity.timeSlots || [],
@@ -284,6 +287,11 @@ const OpportunityViewPage = ({ hostId, opportunityId }: { hostId: string, opport
               </div>
             </div>
 
+            {/* 媒體內容 */}
+            <div className="mb-6">
+              <OpportunityMedia opportunity={opportunity} isPreview={false} />
+            </div>
+
             {/* 工作詳情 */}
             {opportunity.workDetails && (
               <div className="mb-6">
@@ -425,53 +433,7 @@ const OpportunityViewPage = ({ hostId, opportunityId }: { hostId: string, opport
 
             {/* 要求與限制 */}
             {opportunity.requirements && (
-              <div className="mb-6">
-                <h2 className="text-xl font-bold mb-2">要求與限制</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {opportunity.requirements.minAge && (
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h3 className="font-medium text-gray-800 mb-1">年齡要求</h3>
-                      <p className="text-gray-700">
-                        最低年齡：{opportunity.requirements.minAge} 歲
-                        {opportunity.requirements.maxAge ? `，最高年齡：${opportunity.requirements.maxAge} 歲` : ''}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="font-medium text-gray-800 mb-1">接受情況</h3>
-                    <ul className="space-y-1 text-gray-700">
-                      <li>接受情侶：{opportunity.requirements.acceptsCouples ? '是' : '否'}</li>
-                      <li>接受家庭：{opportunity.requirements.acceptsFamilies ? '是' : '否'}</li>
-                      <li>接受寵物：{opportunity.requirements.acceptsPets ? '是' : '否'}</li>
-                    </ul>
-                  </div>
-
-                  {opportunity.requirements.drivingLicense && (
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h3 className="font-medium text-gray-800 mb-1">駕照要求</h3>
-                      <ul className="space-y-1 text-gray-700">
-                        {opportunity.requirements.drivingLicense.carRequired && <li>需要汽車駕照</li>}
-                        {opportunity.requirements.drivingLicense.motorcycleRequired && <li>需要摩托車駕照</li>}
-                        {opportunity.requirements.drivingLicense.otherRequired && opportunity.requirements.drivingLicense.otherDescription && (
-                          <li>{opportunity.requirements.drivingLicense.otherDescription}</li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
-
-                  {opportunity.requirements.otherRequirements && opportunity.requirements.otherRequirements.length > 0 && (
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h3 className="font-medium text-gray-800 mb-1">其他要求</h3>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {opportunity.requirements.otherRequirements.map((req: string, index: number) => (
-                          <li key={index} className="text-gray-700">{req}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <OpportunityRequirements opportunity={opportunity} />
             )}
 
             {/* 地點地圖 */}
@@ -481,7 +443,7 @@ const OpportunityViewPage = ({ hostId, opportunityId }: { hostId: string, opport
                 <div className="h-64 rounded-lg overflow-hidden">
                   <MapComponent
                     position={mapPosition}
-                    opportunities={transformedOpportunity ? [transformedOpportunity] : []}
+                    opportunities={transformedOpportunity ? [transformedOpportunity] as any : []}
                     zoom={14}
                     readOnly={true}
                   />
@@ -524,26 +486,6 @@ const OpportunityViewPage = ({ hostId, opportunityId }: { hostId: string, opport
                       ))}
                     </tbody>
                   </table>
-                </div>
-              </div>
-            )}
-
-            {/* 圖片集 */}
-            {opportunity.media?.images && opportunity.media.images.length > 0 && (
-              <div className="mb-6">
-                <h2 className="text-xl font-bold mb-2">圖片集</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {opportunity.media.images.map((image: string, index: number) => (
-                    <div key={index} className="relative aspect-square">
-                      <Image
-                        src={image}
-                        alt={`${opportunity.title} 圖片 ${index + 1}`}
-                        layout="fill"
-                        objectFit="cover"
-                        className="rounded-md"
-                      />
-                    </div>
-                  ))}
                 </div>
               </div>
             )}

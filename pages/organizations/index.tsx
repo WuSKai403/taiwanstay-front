@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { OrganizationType } from '../../models/enums/OrganizationType';
+import { MediaImage } from '@/lib/types/media';
 
 // 假資料，之後會從 API 獲取
 const MOCK_ORGANIZATIONS = [
@@ -20,8 +21,18 @@ const MOCK_ORGANIZATIONS = [
       country: '台灣'
     },
     media: {
-      logo: '/images/mock/org1-logo.jpg',
-      coverImage: '/images/mock/org1-cover.jpg'
+      logo: {
+        publicId: 'org1-logo',
+        secureUrl: '/images/mock/org1-logo.jpg',
+        url: '/images/mock/org1-logo.jpg',
+        alt: '永續農業發展協會 Logo'
+      },
+      coverImage: {
+        publicId: 'org1-cover',
+        secureUrl: '/images/mock/org1-cover.jpg',
+        url: '/images/mock/org1-cover.jpg',
+        alt: '永續農業發展協會封面圖'
+      }
     },
     details: {
       foundedYear: 2010,
@@ -46,8 +57,18 @@ const MOCK_ORGANIZATIONS = [
       country: '台灣'
     },
     media: {
-      logo: '/images/mock/org2-logo.jpg',
-      coverImage: '/images/mock/org2-cover.jpg'
+      logo: {
+        publicId: 'org2-logo',
+        secureUrl: '/images/mock/org2-logo.jpg',
+        url: '/images/mock/org2-logo.jpg',
+        alt: '台灣生態旅遊協會 Logo'
+      },
+      coverImage: {
+        publicId: 'org2-cover',
+        secureUrl: '/images/mock/org2-cover.jpg',
+        url: '/images/mock/org2-cover.jpg',
+        alt: '台灣生態旅遊協會封面圖'
+      }
     },
     details: {
       foundedYear: 2005,
@@ -72,8 +93,18 @@ const MOCK_ORGANIZATIONS = [
       country: '台灣'
     },
     media: {
-      logo: '/images/mock/org3-logo.jpg',
-      coverImage: '/images/mock/org3-cover.jpg'
+      logo: {
+        publicId: 'org3-logo',
+        secureUrl: '/images/mock/org3-logo.jpg',
+        url: '/images/mock/org3-logo.jpg',
+        alt: '原住民文化保存基金會 Logo'
+      },
+      coverImage: {
+        publicId: 'org3-cover',
+        secureUrl: '/images/mock/org3-cover.jpg',
+        url: '/images/mock/org3-cover.jpg',
+        alt: '原住民文化保存基金會封面圖'
+      }
     },
     details: {
       foundedYear: 2008,
@@ -236,8 +267,8 @@ const OrganizationsPage: NextPage = () => {
               <div className="absolute inset-0 bg-gray-200">
                 {organization.media.coverImage && (
                   <Image
-                    src={organization.media.coverImage}
-                    alt={organization.name}
+                    src={organization.media.coverImage.secureUrl}
+                    alt={organization.media.coverImage.alt || organization.name}
                     layout="fill"
                     objectFit="cover"
                   />
@@ -263,8 +294,8 @@ const OrganizationsPage: NextPage = () => {
                   {organization.media.logo && (
                     <div className="relative w-12 h-12 rounded-full overflow-hidden">
                       <Image
-                        src={organization.media.logo}
-                        alt={`${organization.name} logo`}
+                        src={organization.media.logo.secureUrl}
+                        alt={organization.media.logo.alt || `${organization.name} logo`}
                         layout="fill"
                         objectFit="cover"
                       />

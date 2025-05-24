@@ -7,6 +7,7 @@ import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import { OrganizationType } from '../../models/enums/OrganizationType';
 import SocialMediaIcons from '../../components/SocialMediaIcons';
+import { MediaImage } from '@/lib/types/media';
 
 // 動態導入地圖組件，避免 SSR 問題
 const MapComponent = dynamic(() => import('../../components/MapComponent'), {
@@ -74,13 +75,43 @@ const MOCK_ORGANIZATION = {
     }
   },
   media: {
-    logo: '/images/mock/org1-logo.jpg',
-    coverImage: '/images/mock/org1-cover.jpg',
+    logo: {
+      publicId: 'org1-logo',
+      secureUrl: '/images/mock/org1-logo.jpg',
+      url: '/images/mock/org1-logo.jpg',
+      alt: '永續農業發展協會 Logo'
+    },
+    coverImage: {
+      publicId: 'org1-cover',
+      secureUrl: '/images/mock/org1-cover.jpg',
+      url: '/images/mock/org1-cover.jpg',
+      alt: '永續農業發展協會封面圖'
+    },
     gallery: [
-      '/images/mock/org1-gallery1.jpg',
-      '/images/mock/org1-gallery2.jpg',
-      '/images/mock/org1-gallery3.jpg',
-      '/images/mock/org1-gallery4.jpg'
+      {
+        publicId: 'org1-gallery1',
+        secureUrl: '/images/mock/org1-gallery1.jpg',
+        url: '/images/mock/org1-gallery1.jpg',
+        alt: '永續農業發展協會 - 圖片 1'
+      },
+      {
+        publicId: 'org1-gallery2',
+        secureUrl: '/images/mock/org1-gallery2.jpg',
+        url: '/images/mock/org1-gallery2.jpg',
+        alt: '永續農業發展協會 - 圖片 2'
+      },
+      {
+        publicId: 'org1-gallery3',
+        secureUrl: '/images/mock/org1-gallery3.jpg',
+        url: '/images/mock/org1-gallery3.jpg',
+        alt: '永續農業發展協會 - 圖片 3'
+      },
+      {
+        publicId: 'org1-gallery4',
+        secureUrl: '/images/mock/org1-gallery4.jpg',
+        url: '/images/mock/org1-gallery4.jpg',
+        alt: '永續農業發展協會 - 圖片 4'
+      }
     ]
   },
   details: {
@@ -102,7 +133,12 @@ const MOCK_ORGANIZATION = {
         district: '三星鄉'
       },
       media: {
-        coverImage: '/images/mock/farm1.jpg'
+        coverImage: {
+          publicId: 'farm1',
+          secureUrl: '/images/mock/farm1.jpg',
+          url: '/images/mock/farm1.jpg',
+          alt: '有機農場志工機會封面'
+        }
       }
     },
     {
@@ -115,7 +151,12 @@ const MOCK_ORGANIZATION = {
         district: '大安區'
       },
       media: {
-        coverImage: '/images/mock/education1.jpg'
+        coverImage: {
+          publicId: 'education1',
+          secureUrl: '/images/mock/education1.jpg',
+          url: '/images/mock/education1.jpg',
+          alt: '食農教育講師助理機會封面'
+        }
       }
     },
     {
@@ -128,7 +169,12 @@ const MOCK_ORGANIZATION = {
         district: '松山區'
       },
       media: {
-        coverImage: '/images/mock/garden1.jpg'
+        coverImage: {
+          publicId: 'garden1',
+          secureUrl: '/images/mock/garden1.jpg',
+          url: '/images/mock/garden1.jpg',
+          alt: '社區園圃維護志工機會封面'
+        }
       }
     }
   ],
@@ -176,8 +222,8 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
         <div className="relative h-64 md:h-80 rounded-lg overflow-hidden mb-8">
           {organization.media.coverImage && (
             <Image
-              src={organization.media.coverImage}
-              alt={organization.name}
+              src={organization.media.coverImage.secureUrl}
+              alt={organization.media.coverImage.alt || organization.name}
               fill
               style={{ objectFit: 'cover' }}
             />
@@ -188,8 +234,8 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
               {organization.media.logo && (
                 <div className="relative w-20 h-20 rounded-full overflow-hidden">
                   <Image
-                    src={organization.media.logo}
-                    alt={`${organization.name} logo`}
+                    src={organization.media.logo.secureUrl}
+                    alt={organization.media.logo.alt || `${organization.name} logo`}
                     fill
                     style={{ objectFit: 'cover' }}
                   />
@@ -389,8 +435,8 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
                       {organization.media.gallery.map((image, index) => (
                         <div key={index} className="relative h-40 rounded-lg overflow-hidden">
                           <Image
-                            src={image}
-                            alt={`${organization.name} - 圖片 ${index + 1}`}
+                            src={image.secureUrl}
+                            alt={image.alt || `${organization.name} - 圖片 ${index + 1}`}
                             fill
                             style={{ objectFit: 'cover' }}
                           />
@@ -412,8 +458,8 @@ const OrganizationDetail: NextPage<OrganizationDetailProps> = ({ organization })
                         <div className="relative h-48">
                           {opportunity.media.coverImage ? (
                             <Image
-                              src={opportunity.media.coverImage}
-                              alt={opportunity.title}
+                              src={opportunity.media.coverImage.secureUrl}
+                              alt={opportunity.media.coverImage.alt || opportunity.title}
                               fill
                               style={{ objectFit: 'cover' }}
                             />

@@ -11,13 +11,14 @@ import Host from '@/models/Host';
 import Opportunity from '@/models/Opportunity';
 import { format } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
+import { MediaImage } from '@/lib/types/media';
 
 // 主辦方類型定義
 interface HostType {
   _id: string;
   name: string;
   description: string;
-  profileImage?: string;
+  profileImage?: MediaImage;
   location: {
     city?: string;
     district?: string;
@@ -45,7 +46,7 @@ interface OpportunityType {
   title: string;
   slug: string;
   description: string;
-  coverImage?: string;
+  coverImage?: MediaImage;
   location: {
     city?: string;
     district?: string;
@@ -115,8 +116,8 @@ export default function HostDetail({ host, opportunities }: HostDetailProps) {
                   <div className="flex-shrink-0 h-16 w-16 relative overflow-hidden rounded-full">
                     {host.profileImage ? (
                       <Image
-                        src={host.profileImage}
-                        alt={host.name}
+                        src={host.profileImage.secureUrl || host.profileImage.url || ''}
+                        alt={host.profileImage.alt || host.name}
                         layout="fill"
                         objectFit="cover"
                       />
@@ -244,8 +245,8 @@ export default function HostDetail({ host, opportunities }: HostDetailProps) {
                           <div className="relative h-48 w-full">
                             {opportunity.coverImage ? (
                               <Image
-                                src={opportunity.coverImage}
-                                alt={opportunity.title}
+                                src={opportunity.coverImage.secureUrl || opportunity.coverImage.url || ''}
+                                alt={opportunity.coverImage.alt || opportunity.title}
                                 layout="fill"
                                 objectFit="cover"
                               />

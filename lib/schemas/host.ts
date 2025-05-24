@@ -22,10 +22,10 @@ export const hostLocationSchema = z.object({
   zipCode: z.string().optional().nullable(),
   address: z.string().min(5, "請輸入詳細地址"),
   coordinates: z.object({
-    type: z.string().default("Point"),
+    type: z.literal('Point'),
     coordinates: z.tuple([
-      z.number().min(-180).max(180), // 經度
-      z.number().min(-90).max(90)    // 緯度
+      z.number().min(-180).max(180, '經度必須在 -180 到 180 之間'),
+      z.number().min(-90).max(90, '緯度必須在 -90 到 90 之間')
     ])
   }),
   showExactLocation: z.boolean().default(true),
@@ -141,10 +141,10 @@ export const hostRegisterSchema = z.object({
     zipCode: z.string().optional().nullable(),
     address: z.string().min(5, "請輸入詳細地址"),
     coordinates: z.object({
-      type: z.string().default("Point"),
+      type: z.literal('Point'),
       coordinates: z.tuple([
-        z.number().min(-180).max(180), // 經度
-        z.number().min(-90).max(90)    // 緯度
+        z.number().min(-180).max(180, '經度必須在 -180 到 180 之間'),
+        z.number().min(-90).max(90, '緯度必須在 -90 到 90 之間')
       ])
     }).optional(),
     showExactLocation: z.boolean().default(true),
@@ -303,8 +303,11 @@ export const hostSchema = z.object({
     district: z.string().min(1, { message: "請輸入地區" }),
     zipCode: z.string().min(1, { message: "請輸入郵遞區號" }),
     coordinates: z.object({
-      latitude: z.number(),
-      longitude: z.number(),
+      type: z.literal('Point'),
+      coordinates: z.tuple([
+        z.number().min(-180).max(180, '經度必須在 -180 到 180 之間'),
+        z.number().min(-90).max(90, '緯度必須在 -90 到 90 之間')
+      ])
     }).optional(),
   }),
 

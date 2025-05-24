@@ -91,9 +91,9 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </button>
 
           <button
-            onClick={() => onFilterChange(OpportunityStatus.ARCHIVED)}
+            onClick={() => onFilterChange(OpportunityStatus.PAUSED)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              currentStatus === OpportunityStatus.ARCHIVED
+              currentStatus === OpportunityStatus.PAUSED
                 ? 'bg-primary text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}

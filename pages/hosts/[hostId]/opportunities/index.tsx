@@ -20,6 +20,7 @@ import { OpportunityStatus } from '@/models/enums';
 import OpportunityList from '@/components/host/opportunities/OpportunityList';
 import FilterBar from '@/components/host/opportunities/FilterBar';
 import OpportunityStats from '@/components/host/opportunities/OpportunityStats';
+import StatusActionDropdown from '@/components/opportunity/StatusActionDropdown';
 
 // 獲取主人機會列表
 async function fetchHostOpportunities(hostId: string, options: any) {
@@ -110,14 +111,14 @@ const OpportunitiesPage = ({ hostId }: { hostId: string }) => {
   };
 
   // 處理更新機會狀態
-  const handleUpdateStatus = async (opportunityId: string, newStatus: OpportunityStatus, currentStatus: OpportunityStatus) => {
+  const handleUpdateStatus = async (opportunityId: string, newStatus: OpportunityStatus, currentStatus: OpportunityStatus, reason?: string) => {
     try {
       const response = await fetch(`/api/opportunities/${opportunityId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus, reason })
       });
 
       if (!response.ok) {
