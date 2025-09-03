@@ -17,6 +17,12 @@ export const useMapOpportunities = (params?: MapSearchParams) => {
     queryKey: [MAP_OPPORTUNITIES_QUERY_KEY, params],
     queryFn: async () => {
       try {
+        // 如果 params 為 undefined，則返回空數據
+        if (!params) {
+          console.log('地圖查詢被跳過 - 未提供參數');
+          return { markers: [], opportunities: [], total: 0 };
+        }
+
         const searchParams = new URLSearchParams();
         if (params) {
           Object.entries(params).forEach(([key, value]) => {
@@ -71,12 +77,14 @@ export const useMapOpportunities = (params?: MapSearchParams) => {
         throw error;
       }
     },
+    // 如果 params 為 undefined，則跳過此查詢
+    enabled: !!params,
     staleTime: 5 * 60 * 1000, // 5分鐘
     gcTime: 30 * 60 * 1000, // 30分鐘
     refetchOnWindowFocus: false,
     retry: (failureCount, error: any) => {
-      // 如果是 404 錯誤，不重試
-      if (error.status === 404) return false;
+      // 如果是 404 或 401 錯誤，不重試
+      if (error.status === 404 || error.status === 401) return false;
       // 最多重試 3 次
       return failureCount < 3;
     },

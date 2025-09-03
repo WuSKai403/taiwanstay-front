@@ -19,7 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 使用 getServerSession 獲取用戶會話
   const session = await getServerSession(req, res, authOptions);
 
-  if (!session || !session.user) {
+  // 移除強制登入檢查，允許未登入用戶訪問 GET 方法
+  if (req.method !== 'GET' && (!session || !session.user)) {
     return res.status(401).json({ success: false, message: '未授權' });
   }
 

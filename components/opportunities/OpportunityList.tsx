@@ -7,6 +7,9 @@ import { useOpportunitySearch, useInfiniteOpportunitySearch } from '@/lib/hooks/
 import { useMapOpportunities } from '@/lib/hooks/useMapOpportunities';
 import { SearchIcon, ListIcon, MapIcon } from '@/components/icons/Icons';
 import { TransformedOpportunity, transformOpportunities } from '@/lib/transforms/opportunity';
+import CloudinaryImage from '@/components/CloudinaryImage';
+import { CloudinaryImageResource, createImageResourceFromUrl } from '@/lib/cloudinary/types';
+import { MediaImage } from '@/lib/types/media';
 
 // 動態導入地圖組件
 const MapComponent = dynamic(() => import('@/components/MapComponent'), {
@@ -112,15 +115,41 @@ interface SearchParams {
 
 // 機會卡片組件 - 使用memo優化避免不必要重新渲染
 const OpportunityCard = memo(({ opportunity }: { opportunity: TransformedOpportunity }) => {
-  // 默認圖片，當機會沒有提供圖片時使用
-  const defaultImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7nhKHlm77niYc8L3RleHQ+PC9zdmc+';
+  // 獲取機會的封面圖片
+  const getOpportunityCoverImage = (): CloudinaryImageResource | null => {
+    // 優先使用 coverImage
+    if (opportunity.media?.coverImage) {
+      // 轉換 MediaImage 到 CloudinaryImageResource
+      const coverImage = opportunity.media.coverImage;
+      return {
+        publicId: coverImage.publicId || '',
+        secureUrl: coverImage.secureUrl || coverImage.url || '',
+        url: coverImage.url || coverImage.secureUrl || '',
+        previewUrl: coverImage.previewUrl || coverImage.secureUrl || '',
+        thumbnailUrl: coverImage.thumbnailUrl || coverImage.previewUrl || coverImage.secureUrl || '',
+        alt: coverImage.alt || opportunity.title || '機會封面圖片',
+        width: coverImage.width,
+        height: coverImage.height
+      };
+    }
 
-  // 安全地獲取圖片 URL
-  const imageUrl = opportunity.media?.images &&
-                  opportunity.media.images.length > 0 &&
-                  opportunity.media.images[0]?.url
-                  ? opportunity.media.images[0].url
-                  : defaultImage;
+    // 其次使用第一張圖片
+    if (opportunity.media?.images && opportunity.media.images.length > 0) {
+      const firstImage = opportunity.media.images[0];
+
+      // 如果只有 URL，使用輔助函數創建 CloudinaryImageResource
+      return createImageResourceFromUrl(
+        firstImage.url,
+        `opportunity_image_${opportunity._id || opportunity.id}`
+      );
+    }
+
+    // 對於沒有圖片的情況，返回預設圖片資源
+    return createImageResourceFromUrl(
+      '/images/defaults/opportunity.jpg',
+      `opportunity_default_${opportunity._id || opportunity.id || Date.now()}`
+    );
+  };
 
   // 獲取最短停留時間 - 從 timeSlots 獲取
   const getMinimumStay = () => {
@@ -139,20 +168,20 @@ const OpportunityCard = memo(({ opportunity }: { opportunity: TransformedOpportu
     return '彈性時間';
   };
 
+  const coverImage = getOpportunityCoverImage();
+
   return (
     <Link
       href={`/opportunities/${opportunity.slug}`}
       className="block bg-white rounded-lg shadow hover:shadow-md transition-shadow"
     >
       <div className="relative h-48">
-        <Image
-          src={imageUrl}
+        <CloudinaryImage
+          resource={coverImage}
           alt={opportunity.title}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover rounded-t-lg"
-          priority={false}
-          loading="lazy"
+          className="w-full h-full object-cover rounded-t-lg"
+          imageType="opportunity"
+          containerClassName="w-full h-full"
         />
         <div className="absolute top-2 right-2">
           <span
@@ -291,17 +320,18 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
   });
 
   // 使用地圖數據 hook - 專門為地圖視圖載入所有機會，不受分頁限制
+  // 只在地圖視圖時才啟用此查詢
   const {
     data: mapData,
     isLoading: isLoadingMap,
     error: mapError
-  } = useMapOpportunities({
+  } = useMapOpportunities(viewMode === 'map' ? {
     search: searchTerm,
     type: filters.type,
     region: filters.region,
     availableMonths: filters.availableMonths,
     limit: 100 // 載入更多機會用於地圖顯示
-  });
+  } : undefined);
 
   // 增加調試信息
   console.log("搜索參數:", {
@@ -770,17 +800,18 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
         </div>
       ) : (
         <div className="h-[600px] bg-white rounded-lg shadow">
-          {isLoadingMap ? (
+          {viewMode === 'map' && isLoadingMap ? (
             <div className="h-full flex items-center justify-center bg-gray-100">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
                 <p className="mt-2 text-gray-600">載入地圖中...</p>
               </div>
             </div>
-          ) : mapError ? (
+          ) : viewMode === 'map' && mapError ? (
             <div className="h-full flex items-center justify-center bg-gray-100">
-              <div className="text-center text-red-500">
-                載入地圖數據時出錯
+              <div className="text-center text-red-500 p-4">
+                <p className="font-medium mb-2">載入地圖數據時出錯</p>
+                <p className="text-sm text-gray-600">請嘗試刷新頁面或稍後再試</p>
               </div>
             </div>
           ) : (
@@ -789,9 +820,9 @@ const OpportunityList: React.FC<OpportunityListProps> = ({
               isLoading={isLoadingMap}
               enableClustering={true}
             />
-            )}
-          </div>
-        )}
+          )}
+        </div>
+      )}
     </div>
   );
 };

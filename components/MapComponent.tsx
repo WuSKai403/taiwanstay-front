@@ -60,9 +60,8 @@ const convertOpportunitiesToMarkers = (opportunities: TransformedOpportunity[] =
 
       // 檢查是否為 GeoJSON 格式座標
       const coordinates = opp.location.coordinates;
-      if (!coordinates.type || !coordinates.coordinates ||
-          !Array.isArray(coordinates.coordinates) ||
-          coordinates.coordinates.length !== 2) {
+      // 更寬容的座標檢查
+      if (!coordinates.coordinates || !Array.isArray(coordinates.coordinates)) {
         console.warn('機會座標格式不正確:', opp.id || opp._id, opp.title, coordinates);
         return false;
       }
@@ -71,7 +70,13 @@ const convertOpportunitiesToMarkers = (opportunities: TransformedOpportunity[] =
     })
     .map(opp => {
       // 從 GeoJSON 格式取得經緯度 (注意 GeoJSON 順序是 [lng, lat])
-      const [longitude, latitude] = opp.location!.coordinates!.coordinates;
+      const coordinates = opp.location!.coordinates!.coordinates;
+      if (coordinates.length < 2) {
+        console.warn('機會座標不完整:', opp.id || opp._id, coordinates);
+        return null;
+      }
+
+      const [longitude, latitude] = coordinates;
 
       return {
         id: opp.id || opp._id || `marker-${Math.random().toString(36).substr(2, 9)}`,
@@ -85,7 +90,8 @@ const convertOpportunitiesToMarkers = (opportunities: TransformedOpportunity[] =
         city: opp.location?.city || '未知地點',
         typeName: getTypeDisplayName(opp.type || 'unknown')
       };
-    });
+    })
+    .filter(marker => marker !== null) as any[];
 
   console.log('轉換完成，生成有效標記數量:', markers.length);
   return markers;
@@ -248,16 +254,18 @@ const MapComponent: React.FC<MapComponentProps> = ({
       {isLoadingMap && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-80 z-10">
           <div className="flex flex-col items-center bg-white p-6 rounded-lg shadow-md">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-            <p className="text-gray-700 font-medium">正在載入地圖...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+            <p className="text-gray-700">載入地圖中...</p>
           </div>
         </div>
       )}
-      {/* 錯誤提示或無數據 */}
-      {isMapReady && !isLoading && mapMarkers.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-10">
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <p className="text-gray-600 font-medium">沒有找到可顯示的位置資訊</p>
+
+      {/* 無數據顯示 - 當沒有載入中且沒有標記時顯示 */}
+      {!isLoadingMap && mapMarkers.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10">
+          <div className="text-center p-6">
+            <p className="text-gray-700 font-medium text-lg mb-2">暫無地圖數據</p>
+            <p className="text-gray-500 text-sm">目前沒有符合條件的機會位置</p>
           </div>
         </div>
       )}

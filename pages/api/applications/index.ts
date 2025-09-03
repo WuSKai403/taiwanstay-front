@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import dbConnect from '@/lib/dbConnect';
 import Application from '@/models/Application';
 import Opportunity from '@/models/Opportunity';

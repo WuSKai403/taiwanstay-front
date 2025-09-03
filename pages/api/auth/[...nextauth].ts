@@ -111,6 +111,23 @@ providers.push(
   })
 );
 
+// 添加一個錯誤處理器函數
+const errorHandler = (error: Error, req: any, res: any) => {
+  console.error('NextAuth 錯誤:', error);
+
+  // 如果是開發模式，添加更多日誌
+  if (process.env.NODE_ENV === 'development') {
+    console.log('請求詳情:', {
+      url: req.url,
+      method: req.method,
+      headers: req.headers,
+      body: req.body ? '存在' : '無'
+    });
+  }
+
+  return res;
+};
+
 export const authOptions: NextAuthOptions = {
   providers,
   debug: process.env.NODE_ENV === 'development',
@@ -239,6 +256,39 @@ export const authOptions: NextAuthOptions = {
       }
 
       return token;
+    }
+  },
+  // 添加錯誤處理器
+  events: {
+    signIn({ user }) {
+      console.log('用戶登入:', user?.email);
+    },
+    signOut({ session }) {
+      console.log('用戶登出');
+    },
+    createUser({ user }) {
+      console.log('創建用戶:', user.email);
+    },
+    linkAccount({ user }) {
+      console.log('連結帳號:', user.email);
+    },
+    session({ session }) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('會話更新:', session.user?.email);
+      }
+    }
+  },
+  logger: {
+    error(code, metadata) {
+      console.error('NextAuth 錯誤:', { code, metadata });
+    },
+    warn(code) {
+      console.warn('NextAuth 警告:', code);
+    },
+    debug(code, metadata) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('NextAuth 調試:', code, metadata);
+      }
     }
   }
 };

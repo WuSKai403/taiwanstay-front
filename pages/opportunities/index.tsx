@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import Layout from '@/components/layout/Layout';
 import OpportunityList from '@/components/opportunities/OpportunityList';
 import { TransformedOpportunity } from '@/lib/transforms/opportunity';
+import { MediaImage } from '@/lib/types/media';
 
 // 定義頁面 props 類型
 interface OpportunitiesPageProps {
@@ -143,18 +144,7 @@ interface ApiOpportunity {
       width?: number;
       height?: number;
     }[];
-    coverImage?: {
-      url?: string;
-      secureUrl?: string;
-      alt?: string;
-      publicId?: string;
-      previewUrl?: string;
-      thumbnailUrl?: string;
-      version?: string;
-      format?: string;
-      width?: number;
-      height?: number;
-    };
+    coverImage?: MediaImage;
     descriptions?: string[];
     videoUrl?: string;
     videoDescription?: string;
@@ -274,9 +264,17 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
             alt: img.alt || opp.title || '機會圖片'
           })),
           coverImage: opp.media?.coverImage ? {
+            publicId: opp.media.coverImage.publicId || '',
+            secureUrl: opp.media.coverImage.secureUrl || opp.media.coverImage.url || '',
             url: opp.media.coverImage.url || opp.media.coverImage.secureUrl || '',
-            alt: opp.media.coverImage.alt || opp.title || '機會封面圖片'
-          } : undefined
+            previewUrl: opp.media.coverImage.previewUrl || '',
+            thumbnailUrl: opp.media.coverImage.thumbnailUrl || '',
+            alt: opp.media.coverImage.alt || opp.title || '機會封面圖片',
+            version: opp.media.coverImage.version || '',
+            format: opp.media.coverImage.format || '',
+            width: opp.media.coverImage.width || 0,
+            height: opp.media.coverImage.height || 0
+          } : null
         },
         // 從 timeSlots 中獲取相關資訊
         hasTimeSlots: opp.hasTimeSlots || false,
