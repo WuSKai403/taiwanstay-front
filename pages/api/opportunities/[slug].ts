@@ -20,13 +20,13 @@ interface OpportunityResponse {
     createdAt: Date;
     socialMedia?: any;
   };
-  title: string;
+  title?: string;
   slug: string;
-  publicId: string;
-  description: string;
-  shortDescription: string;
-  type: string;
-  status: string;
+  publicId?: string;
+  description?: string;
+  shortDescription?: string;
+  type?: string;
+  status?: string;
   location?: {
     city?: string;
     district?: string;
@@ -34,7 +34,7 @@ interface OpportunityResponse {
     address?: string;
     coordinates?: {
       type: string;
-      coordinates: number[];
+      coordinates?: number[];
     };
   };
   workDetails?: any;
@@ -48,7 +48,7 @@ interface OpportunityResponse {
   };
   hasTimeSlots?: boolean;
   timeSlots?: any[];
-  createdAt: Date;
+  createdAt?: Date;
   updatedAt: Date;
 }
 
