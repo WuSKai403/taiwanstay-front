@@ -37,3 +37,9 @@ yarn-error.log*
 
 # cursor
 .cursor
+
+# keys
+turnkey-skill-471103-d5-4006a7f74ccd.json
+
+# local test
+/pages/test.js

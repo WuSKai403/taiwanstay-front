@@ -18,9 +18,9 @@ export default async function handler(
       });
     }
   } else if (req.method === 'PUT') {
-    const { username, bio } = req.body;
+    const { id, username, bio } = req.body;
     const session = await getSession({ req });
-    if (!session || session.user.email !== username) {
+    if (!session || session.user.id !== id) {
       return res.status(403).send('Unauthorized');
     }
     try {
