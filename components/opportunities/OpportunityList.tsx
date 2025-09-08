@@ -116,7 +116,7 @@ interface SearchParams {
 // 機會卡片組件 - 使用memo優化避免不必要重新渲染
 const OpportunityCard = memo(({ opportunity }: { opportunity: TransformedOpportunity }) => {
   // 獲取機會的封面圖片
-  const getOpportunityCoverImage = (): CloudinaryImageResource | null => {
+  const getOpportunityCoverImage = (): CloudinaryImageResource => {
     // 優先使用 coverImage
     if (opportunity.media?.coverImage) {
       // 轉換 MediaImage 到 CloudinaryImageResource
