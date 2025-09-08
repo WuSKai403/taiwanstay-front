@@ -99,26 +99,26 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
     const coordinates = opportunity.location?.coordinates?.coordinates;
     const formattedOpportunity = {
       id: opportunity._id.toString(),
-      publicId: opportunity.publicId,
-      title: opportunity.title,
+      publicId: opportunity.publicId || '',
+      title: opportunity.title || '',
       slug: opportunity.slug,
-      shortDescription: opportunity.shortDescription,
-      description: opportunity.description,
-      type: opportunity.type,
-      status: opportunity.status,
+      shortDescription: opportunity.shortDescription || '',
+      description: opportunity.description || '',
+      type: opportunity.type || '',
+      status: opportunity.status || '',
       location: {
-        city: opportunity.location?.city,
-        district: opportunity.location?.district,
-        country: opportunity.location?.country,
-        address: opportunity.location?.address,
+        city: opportunity.location?.city || '',
+        district: opportunity.location?.district || '',
+        country: opportunity.location?.country || '',
+        address: opportunity.location?.address || '',
         coordinates: coordinates ? {
           type: 'Point',
           coordinates: coordinates
         } : undefined,
         showExactLocation: true
       },
-      workDetails: opportunity.workDetails,
-      benefits: opportunity.benefits,
+      workDetails: opportunity.workDetails || {},
+      benefits: opportunity.benefits || {},
       requirements: opportunity.requirements,
       media: {
         coverImage: opportunity.media?.coverImage ? {
@@ -155,11 +155,11 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
       host: opportunity.hostId ? {
         id: opportunity.hostId._id.toString(),
         name: opportunity.hostId.name,
-        description: opportunity.hostId.description,
+        description: opportunity.hostId.description || '',
         profileImage: opportunity.hostId.profileImage,
         responseRate: opportunity.hostId.responseRate,
         responseTime: opportunity.hostId.responseTime,
-        verificationStatus: opportunity.hostId.verificationStatus,
+        verificationStatus: opportunity.hostId.verificationStatus || '',
         memberSince: opportunity.hostId.createdAt,
         socialMedia: opportunity.hostId.socialMedia
       } : null,
@@ -171,15 +171,15 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
       hasTimeSlots: opportunity.hasTimeSlots || false,
       timeSlots: opportunity.timeSlots ? opportunity.timeSlots.map((slot: any) => ({
         id: slot._id ? slot._id.toString() : slot.id || '',
-        startDate: slot.startDate,
-        endDate: slot.endDate,
-        defaultCapacity: slot.defaultCapacity,
-        minimumStay: slot.minimumStay,
+        startDate: slot.startDate || '',
+        endDate: slot.endDate || '',
+        defaultCapacity: slot.defaultCapacity || 0,
+        minimumStay: slot.minimumStay || 0,
         workDaysPerWeek: slot.workDaysPerWeek || 5,
-        workHoursPerDay: slot.workHoursPerDay || 6,
+        workHoursPerDay: slot.workHoursPerDay || 4,
         appliedCount: slot.appliedCount || 0,
         confirmedCount: slot.confirmedCount || 0,
-        status: slot.status,
+        status: slot.status || '',
         description: slot.description
       })) : [],
       createdAt: opportunity.createdAt,
