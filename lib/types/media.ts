@@ -132,13 +132,24 @@ export function transformMediaForDB(mediaFromFrontend: any): any {
 /**
  * 將資料庫媒體數據轉換為前端格式
  * @param mediaFromDB 資料庫儲存的媒體數據
+ * @param options 轉換選項
  * @returns 適合前端使用的媒體數據
  */
-export function transformMediaForFrontend(mediaFromDB: any): any {
+export function transformMediaForFrontend(
+  mediaFromDB: any,
+  options?: {
+    defaultTitle?: string;  // 用於設置預設 alt 文字的標題
+    defaultCoverAlt?: string;  // 封面圖片預設 alt 文字
+    defaultImageAlt?: string;  // 一般圖片預設 alt 文字
+  }
+): any {
   if (!mediaFromDB) return null;
 
   // 轉換邏輯
   const result: any = {};
+  const defaultTitle = options?.defaultTitle || '';
+  const defaultCoverAlt = options?.defaultCoverAlt || '封面圖片';
+  const defaultImageAlt = options?.defaultImageAlt || '圖片';
 
   // 處理封面圖片
   if (mediaFromDB.coverImage) {
@@ -147,6 +158,8 @@ export function transformMediaForFrontend(mediaFromDB: any): any {
     if (coverImage.url && !coverImage.secureUrl) {
       coverImage.secureUrl = coverImage.url;
     }
+    // 確保 alt 文字有預設值
+    coverImage.alt = coverImage.alt || defaultTitle || defaultCoverAlt;
     result.coverImage = coverImage;
   }
 
@@ -157,6 +170,8 @@ export function transformMediaForFrontend(mediaFromDB: any): any {
       if (image.url && !image.secureUrl) {
         image.secureUrl = image.url;
       }
+      // 為每張圖片添加預設 alt 文字
+      image.alt = image.alt || defaultTitle || defaultImageAlt;
       return image;
     });
   }
@@ -173,6 +188,8 @@ export function transformMediaForFrontend(mediaFromDB: any): any {
     if (profileImage.url && !profileImage.secureUrl) {
       profileImage.secureUrl = profileImage.url;
     }
+    // 確保頭像 alt 文字有預設值
+    profileImage.alt = profileImage.alt || defaultTitle || '用戶頭像';
     result.profileImage = profileImage;
   }
 

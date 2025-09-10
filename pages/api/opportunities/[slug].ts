@@ -5,6 +5,7 @@ import { isValidObjectId } from '../../../utils/helpers';
 import { IOpportunity, ITimeSlot } from '@/models/Opportunity';
 import { requireAuth, requireOpportunityAccess } from '@/lib/middleware/authMiddleware';
 import { OpportunityStatus, TimeSlotStatus } from '@/models/enums';
+import { transformMediaForFrontend } from '@/lib/types/media';
 
 // 定義 API 響應中使用的機會類型
 interface OpportunityResponse {
@@ -120,38 +121,11 @@ async function getOpportunity(req: NextApiRequest, res: NextApiResponse) {
       workDetails: opportunity.workDetails || {},
       benefits: opportunity.benefits || {},
       requirements: opportunity.requirements,
-      media: {
-        coverImage: opportunity.media?.coverImage ? {
-          publicId: opportunity.media.coverImage.publicId || '',
-          secureUrl: opportunity.media.coverImage.secureUrl || opportunity.media.coverImage.url || '',
-          url: opportunity.media.coverImage.url || opportunity.media.coverImage.secureUrl || '',
-          previewUrl: opportunity.media.coverImage.previewUrl || '',
-          thumbnailUrl: opportunity.media.coverImage.thumbnailUrl || '',
-          alt: opportunity.media.coverImage.alt || opportunity.title || '機會封面圖片',
-          version: opportunity.media.coverImage.version || '',
-          format: opportunity.media.coverImage.format || '',
-          width: opportunity.media.coverImage.width || 0,
-          height: opportunity.media.coverImage.height || 0
-        } : null,
-        images: Array.isArray(opportunity.media?.images)
-          ? opportunity.media.images.map((img: any) => ({
-              publicId: img.publicId || '',
-              secureUrl: img.secureUrl || img.url || '',
-              url: img.url || img.secureUrl || '',
-              previewUrl: img.previewUrl || '',
-              thumbnailUrl: img.thumbnailUrl || '',
-              alt: img.alt || opportunity.title || '機會圖片',
-              version: img.version || '',
-              format: img.format || '',
-              width: img.width || 0,
-              height: img.height || 0
-            }))
-          : [],
-        descriptions: opportunity.media?.descriptions || [],
-        videoUrl: opportunity.media?.videoUrl || null,
-        videoDescription: opportunity.media?.videoDescription || null,
-        virtualTour: opportunity.media?.virtualTour || null
-      },
+      media: transformMediaForFrontend(opportunity.media, {
+        defaultTitle: opportunity.title,
+        defaultCoverAlt: '機會封面圖片',
+        defaultImageAlt: '機會圖片'
+      }),
       host: opportunity.hostId ? {
         id: opportunity.hostId._id.toString(),
         name: opportunity.hostId.name,
