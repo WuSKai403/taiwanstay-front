@@ -95,22 +95,6 @@ providers.push(
   })
 );
 
-// 添加 Facebook 認證
-providers.push(
-  FacebookProvider({
-    clientId: process.env.FACEBOOK_CLIENT_ID!,
-    clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
-  })
-);
-
-// 添加 Apple 認證
-providers.push(
-  AppleProvider({
-    clientId: process.env.APPLE_ID!,
-    clientSecret: process.env.APPLE_SECRET!,
-  })
-);
-
 // 添加一個錯誤處理器函數
 const errorHandler = (error: Error, req: any, res: any) => {
   console.error('NextAuth 錯誤:', error);
