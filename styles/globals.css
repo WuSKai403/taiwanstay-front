@@ -1,152 +1,78 @@
 @tailwind base;
-
-.directory-divide-y > li:not(:last-child):after {
-  content: '';
-  display: block;
-  width: calc(100% - 24px);
-  transform: translateX(24px);
-  height: 1px;
-  background: #333333;
-}
-
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .overflow-hidden {
-    -webkit-mask-image: -webkit-radial-gradient(white, black);
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    /* Ocean Blue #006994 -> 197 100% 29% */
+    --primary: 197 100% 29%;
+    --primary-foreground: 210 40% 98%;
+
+    /* Sunny Yellow #FFD700 -> 51 100% 50% */
+    --secondary: 51 100% 50%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 197 100% 29%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 197 100% 29%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 51 100% 50%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 197 100% 29%;
   }
 }
 
-/* Leaflet 地圖自定義樣式 */
-.custom-popup .leaflet-popup-content-wrapper {
-  border-radius: 8px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-}
-
-.custom-popup .leaflet-popup-content {
-  margin: 0;
-  padding: 0;
-  line-height: 1.5;
-}
-
-.custom-popup .leaflet-popup-tip {
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-}
-
-/* 聚合標記樣式 */
-.marker-cluster {
-  background-clip: padding-box;
-  border-radius: 50%;
-  text-align: center;
-  font-family: 'Arial', sans-serif;
-}
-
-.marker-cluster div {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 14px;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.marker-cluster-small {
-  background-color: rgba(59, 130, 246, 0.8);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.marker-cluster-medium {
-  background-color: rgba(99, 102, 241, 0.8);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.marker-cluster-large {
-  background-color: rgba(79, 70, 229, 0.8);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-/* 自定義標記樣式 */
-.custom-map-marker {
-  transition: transform 0.2s ease-out;
-}
-
-.custom-map-marker:hover {
-  transform: scale(1.1);
-  z-index: 1000 !important;
-}
-
-/* 自定義動畫 */
-@keyframes scaleIn {
-  from {
-    transform: scale(0);
-    opacity: 0;
+@layer base {
+  * {
+    @apply border-border;
   }
-  to {
-    transform: scale(1);
-    opacity: 1;
+  body {
+    @apply bg-background text-foreground;
   }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.3s ease-out forwards;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
-}
-
-/* 表單驗證樣式 */
-.error-highlight {
-  animation: pulse 1.5s ease-in-out;
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5); /* 紅色陰影 */
-  transition: all 0.3s ease;
-}
-
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-  }
-}
-
-/* 輸入欄位樣式 */
-.form-input {
-  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
-}
-
-.form-textarea {
-  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
-}
-
-.form-select {
-  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm;
-}
-
-.form-checkbox {
-  @apply h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500;
-}
-
-.form-radio {
-  @apply h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500;
 }

@@ -1,41 +1,28 @@
-import { UserRole } from '.';
-import NextAuth from 'next-auth';
+import NextAuth, { DefaultSession } from "next-auth"
 
-declare module 'next-auth' {
+declare module "next-auth" {
   /**
-   * 擴展 Session 類型
+   * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
    */
   interface Session {
+    accessToken?: string
     user: {
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-      organizationId?: string;
-      role?: UserRole;
-      id?: string;
-      hostId?: string;
-    };
+      id: string
+      role?: string
+    } & DefaultSession["user"]
   }
 
-  /**
-   * 擴展 User 類型
-   */
   interface User {
-    role?: UserRole;
-    id?: string;
-    organizationId?: string;
-    hostId?: string;
+    id: string
+    role?: string
+    accessToken?: string
   }
 }
 
-declare module 'next-auth/jwt' {
-  /**
-   * 擴展 JWT 類型
-   */
+declare module "next-auth/jwt" {
   interface JWT {
-    role?: UserRole;
-    userId?: string;
-    organizationId?: string;
-    hostId?: string;
+    accessToken?: string
+    id?: string
+    role?: string
   }
 }
