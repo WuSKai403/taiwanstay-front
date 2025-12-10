@@ -12,6 +12,10 @@ export const getMyApplications = async (): Promise<Application[]> => {
     return http.get<Application[]>('/applications/me'); // Or /users/me/applications
 };
 
+export const getApplications = async (params?: { hostId?: string; opportunityId?: string; status?: string }): Promise<Application[]> => {
+    return http.get<Application[]>('/applications', { params });
+};
+
 export const getApplication = async (id: string): Promise<Application> => {
     return http.get<Application>(`/applications/${id}`);
 };
@@ -22,4 +26,8 @@ export const updateApplication = async (id: string, data: Partial<Application>):
 
 export const cancelApplication = async (id: string): Promise<void> => {
     return http.post<void>(`/applications/${id}/cancel`); // Assuming action endpoint
+};
+
+export const updateApplicationStatus = async (id: string, status: string, note?: string): Promise<Application> => {
+    return http.put<Application>(`/applications/${id}/status`, { status, note });
 };

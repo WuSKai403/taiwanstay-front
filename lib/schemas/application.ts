@@ -144,6 +144,13 @@ export const applicationSchema = z.object({
 export type Application = z.infer<typeof applicationSchema>;
 export type ApplicationFormData = z.infer<typeof applicationSchema>;
 
+export const applicationStatusUpdateSchema = z.object({
+  status: z.enum(['ACCEPTED', 'REJECTED', 'PENDING', 'CANCELLED']),
+  note: z.string().optional()
+});
+
+export type ApplicationStatusUpdate = z.infer<typeof applicationStatusUpdateSchema>;
+
 
 // 導出其他類型
 export type MonthSelection = z.infer<typeof monthSelectionSchema>;

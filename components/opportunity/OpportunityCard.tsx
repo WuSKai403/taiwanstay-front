@@ -10,20 +10,23 @@ interface OpportunityCardProps {
 }
 
 export function OpportunityCard({ opportunity }: OpportunityCardProps) {
-    const { title, location, categories, images, id } = opportunity;
+    const { title, location, type, media, id } = opportunity;
+
+    // Fallback image logic
+    const coverImage = media?.coverImage?.secureUrl || media?.images?.[0]?.secureUrl || '/placeholder-opportunity.jpg';
 
     return (
         <Card className="overflow-hidden group hover:shadow-lg transition-all duration-300 border-border/50 flex flex-col h-full">
-            <div className="relative aspect-[4/3] overflow-hidden">
+            <div className="relative h-48 w-full overflow-hidden bg-muted">
                 <img
-                    src={images?.[0] || "https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?q=80&w=2670&auto=format&fit=crop"}
-                    alt={title || "Opportunity"}
-                    className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
+                    src={coverImage}
+                    alt={title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute top-3 left-3">
-                    {categories?.[0] && (
+                    {type && (
                         <Badge variant="secondary" className="backdrop-blur-md bg-white/90 text-black font-medium hover:bg-white/100">
-                            {categories[0].replace("_", " ")}
+                            {type.replace("_", " ")}
                         </Badge>
                     )}
                 </div>

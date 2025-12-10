@@ -12,6 +12,8 @@ import { MapPin, Calendar, Clock, CheckCircle2, Globe, Share2, Heart, Loader2 } 
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { ApplicationApplyModal } from "@/components/application/ApplicationApplyModal";
+import { ReviewList } from "@/components/reviews/ReviewList";
+import { ReviewForm } from "@/components/reviews/ReviewForm";
 
 export default function OpportunityDetailPage() {
     const params = useParams();
@@ -158,6 +160,17 @@ export default function OpportunityDetailPage() {
                             )}
                         </div>
                     </section>
+
+                    {/* Reviews */}
+                    <section>
+                        <div className="mt-8">
+                            <h2 className="text-2xl font-bold mb-6">Reviews</h2>
+                            <div className="grid gap-8">
+                                <ReviewForm targetId={hostId || "mock-host-id"} targetType="HOST" />
+                                <ReviewList targetId={hostId || "mock-host-id"} />
+                            </div>
+                        </div>
+                    </section>
                 </div>
 
                 {/* Sidebar */}
@@ -209,4 +222,3 @@ export default function OpportunityDetailPage() {
         </div>
     );
 }
-

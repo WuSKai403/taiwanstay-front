@@ -63,16 +63,16 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+                <Card className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => window.location.href = '/dashboard/host/profile'}>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            👤 My Profile
+                            👤 My Host Profile
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-muted-foreground mb-4">Update your bio, skills, and photos.</p>
+                        <p className="text-muted-foreground mb-4">Update your organization info, location, and photos.</p>
                         <Button variant="secondary" className="w-full" asChild>
-                            <Link href="/profile">Edit Profile</Link>
+                            <Link href="/dashboard/host/profile">Edit Profile</Link>
                         </Button>
                     </CardContent>
                 </Card>
@@ -81,13 +81,34 @@ export default function DashboardPage() {
             <div className="space-y-4">
                 <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold tracking-tight">Host Management</h2>
-                    <Button asChild>
-                        <Link href="/opportunities/create">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Post Opportunity
-                        </Link>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" asChild>
+                            <Link href="/dashboard/host/applications">
+                                View Applications
+                            </Link>
+                        </Button>
+                        <Button asChild>
+                            <Link href="/dashboard/opportunities/create">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Post Opportunity
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
+
+                <Card className="mb-6 hover:border-primary/50 transition-colors cursor-pointer border-l-4 border-l-primary" onClick={() => window.location.href = '/dashboard/host/applications'}>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            📥 Received Applications
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground mb-4">Review and manage applications from volunteers.</p>
+                        <Button variant="secondary" className="w-full" asChild>
+                            <Link href="/dashboard/host/applications">Manage Applications</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
 
                 <Card>
                     <CardHeader>
@@ -102,7 +123,7 @@ export default function DashboardPage() {
                                     <div key={opp.id} className="flex items-center justify-between p-4 border rounded-lg">
                                         <div className="flex items-center gap-4">
                                             <div className="w-16 h-16 bg-muted rounded-md overflow-hidden">
-                                                <img src={opp.images?.[0] || '/placeholder.png'} alt={opp.title} className="w-full h-full object-cover" />
+                                                <img src={opp.media?.coverImage?.secureUrl || '/placeholder.png'} alt={opp.title} className="w-full h-full object-cover" />
                                             </div>
                                             <div>
                                                 <h3 className="font-semibold">{opp.title}</h3>

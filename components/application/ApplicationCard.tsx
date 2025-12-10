@@ -1,15 +1,18 @@
+import { useState } from "react";
 import Link from "next/link";
 import { Application } from "@/lib/schemas/application";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Calendar, Clock } from "lucide-react";
+import { ApplicationActionDialog } from "./ApplicationActionDialog";
 
 interface ApplicationCardProps {
     application: Application;
+    isHostView?: boolean;
 }
 
-export function ApplicationCard({ application }: ApplicationCardProps) {
+export function ApplicationCard({ application, isHostView }: ApplicationCardProps) {
     // Assuming backend populates opportunity details or we fetch them.
     // If Application type from schema doesn't have nested opportunity, we might need an extended type or separate fetch.
     // For this slice, let's assume the API returns enriched data or we display basic info.
@@ -34,59 +37,102 @@ export function ApplicationCard({ application }: ApplicationCardProps) {
     const statusColor = statusColors[status as keyof typeof statusColors] || statusColors.PENDING;
 
     // TODO: Verify if backend populates 'opportunity' field.
-    // If not, we might only show "Application to Opportunity #ID".
     const opportunityTitle = (application as any).opportunity?.title || `Opportunity #${application.opportunityId}`;
     const location = (application as any).opportunity?.location;
+    const applicantName = (application as any).user?.name || (application as any).userId || "Unknown Applicant"; // Need user info
+
+    // State for dialog
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [actionType, setActionType] = useState<'ACCEPT' | 'REJECT'>('ACCEPT');
+
+    const handleAction = (type: 'ACCEPT' | 'REJECT') => {
+        setActionType(type);
+        setIsDialogOpen(true);
+    };
 
     return (
-        <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-lg font-bold truncate">
-                    <Link href={`/opportunities/${application.opportunityId}`} className="hover:underline">
-                        {opportunityTitle}
-                    </Link>
-                </CardTitle>
-                <Badge variant="outline" className={statusColor}>
-                    {status}
-                </Badge>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {location && (
-                    <div className="flex items-center text-sm text-muted-foreground">
-                        <MapPin className="mr-1 h-3 w-3" />
-                        {location.city}, {location.country}
-                    </div>
-                )}
+        <>
+            <Card className="hover:shadow-md transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-lg font-bold truncate">
+                        {isHostView ? (
+                            <span className="text-primary">{applicantName}</span>
+                        ) : (
+                            <Link href={`/opportunities/${application.opportunityId}`} className="hover:underline">
+                                {opportunityTitle}
+                            </Link>
+                        )}
+                    </CardTitle>
+                    <Badge variant="outline" className={statusColor}>
+                        {status}
+                    </Badge>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {isHostView && (
+                        <div className="text-sm font-medium text-muted-foreground mb-2">
+                            Applied for: {opportunityTitle}
+                        </div>
+                    )}
+                    {!isHostView && location && (
+                        <div className="flex items-center text-sm text-muted-foreground">
+                            <MapPin className="mr-1 h-3 w-3" />
+                            {location.city}, {location.country}
+                        </div>
+                    )}
 
-                <div className="grid grid-cols-2 gap-4 text-sm bg-muted/30 p-3 rounded-md">
-                    <div>
-                        <span className="text-muted-foreground block text-xs">Dates</span>
-                        <span className="font-medium flex items-center mt-1">
-                            <Calendar className="mr-1 h-3 w-3" />
-                            {application.applicationDetails?.startDate || "TBD"}
-                            <span className="mx-1">→</span>
-                            {application.applicationDetails?.endDate || "TBD"}
-                        </span>
+                    <div className="grid grid-cols-2 gap-4 text-sm bg-muted/30 p-3 rounded-md">
+                        <div>
+                            <span className="text-muted-foreground block text-xs">Dates</span>
+                            <span className="font-medium flex items-center mt-1">
+                                <Calendar className="mr-1 h-3 w-3" />
+                                {application.applicationDetails?.startDate || "TBD"}
+                                <span className="mx-1">→</span>
+                                {application.applicationDetails?.endDate || "TBD"}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="text-muted-foreground block text-xs">
+                                {isHostView ? "Applied At" : "Applied On"}
+                            </span>
+                            <span className="font-medium flex items-center mt-1">
+                                <Clock className="mr-1 h-3 w-3" />
+                                {application.createdAt ? new Date(application.createdAt).toLocaleDateString() : "Unknown"}
+                            </span>
+                        </div>
                     </div>
-                    <div>
-                        <span className="text-muted-foreground block text-xs">Applied On</span>
-                        <span className="font-medium flex items-center mt-1">
-                            <Clock className="mr-1 h-3 w-3" />
-                            {application.createdAt ? new Date(application.createdAt).toLocaleDateString() : "Unknown"}
-                        </span>
+
+                    <div className="text-sm border-l-2 pl-3 italic text-muted-foreground line-clamp-2">
+                        "{application.applicationDetails?.message}"
                     </div>
-                </div>
 
-                <div className="text-sm border-l-2 pl-3 italic text-muted-foreground line-clamp-2">
-                    "{application.applicationDetails?.message}"
-                </div>
+                </CardContent>
+                <CardFooter className="gap-2">
+                    {isHostView && status === 'PENDING' ? (
+                        <>
+                            <Button variant="outline" className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => handleAction('REJECT')}>
+                                Reject
+                            </Button>
+                            <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleAction('ACCEPT')}>
+                                Accept
+                            </Button>
+                        </>
+                    ) : (
+                        <Button variant="outline" size="sm" className="w-full" asChild>
+                            <Link href={`/applications/${application.id}`}>View Details</Link>
+                        </Button>
+                    )}
+                </CardFooter>
+            </Card>
 
-            </CardContent>
-            <CardFooter>
-                <Button variant="outline" size="sm" className="w-full" asChild>
-                    <Link href={`/applications/${application.id}`}>View Status</Link>
-                </Button>
-            </CardFooter>
-        </Card>
+            {isHostView && (
+                <ApplicationActionDialog
+                    applicationId={application.id!}
+                    applicantName={applicantName}
+                    action={actionType}
+                    isOpen={isDialogOpen}
+                    onOpenChange={setIsDialogOpen}
+                />
+            )}
+        </>
     );
 }
