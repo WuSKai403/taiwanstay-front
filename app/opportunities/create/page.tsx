@@ -171,9 +171,6 @@ export default function CreateOpportunityPage() {
                                     <ImageUpload
                                         value={field.value}
                                         onChange={field.onChange}
-                                        onImageUploaded={(img) => {
-                                            // We could store more image data here if needed
-                                        }}
                                     />
                                 </FormControl>
                                 <FormMessage />

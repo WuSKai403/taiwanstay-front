@@ -4,6 +4,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin } from "lucide-react";
+import { BookmarkButton } from "./BookmarkButton";
 
 interface OpportunityCardProps {
     opportunity: Opportunity;
@@ -29,6 +30,9 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
                             {type.replace("_", " ")}
                         </Badge>
                     )}
+                </div>
+                <div className="absolute top-3 right-3">
+                    {id && <BookmarkButton opportunityId={id} variant="icon_only" />}
                 </div>
             </div>
 

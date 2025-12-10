@@ -30,3 +30,15 @@ export const updateOpportunity = async (id: string, data: Partial<Opportunity>):
 export const deleteOpportunity = async (id: string): Promise<void> => {
     return http.delete<void>(`/opportunities/${id}`);
 };
+
+export const bookmarkOpportunity = async (id: string): Promise<void> => {
+    return http.post<void>(`/opportunities/${id}/bookmark`, {});
+};
+
+export const removeBookmark = async (id: string): Promise<void> => {
+    return http.delete<void>(`/opportunities/${id}/bookmark`);
+};
+
+export const getBookmarks = async (): Promise<{ opportunities: Opportunity[] }> => {
+    return http.get<{ opportunities: Opportunity[] }>('/users/me/bookmarks');
+};

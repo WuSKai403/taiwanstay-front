@@ -17,8 +17,7 @@ const hostProfileSchema = z.object({
     description: z.string().optional(),
     city: z.string().optional(),
     country: z.string().optional(),
-    coverMethods: z.string().optional(), // Just a placeholder if we have specific fields
-    // Add more fields matching domain.Host
+    photos: z.array(z.string()).optional(),
 });
 
 type HostProfileFormValues = z.infer<typeof hostProfileSchema>;
@@ -37,6 +36,7 @@ export function HostProfileForm({ initialData, onSubmit, isLoading }: HostProfil
             description: initialData?.description || "",
             city: initialData?.location?.city || "",
             country: initialData?.location?.country || "Taiwan",
+            photos: initialData?.photos?.map(p => p.secureUrl || "").filter(Boolean) || [],
         },
     });
 
@@ -104,7 +104,35 @@ export function HostProfileForm({ initialData, onSubmit, isLoading }: HostProfil
                     )}
                 />
 
-                {/* Images would go here - for now simplified */}
+                <FormField
+                    control={form.control}
+                    name="photos"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Main Photo</FormLabel>
+                            <FormControl>
+                                <ImageUpload
+                                    value={field.value?.[0]}
+                                    onChange={(url) => {
+                                        // Simple logic: just replace the first photo or add it
+                                        const current = field.value || [];
+                                        if (current.length > 0) {
+                                            field.onChange([url, ...current.slice(1)]);
+                                        } else {
+                                            field.onChange([url]);
+                                        }
+                                    }}
+                                    onRemove={() => {
+                                        const current = field.value || [];
+                                        field.onChange(current.slice(1));
+                                    }}
+                                    aspectRatio="video"
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
                 <div className="flex justify-end gap-4">
                     <Button type="submit" disabled={isLoading}>

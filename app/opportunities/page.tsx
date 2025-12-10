@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, SlidersHorizontal, Loader2 } from "lucide-react";
 import { Opportunity } from "@/lib/api/opportunity";
+import { OpportunityMapWrapper } from "@/components/opportunity/OpportunityMapWrapper";
 
 export default function OpportunitiesPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [locationFilter, setLocationFilter] = useState("all");
     const [typeFilter, setTypeFilter] = useState("all");
+    const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
     // Fetch opportunities using the Hook
     const { data: opportunities, isLoading, error } = useOpportunities({
@@ -20,6 +22,12 @@ export default function OpportunitiesPage() {
         city: locationFilter !== "all" ? locationFilter : undefined,
         categories: typeFilter !== "all" ? [typeFilter] : undefined,
     });
+
+    // Dynamically import the Map wrapper to avoid server-side issues
+    // We import it here or at the top level? Top level with dynamic is better usually,
+    // but the wrapper is already handling dynamic import.
+    // So we can just import the wrapper directly if it exports a component.
+    // However, I will use import at top level.
 
     return (
         <div className="container py-8 space-y-8">
@@ -30,7 +38,7 @@ export default function OpportunitiesPage() {
                     <p className="text-muted-foreground">Discover {opportunities?.length || 0} hosts waiting for you.</p>
                 </div>
 
-                <div className="flex w-full md:w-auto gap-2">
+                <div className="flex w-full md:w-auto gap-2 items-center">
                     <div className="relative w-full md:w-64">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -41,9 +49,29 @@ export default function OpportunitiesPage() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <Button variant="outline" size="icon">
-                        <SlidersHorizontal className="h-4 w-4" />
-                    </Button>
+                    {/* View Toggle */}
+                    <div className="flex items-center border rounded-md overflow-hidden bg-background">
+                        <Button
+                            variant={viewMode === "list" ? "secondary" : "ghost"}
+                            size="icon"
+                            className="rounded-none h-9 w-9"
+                            onClick={() => setViewMode("list")}
+                            title="List View"
+                        >
+                            <SlidersHorizontal className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant={viewMode === "map" ? "secondary" : "ghost"}
+                            size="icon"
+                            className="rounded-none h-9 w-9"
+                            onClick={() => setViewMode("map")}
+                            title="Map View"
+                        >
+                            <span className="sr-only">Map View</span>
+                            {/* Helper: MapIcon is not in lucide imports yet, using simple text or I should add MapIcon to imports */}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-map"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" x2="9" y1="3" y2="18" /><line x1="15" x2="15" y1="6" y2="21" /></svg>
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -77,7 +105,7 @@ export default function OpportunitiesPage() {
                 </Select>
             </div>
 
-            {/* Grid */}
+            {/* Content Area */}
             {isLoading ? (
                 <div className="flex justify-center items-center py-20">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -87,16 +115,23 @@ export default function OpportunitiesPage() {
                     <p>Error loading opportunities. Please try again later.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {opportunities?.map((opp) => (
-                        <OpportunityCard key={opp.id} opportunity={opp as any} />
-                    ))}
-                    {opportunities?.length === 0 && (
-                        <div className="col-span-full text-center py-10 text-muted-foreground">
-                            No opportunities found matching your criteria.
+                <>
+                    {viewMode === "list" ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {opportunities?.map((opp) => (
+                                <OpportunityCard key={opp.id} opportunity={opp as any} />
+                            ))}
+                            {opportunities?.length === 0 && (
+                                <div className="col-span-full text-center py-10 text-muted-foreground">
+                                    No opportunities found matching your criteria.
+                                </div>
+                            )}
                         </div>
+                    ) : (
+                        // Map View
+                        <OpportunityMapWrapper opportunities={(opportunities || []) as any[]} />
                     )}
-                </div>
+                </>
             )}
         </div>
     );

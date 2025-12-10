@@ -14,6 +14,7 @@ import toast from "react-hot-toast";
 import { ApplicationApplyModal } from "@/components/application/ApplicationApplyModal";
 import { ReviewList } from "@/components/reviews/ReviewList";
 import { ReviewForm } from "@/components/reviews/ReviewForm";
+import { BookmarkButton } from "@/components/opportunity/BookmarkButton";
 
 export default function OpportunityDetailPage() {
     const params = useParams();
@@ -199,9 +200,7 @@ export default function OpportunityDetailPage() {
                                 <Button className="w-full text-lg py-6" size="lg" onClick={handleApplyClick}>
                                     Apply Now
                                 </Button>
-                                <Button variant="outline" className="w-full gap-2">
-                                    <Heart className="w-4 h-4" /> Save to wishlist
-                                </Button>
+                                <BookmarkButton opportunityId={id} variant="outline" label="Save to wishlist" className="w-full" />
                             </div>
 
                             <div className="text-xs text-center text-muted-foreground pt-2">
