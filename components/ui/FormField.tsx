@@ -4,9 +4,10 @@ import { FieldError, FieldErrors } from 'react-hook-form';
 interface FormFieldProps {
   label: string;
   required?: boolean;
-  error?: FieldError | FieldErrors<any> | undefined;
+  error?: FieldError | FieldErrors<any> | string | undefined;
   helperText?: string;
   className?: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }
 
@@ -16,10 +17,11 @@ const FormField: React.FC<FormFieldProps> = ({
   error,
   helperText,
   className = '',
+  htmlFor,
   children
 }) => {
   // 從錯誤對象中提取錯誤消息
-  const getErrorMessage = (error: FieldError | FieldErrors<any> | undefined): string => {
+  const getErrorMessage = (error: FieldError | FieldErrors<any> | string | undefined): string => {
     if (!error) return '';
     if (typeof error === 'string') return error;
     if ('message' in error && typeof error.message === 'string') return error.message;
@@ -39,7 +41,7 @@ const FormField: React.FC<FormFieldProps> = ({
 
   return (
     <div className={`space-y-2 ${className}`}>
-      <label className="block text-sm font-medium text-gray-700">
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-700">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>

@@ -90,7 +90,7 @@ export const signedUrlsSchema = z.object({
 });
 
 // 定義照片資源的 schema
-export const cloudinaryImageResourceSchema = z.object({
+export const ImageResourceSchema = z.object({
   publicId: z.string(),
   secureUrl: z.string().url(),
   thumbnailUrl: z.string().url(),
@@ -105,83 +105,54 @@ export const cloudinaryImageResourceSchema = z.object({
   signedUrls: signedUrlsSchema.optional()
 });
 
-// 定義主要申請表單的 schema
-export const applicationFormSchema = z.object({
-  message: z.string().min(50, '訊息至少需要 50 個字').transform((val) => {
-    console.log('驗證message欄位:', val, val.length >= 50);
-    return val;
-  }),
-  startDate: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
-  endDate: z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM'),
-  duration: z.number().min(1, '停留時間必須大於 0'),
-  timeSlotId: z.string().optional(),
-  availableMonths: z.array(z.string().regex(/^\d{4}-\d{2}$/, '月份格式必須為 YYYY-MM')),
-  workExperience: z.array(workExperienceSchema),
-  physicalCondition: z.string(),
-  skills: z.string().default(''),
-  preferredWorkHours: z.string().optional(),
-  accommodationNeeds: z.string(),
-  culturalInterests: z.array(z.string()),
-  learningGoals: z.array(z.string()),
-  travelingWith: travelingWithSchema.optional(),
-  specialRequirements: z.string(),
-  dietaryRestrictions: dietaryRestrictionsSchema,
-  languages: z.array(languageSchema).min(1, '至少需要一種語言能力'),
-  relevantExperience: z.string().optional(),
-  motivation: z.string().min(100, '申請動機至少需要 100 個字').transform((val) => {
-    console.log('驗證motivation欄位:', val, val.length >= 100);
-    return val;
-  }),
-  photos: z.array(cloudinaryImageResourceSchema).min(1, '至少需要上傳一張照片').max(5, '最多只能上傳 5 張照片'),
 
-  // 新增欄位
-  drivingLicense: drivingLicenseSchema.default({
-    motorcycle: false,
-    car: false,
-    none: false,
-    other: {
-      enabled: false,
-      details: ''
-    }
-  }),
-  allergies: z.string().default(''),
-  nationality: z.string().min(1, '國籍不能為空'),
-  visaType: z.string().optional(),
-  preferredWorkTypes: z.string().default(''),
-  unwillingWorkTypes: z.string().default(''),
-  physicalStrength: z.number().min(1).max(5).default(3),
-  certifications: z.string().default(''),
-  workawayExperiences: z.array(workawayExperienceSchema).default([]),
-  expectedSkills: z.array(z.string()).default([]),
-  contribution: z.string().default(''),
-  adaptabilityRatings: adaptabilityRatingsSchema.default({
-    environmentAdaptation: 3,
-    teamwork: 3,
-    problemSolving: 3,
-    independentWork: 3,
-    stressManagement: 3
-  }),
-  photoDescriptions: z.array(z.string()).default([]),
-  videoIntroduction: z.string().default(''),
-  additionalNotes: z.string().default(''),
-  sourceChannel: z.string().default(''),
-  termsAgreed: z.boolean().refine(val => val === true, {
-    message: '您必須同意條款才能繼續',
-  }).transform((val) => {
-    console.log('驗證termsAgreed欄位:', val);
-    return val;
-  })
+// ... (Previous sub-schemas remain unchanged, e.g. travelingWithSchema, workExperienceSchema, etc.)
+
+// 定義主要申請表單的 View Schema (前端顯示用)
+// 包含申請資料 + 個人資料更新
+// 定義主要申請表單的 schema (Strictly matching domain.Application)
+export const applicationSchema = z.object({
+  id: z.string().optional(),
+  opportunityId: z.string(),
+  hostId: z.string(),
+  userId: z.string().optional(),
+  status: z.string().default("PENDING"), // Using string for now, or use enum if available
+  statusNote: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+
+  // Application Details
+  applicationDetails: z.object({
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式必須為 YYYY-MM-DD').optional(),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式必須為 YYYY-MM-DD').optional(),
+    duration: z.number().min(1).optional(),
+    message: z.string().min(50, '訊息至少需要 50 個字'),
+    relevantExperience: z.string().optional(),
+    languages: z.array(z.string()).optional(),
+    travelingWith: travelingWithSchema.optional(),
+  }).optional(),
+
+  // Review Details
+  reviewDetails: z.object({
+    rating: z.number().optional(),
+    notes: z.string().optional(),
+    reviewedAt: z.string().optional(),
+    reviewedBy: z.string().optional()
+  }).optional()
 });
 
-// 導出類型
-export type ApplicationFormData = z.infer<typeof applicationFormSchema>;
+export type Application = z.infer<typeof applicationSchema>;
+export type ApplicationFormData = z.infer<typeof applicationSchema>;
+
+
+// 導出其他類型
 export type MonthSelection = z.infer<typeof monthSelectionSchema>;
 export type TravelingWith = z.infer<typeof travelingWithSchema>;
 export type TimeSlot = z.infer<typeof timeSlotSchema>;
 export type WorkExperience = z.infer<typeof workExperienceSchema>;
 export type DietaryRestrictions = z.infer<typeof dietaryRestrictionsSchema>;
 export type Language = z.infer<typeof languageSchema>;
-export type CloudinaryImageResource = z.infer<typeof cloudinaryImageResourceSchema>;
+export type ImageResource = z.infer<typeof ImageResourceSchema>;
 export type DrivingLicense = z.infer<typeof drivingLicenseSchema>;
 export type AdaptabilityRatings = z.infer<typeof adaptabilityRatingsSchema>;
 export type WorkawayExperience = z.infer<typeof workawayExperienceSchema>;

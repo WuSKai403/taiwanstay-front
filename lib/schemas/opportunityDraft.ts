@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { OpportunityType } from '@/models/enums';
+// import { OpportunityType } from '@/models/enums';
+
+const OpportunityTypeValues = [
+  "FARMING", "GARDENING", "ANIMAL_CARE", "CONSTRUCTION", "HOSPITALITY",
+  "COOKING", "CLEANING", "CHILDCARE", "ELDERLY_CARE", "TEACHING",
+  "LANGUAGE_EXCHANGE", "CREATIVE", "DIGITAL_NOMAD", "ADMINISTRATION",
+  "MAINTENANCE", "TOURISM", "CONSERVATION", "COMMUNITY", "EVENT", "OTHER"
+] as const;
 
 /**
  * 工作機會草稿的基本驗證架構
@@ -12,7 +19,8 @@ export const opportunityDraftSchema = z.object({
   // 所有其他欄位都是可選的
   shortDescription: z.string().optional(),
   description: z.string().optional(),
-  type: z.nativeEnum(OpportunityType).optional(),
+  type: z.enum(OpportunityTypeValues).optional(),
+
 
   location: z.object({
     address: z.string().optional(),

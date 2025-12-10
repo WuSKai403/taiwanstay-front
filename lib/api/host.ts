@@ -1,82 +1,20 @@
-import axios from 'axios';
-import { HostData } from '@/types/host';
+import { http } from '../api';
+import { components } from '@/types/api';
 
-// 更新主人資料的表單類型
-export interface HostUpdateForm {
-  name: string;
-  description?: string;
-  contactEmail: string;
-  contactPhone?: string;
-  address?: string;
-  website?: string;
-}
+export type Host = components['schemas']['domain.Host'];
 
-/**
- * 獲取指定ID的主人資料
- * @param hostId 主人ID
- * @returns 主人資料
- */
-export async function getHostById(hostId: string): Promise<HostData> {
-  try {
-    const response = await axios.get(`/api/hosts/${hostId}`);
-    if (response.data.success) {
-      return response.data.host;
-    } else {
-      throw new Error(response.data.message || '無法獲取主人資料');
-    }
-  } catch (error: any) {
-    throw new Error(error.response?.data?.message || '獲取主人資料時發生錯誤');
-  }
-}
+export const getHost = async (hostId: string): Promise<Host> => {
+  return http.get<Host>(`/hosts/${hostId}`);
+};
 
-/**
- * 更新主人資料
- * @param hostId 主人ID
- * @param data 更新的資料
- * @returns 更新後的主人資料
- */
-export async function updateHost(hostId: string, data: HostUpdateForm): Promise<HostData> {
-  try {
-    const response = await axios.put(`/api/hosts/${hostId}`, data);
-    if (response.data.success) {
-      return response.data.host;
-    } else {
-      throw new Error(response.data.message || '無法更新主人資料');
-    }
-  } catch (error: any) {
-    throw new Error(error.response?.data?.message || '更新主人資料時發生錯誤');
-  }
-}
+export const updateHost = async (hostId: string, data: Partial<Host>): Promise<Host> => {
+  return http.put<Host>(`/hosts/${hostId}`, data);
+};
 
-/**
- * 更新主人設定 (不需要進入編輯狀態)
- * @param hostId 主人ID
- * @param data 更新的設定資料
- * @returns 更新後的主人設定資料
- */
-export async function updateHostSettings(hostId: string, data: HostUpdateForm): Promise<HostData> {
-  try {
-    // 將表單數據轉換為 API 期望的格式
-    const apiData = {
-      name: data.name,
-      description: data.description,
-      contactInfo: {
-        contactEmail: data.contactEmail,
-        contactMobile: data.contactPhone,
-        website: data.website
-      },
-      location: {
-        address: data.address
-      }
-    };
+export const createHost = async (data: Partial<Host>): Promise<Host> => {
+  return http.post<Host>('/hosts', data);
+};
 
-    const response = await axios.put(`/api/hosts/${hostId}/settings`, apiData);
-    if (response.data.success) {
-      return response.data.host;
-    } else {
-      throw new Error(response.data.message || '無法更新主人設定');
-    }
-  } catch (error: any) {
-    throw new Error(error.response?.data?.message || '更新主人設定時發生錯誤');
-  }
-}
+export const getMyHost = async (): Promise<Host> => {
+  return http.get<Host>('/hosts/me');
+};

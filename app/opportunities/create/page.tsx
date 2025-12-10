@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImageUpload } from "@/components/common/ImageUpload";
-import { useToast } from "@/components/ui/use-toast"; // Assuming we have toast
+import { useToast } from "@/hooks/use-toast"; // Assuming we have toast
 
 const formSchema = z.object({
     title: z.string().min(5, "Title must be at least 5 characters"),

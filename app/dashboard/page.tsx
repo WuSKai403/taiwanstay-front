@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { IOpportunity } from "@/types/opportunity";
+import { Opportunity } from "@/lib/schemas/opportunity";
 
 export default function DashboardPage() {
     const { data: session } = useSession();
@@ -15,8 +15,8 @@ export default function DashboardPage() {
     const { data: myOpportunities, isLoading } = useQuery({
         queryKey: ["my-opportunities"],
         queryFn: async () => {
-            const res = await api.get("/opportunities/me"); // Assuming this endpoint exists or we filter by hostId
-            return res.data as IOpportunity[];
+            const res = await api.get("/opportunities"); // Listing all for now, filter by host on backend
+            return res.data as Opportunity[];
         },
         enabled: !!session?.user,
     });
@@ -47,7 +47,48 @@ export default function DashboardPage() {
                 </Button>
             </div>
 
-            <div className="grid gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="hover:border-primary/50 transition-colors cursor-pointer" onClick={() => window.location.href = '/dashboard/applications'}>
+                    {/* Using onClick for full card clickable or wrap in Link */}
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            📄 My Applications
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground mb-4">Check status of your sent applications.</p>
+                        <Button variant="secondary" className="w-full" asChild>
+                            <Link href="/dashboard/applications">View Applications</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            👤 My Profile
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground mb-4">Update your bio, skills, and photos.</p>
+                        <Button variant="secondary" className="w-full" asChild>
+                            <Link href="/profile">Edit Profile</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold tracking-tight">Host Management</h2>
+                    <Button asChild>
+                        <Link href="/opportunities/create">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Post Opportunity
+                        </Link>
+                    </Button>
+                </div>
+
                 <Card>
                     <CardHeader>
                         <CardTitle>My Opportunities</CardTitle>
@@ -58,10 +99,10 @@ export default function DashboardPage() {
                         ) : myOpportunities && myOpportunities.length > 0 ? (
                             <div className="space-y-4">
                                 {myOpportunities.map((opp) => (
-                                    <div key={opp._id} className="flex items-center justify-between p-4 border rounded-lg">
+                                    <div key={opp.id} className="flex items-center justify-between p-4 border rounded-lg">
                                         <div className="flex items-center gap-4">
                                             <div className="w-16 h-16 bg-muted rounded-md overflow-hidden">
-                                                <img src={opp.media?.coverImage?.url} alt={opp.title} className="w-full h-full object-cover" />
+                                                <img src={opp.images?.[0] || '/placeholder.png'} alt={opp.title} className="w-full h-full object-cover" />
                                             </div>
                                             <div>
                                                 <h3 className="font-semibold">{opp.title}</h3>
@@ -70,7 +111,7 @@ export default function DashboardPage() {
                                         </div>
                                         <div className="flex gap-2">
                                             <Button variant="outline" size="sm" asChild>
-                                                <Link href={`/opportunities/${opp.publicId}/edit`}>
+                                                <Link href={`/opportunities/${opp.id}/edit`}>
                                                     <Edit className="w-4 h-4" />
                                                 </Link>
                                             </Button>

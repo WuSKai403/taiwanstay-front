@@ -1,20 +1,43 @@
 import { z } from 'zod';
 
+// domain.CapacityOverride
 export const capacityOverrideSchema = z.object({
-  startDate: z.string(),
-  endDate: z.string(),
-  capacity: z.number().min(1),
+  capacity: z.number().optional(),
+  endDate: z.string().optional(),
+  startDate: z.string().optional(),
 });
 
+// domain.MonthlyCapacity
+export const monthlyCapacitySchema = z.object({
+  bookedCount: z.number().optional(),
+  capacity: z.number().optional(),
+  month: z.string().optional(), // YYYY-MM
+});
+
+// domain.TimeSlotStatus
+export const TimeSlotStatusValues = ["OPEN", "FILLED", "CLOSED"] as const;
+
+// domain.TimeSlot
 export const timeSlotSchema = z.object({
-  _id: z.string(),
-  startDate: z.string().min(1, '請選擇開始日期'),
-  endDate: z.string().min(1, '請選擇結束日期'),
-  defaultCapacity: z.number().min(1, '容量必須大於 0'),
-  minimumStay: z.number().min(1, '最短停留天數必須大於 0'),
+  id: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  defaultCapacity: z.number().optional(),
+  minimumStay: z.number().optional(),
   description: z.string().optional(),
+
+  status: z.enum(TimeSlotStatusValues).optional(),
+  appliedCount: z.number().optional(),
+  confirmedCount: z.number().optional(),
+
+  workDaysPerWeek: z.number().optional(),
+  workHoursPerDay: z.number().optional(),
+
   capacityOverrides: z.array(capacityOverrideSchema).optional(),
+  monthlyCapacities: z.array(monthlyCapacitySchema).optional(),
 });
 
-export type TimeSlotFormData = z.infer<typeof timeSlotSchema>;
+export type TimeSlotFormData = z.infer<typeof timeSlotSchema>; // Alias if needed
 export type TimeSlot = z.infer<typeof timeSlotSchema>;
+export type CapacityOverride = z.infer<typeof capacityOverrideSchema>;
+export type MonthlyCapacity = z.infer<typeof monthlyCapacitySchema>;

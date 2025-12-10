@@ -1,42 +1,60 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
-import { api } from "@/lib/api";
-import { IOpportunity } from "@/types/opportunity";
+import { useState } from "react";
+import { useOpportunity } from "@/lib/hooks/useOpportunities";
+import { useCreateApplication } from "@/lib/hooks/useApplications";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MapPin, Calendar, Clock, CheckCircle2, Globe, Share2, Heart } from "lucide-react";
+import { MapPin, Calendar, Clock, CheckCircle2, Globe, Share2, Heart, Loader2 } from "lucide-react";
 import Link from "next/link";
+import toast from "react-hot-toast";
+import { ApplicationApplyModal } from "@/components/application/ApplicationApplyModal";
 
 export default function OpportunityDetailPage() {
     const params = useParams();
+    const router = useRouter();
     const id = params?.id as string;
+    const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
 
-    const { data: opportunity, isLoading } = useQuery({
-        queryKey: ["opportunity", id],
-        queryFn: async () => {
-            // If using mock data for list, we might fail here if ID doesn't exist in backend
-            // For now, let's try to fetch. If 404, we can show mock data or error.
-            try {
-                const res = await api.get(`/opportunities/${id}`);
-                return res.data as IOpportunity;
-            } catch (e) {
-                // Fallback for demo if backend is empty
-                if (id === "1") return mockOpportunity;
-                throw e;
+    const { data: opportunity, isLoading } = useOpportunity(id);
+    const { mutate: apply, isPending: isApplying } = useCreateApplication();
+
+    const handleApplyClick = () => {
+        setIsApplyModalOpen(true);
+    };
+
+    const handleApplicationSubmit = (formData: { message: string; startDate: string; endDate: string }) => {
+        if (!opportunity) return;
+
+        apply({
+            opportunityId: opportunity.id || id,
+            hostId: opportunity.hostId,
+            applicationDetails: {
+                message: formData.message,
+                startDate: formData.startDate,
+                endDate: formData.endDate,
             }
-        },
-        enabled: !!id,
-    });
+        }, {
+            onSuccess: () => {
+                toast.success("Application submitted successfully!");
+                setIsApplyModalOpen(false);
+            },
+            onError: (err) => {
+                toast.error(`Failed to apply: ${err.message}`);
+                // Don't close modal on error so user can retry
+            }
+        });
+    };
 
     if (isLoading) {
-        return <div className="container py-20 text-center">Loading...</div>;
+        return <div className="flex justify-center items-center min-h-screen"><Loader2 className="w-8 h-8 animate-spin" /></div>;
     }
 
     if (!opportunity) {
+        // In a real app we might redirect or show a nice 404 component
         return <div className="container py-20 text-center">Opportunity not found</div>;
     }
 
@@ -48,16 +66,15 @@ export default function OpportunityDetailPage() {
         type,
         workDetails,
         benefits,
-        requirements,
-        hostId // In real app, we'd fetch host details too
-    } = opportunity;
+        hostId
+    } = opportunity as any;
 
     return (
         <div className="min-h-screen bg-background pb-20">
             {/* Hero Image */}
             <div className="relative h-[400px] md:h-[500px] w-full overflow-hidden">
                 <img
-                    src={media?.coverImage?.url || "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=2574&auto=format&fit=crop"}
+                    src={media?.coverImage?.secureUrl || "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=2574&auto=format&fit=crop"}
                     alt={title}
                     className="w-full h-full object-cover"
                 />
@@ -84,7 +101,7 @@ export default function OpportunityDetailPage() {
                             <AvatarFallback>H</AvatarFallback>
                         </Avatar>
                         <div>
-                            <h3 className="text-lg font-semibold">Hosted by [Host Name]</h3>
+                            <h3 className="text-lg font-semibold">Hosted by {hostId || "Host"}</h3>
                             <p className="text-muted-foreground text-sm">Joined 2023 • Verified Host</p>
                         </div>
                         <Button variant="outline" className="ml-auto">View Profile</Button>
@@ -102,7 +119,7 @@ export default function OpportunityDetailPage() {
                     <section>
                         <h2 className="text-2xl font-bold mb-4">Help needed</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {workDetails?.tasks?.map((task, i) => (
+                            {workDetails?.tasks?.map((task: string, i: number) => (
                                 <div key={i} className="flex items-start gap-3 p-4 bg-muted/30 rounded-lg">
                                     <CheckCircle2 className="w-5 h-5 text-primary mt-0.5" />
                                     <span>{task}</span>
@@ -166,7 +183,9 @@ export default function OpportunityDetailPage() {
                             </div>
 
                             <div className="pt-4 space-y-3">
-                                <Button className="w-full text-lg py-6" size="lg">Apply Now</Button>
+                                <Button className="w-full text-lg py-6" size="lg" onClick={handleApplyClick}>
+                                    Apply Now
+                                </Button>
                                 <Button variant="outline" className="w-full gap-2">
                                     <Heart className="w-4 h-4" /> Save to wishlist
                                 </Button>
@@ -179,23 +198,15 @@ export default function OpportunityDetailPage() {
                     </Card>
                 </div>
             </div>
+
+            <ApplicationApplyModal
+                isOpen={isApplyModalOpen}
+                onClose={() => setIsApplyModalOpen(false)}
+                onSubmit={handleApplicationSubmit}
+                isSubmitting={isApplying}
+                opportunityTitle={title}
+            />
         </div>
     );
 }
 
-const mockOpportunity: Partial<IOpportunity> = {
-    _id: "1",
-    title: "Surf Hostel Helper in Kenting",
-    type: "HOSTEL_HELP" as any,
-    location: { city: "Hengchun", country: "Taiwan" },
-    description: "Come and help us in our beautiful surf hostel! We are looking for energetic volunteers to help with daily tasks, cleaning, and socializing with guests. In exchange, you get a bed in our staff dorm, surfing lessons, and the best time of your life!",
-    media: { coverImage: { url: "https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=2574&auto=format&fit=crop" } } as any,
-    workDetails: {
-        tasks: ["Reception help", "Housekeeping", "Socializing with guests", "Walking the hostel dog"],
-        skills: ["English", "Social skills"],
-    } as any,
-    benefits: {
-        accommodation: { provided: true, type: "dormitory" },
-        meals: { provided: true, count: 1 },
-    } as any,
-};

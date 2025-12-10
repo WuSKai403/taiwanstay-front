@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 // @ts-ignore
 import twzipcode from 'twzipcode-data';
-import { GeoJSONPoint } from '@/lib/transforms/opportunity';
+export interface GeoJSONPoint {
+  type: 'Point';
+  coordinates: [number, number];
+}
+
 
 // 從 host/ui 組件引用現有的組件，確保功能一致
 import TaiwanAddressSelect from '@/components/host/ui/TaiwanAddressSelect';
@@ -89,7 +93,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
   const userInteracted = externalUserInteracted !== undefined ? externalUserInteracted : internalUserInteracted;
 
   // 追蹤最後一次城市區域選擇
-  const lastSelectionRef = useRef<{city: string, district: string}>({city: '', district: ''});
+  const lastSelectionRef = useRef<{ city: string, district: string }>({ city: '', district: '' });
 
   // 處理縣市變更
   const handleCountyChange = useCallback((county: string) => {
@@ -98,7 +102,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     if (externalUserInteracted === undefined) {
       setInternalUserInteracted(false);
     }
-    lastSelectionRef.current = {city: county, district: ''};
+    lastSelectionRef.current = { city: county, district: '' };
   }, [onCityChange, externalUserInteracted]);
 
   // 處理區域變更
@@ -108,7 +112,7 @@ const LocationSelector: React.FC<LocationSelectorProps> = ({
     if (externalUserInteracted === undefined) {
       setInternalUserInteracted(false);
     }
-    lastSelectionRef.current = {city: city, district: district};
+    lastSelectionRef.current = { city: city, district: district };
     // 區域變更時不主動更新郵遞區號，讓useEffect統一處理
   }, [onDistrictChange, city, externalUserInteracted]);
 

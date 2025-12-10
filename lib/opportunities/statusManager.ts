@@ -1,4 +1,18 @@
-import { OpportunityStatus } from '@/models/enums';
+// Enum-like definition matching backend and Zod schema (Single Source of Truth)
+export const OpportunityStatus = {
+  DRAFT: 'DRAFT',
+  PENDING: 'PENDING',
+  ACTIVE: 'ACTIVE',
+  PAUSED: 'PAUSED',
+  EXPIRED: 'EXPIRED',
+  FILLED: 'FILLED',
+  REJECTED: 'REJECTED',
+  ADMIN_PAUSED: 'ADMIN_PAUSED',
+  DELETED: 'DELETED'
+} as const;
+
+export type OpportunityStatus = (typeof OpportunityStatus)[keyof typeof OpportunityStatus];
+
 
 // 狀態與UI映射 (從各組件移入中央配置)
 export const statusLabelMap: Record<OpportunityStatus, string> = {
@@ -10,6 +24,7 @@ export const statusLabelMap: Record<OpportunityStatus, string> = {
   [OpportunityStatus.FILLED]: '已滿額',
   [OpportunityStatus.REJECTED]: '已拒絕',
   [OpportunityStatus.ADMIN_PAUSED]: '管理員暫停',
+  [OpportunityStatus.DELETED]: '已刪除',
 };
 
 export const statusColorMap: Record<OpportunityStatus, string> = {
@@ -21,6 +36,7 @@ export const statusColorMap: Record<OpportunityStatus, string> = {
   [OpportunityStatus.FILLED]: 'bg-purple-100 text-purple-800',
   [OpportunityStatus.REJECTED]: 'bg-red-100 text-red-800',
   [OpportunityStatus.ADMIN_PAUSED]: 'bg-red-100 text-red-800',
+  [OpportunityStatus.DELETED]: 'bg-gray-200 text-gray-500',
 };
 
 // 狀態描述 (從useOpportunities.ts整合)
@@ -33,6 +49,7 @@ export const statusDescriptions: Record<OpportunityStatus, string> = {
   [OpportunityStatus.FILLED]: '已達到招募人數上限自動暫停',
   [OpportunityStatus.REJECTED]: '未通過平台審核，請查看拒絕原因並修改後重新送審',
   [OpportunityStatus.ADMIN_PAUSED]: '已被管理員暫停，需修改後重新送審',
+  [OpportunityStatus.DELETED]: '此機會已被刪除',
 };
 
 // 操作按鈕類型定義
@@ -252,6 +269,7 @@ export const statusActions: Record<OpportunityStatus, StatusAction[]> = {
       isAdminOnly: true
     }
   ],
+  [OpportunityStatus.DELETED]: []
 };
 
 // 機會狀態流轉規則
@@ -300,6 +318,10 @@ export const statusTransitions: Record<OpportunityStatus, {
     possibleNextStates: [OpportunityStatus.PENDING, OpportunityStatus.REJECTED],
     requiredAction: '重新送審',
   },
+  [OpportunityStatus.DELETED]: {
+    canEdit: false,
+    possibleNextStates: [],
+  }
 };
 
 // 判斷特定狀態是否允許儲存操作
@@ -381,7 +403,8 @@ export const allowedStateTransitions: Record<OpportunityStatus, OpportunityStatu
   [OpportunityStatus.EXPIRED]: [OpportunityStatus.ACTIVE, OpportunityStatus.PAUSED],
   [OpportunityStatus.FILLED]: [OpportunityStatus.ACTIVE, OpportunityStatus.PAUSED],
   [OpportunityStatus.REJECTED]: [OpportunityStatus.PENDING],
-  [OpportunityStatus.ADMIN_PAUSED]: [OpportunityStatus.PENDING, OpportunityStatus.REJECTED]
+  [OpportunityStatus.ADMIN_PAUSED]: [OpportunityStatus.PENDING, OpportunityStatus.REJECTED],
+  [OpportunityStatus.DELETED]: []
 };
 
 // 檢查狀態轉換是否允許 (API 使用)

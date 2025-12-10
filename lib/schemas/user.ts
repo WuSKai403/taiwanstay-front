@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { UserRole } from '@/models/enums/UserRole';
+// import { UserRole } from '@/models/enums/UserRole';
+
+const UserRoleValues = ["USER", "HOST", "ADMIN"] as const;
 
 // 基本用戶資料驗證
 export const userSchema = z.object({
@@ -7,7 +9,7 @@ export const userSchema = z.object({
   name: z.string().min(1, '請輸入名稱').max(50, '名稱不能超過50個字符'),
   email: z.string().email('請輸入有效的電子郵件'),
   image: z.string().url('請輸入有效的圖片網址').optional(),
-  role: z.nativeEnum(UserRole, {
+  role: z.enum(UserRoleValues, {
     errorMap: () => ({ message: '請選擇有效的用戶角色' })
   }),
   bio: z.string().max(500, '簡介不能超過500個字符').optional(),

@@ -7,32 +7,32 @@ const createJestConfig = nextJest({
 
 // 自定義Jest配置
 const customJestConfig = {
-  // 簡化的測試配置
+  // Setup files
   setupFilesAfterEnv: ['<rootDir>/jest.simple.setup.js'],
   moduleDirectories: ['node_modules', '<rootDir>/'],
-  testEnvironment: 'node',
+  // Use jsdom for React component testing
+  testEnvironment: 'jest-environment-jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    // Handle CSS imports (with CSS modules)
+    '^.+\\.module\\.(css|sass|scss)$': 'identity-obj-proxy',
+    // Handle CSS imports (without CSS modules)
+    '^.+\\.(css|sass|scss)$': '<rootDir>/__mocks__/styleMock.js',
+    // Handle image imports
+    '^.+\\.(png|jpg|jpeg|gif|webp|avif|ico|bmp|svg)$': '<rootDir>/__mocks__/fileMock.js',
   },
   testMatch: [
-    '**/__tests__/basic/utils.test.[jt]s?(x)',
+    '**/__tests__/**/*.[jt]s?(x)',
+    '**/?(*.)+(spec|test).[jt]s?(x)'
   ],
-  // 忽略所有複雜的測試
   testPathIgnorePatterns: [
     '<rootDir>/node_modules/',
     '<rootDir>/.next/',
-    '<rootDir>/__tests__/unit/',
-    '<rootDir>/__tests__/integration/',
-    '<rootDir>/__tests__/e2e/',
   ],
-  // 添加 transformIgnorePatterns 來處理 nanoid 模塊
   transformIgnorePatterns: [
     '/node_modules/(?!nanoid)/'
   ],
-  // 設置測試超時時間
   testTimeout: 10000,
-  // 設置最大並行工作數
-  maxWorkers: '50%',
 };
 
 // createJestConfig會自動處理將next.js需要的配置應用到Jest

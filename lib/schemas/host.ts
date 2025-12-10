@@ -1,13 +1,35 @@
 import { z } from 'zod';
-import { cloudinaryImageResourceSchema } from './application';
-import { HostType } from '@/models/enums/HostType';
-import { HostStatus } from '@/models/enums/HostStatus';
+
+
+// Define values based on types/api.ts
+const HostTypeValues = [
+  "FARM", "HOSTEL", "HOMESTAY", "ECO_VILLAGE", "RETREAT_CENTER",
+  "COMMUNITY", "NGO", "SCHOOL", "CAFE", "RESTAURANT",
+  "ART_CENTER", "ANIMAL_SHELTER", "OUTDOOR_ACTIVITY", "OTHER",
+  "COWORKING_SPACE", "CULTURAL_VENUE", "COMMUNITY_CENTER"
+] as const;
+
+const HostStatusValues = [
+  "PENDING", "ACTIVE", "INACTIVE", "REJECTED", "SUSPENDED", "EDITING"
+] as const;
+
+// Define ImageResource based on domain.HostPhoto in types/api.ts
+const ImageResource = z.object({
+  originalUrl: z.string().optional(),
+  previewUrl: z.string().optional(),
+  publicId: z.string().optional(),
+  secureUrl: z.string().optional(),
+  thumbnailUrl: z.string().optional(),
+  // Add extra fields that might be used by frontend even if not in backend schema yet
+  // but strictly following domain.HostPhoto for now + simple compatibility
+});
+
 
 // 步驟1：基本資訊驗證模型
 export const hostBasicInfoSchema = z.object({
   name: z.string().min(2, "名稱至少需要2個字").max(100, "名稱不能超過100個字"),
   description: z.string().min(50, "描述至少需要50個字").max(1000, "描述不能超過1000個字"),
-  type: z.nativeEnum(HostType, { errorMap: () => ({ message: "請選擇有效的主人類型" }) }),
+  type: z.enum(HostTypeValues, { errorMap: () => ({ message: "請選擇有效的主人類型" }) }),
   category: z.string().min(1, "請選擇類別"),
   foundedYear: z.number().int("請輸入有效年份").min(1900, "年份不能早於1900年").max(new Date().getFullYear(), "年份不能超過當前年份").optional().nullable(),
   teamSize: z.number().int("請輸入整數").min(1, "團隊人數至少為1").max(1000, "團隊人數不能超過1000").optional().nullable(),
@@ -33,7 +55,7 @@ export const hostLocationSchema = z.object({
 
 // 步驟3：媒體上傳驗證模型
 export const hostMediaSchema = z.object({
-  photos: z.array(cloudinaryImageResourceSchema)
+  photos: z.array(ImageResource)
     .min(1, "至少需要上傳一張照片")
     .max(5, "最多只能上傳5張照片"),
   photoDescriptions: z.array(z.string().max(200, "照片描述不能超過200個字")).max(5).default([]),
@@ -43,7 +65,7 @@ export const hostMediaSchema = z.object({
   }).optional().nullable(),
   additionalMedia: z.object({
     virtualTour: z.string().url("請輸入有效的虛擬導覽連結").optional().nullable().or(z.literal('')),
-    presentation: cloudinaryImageResourceSchema.optional().nullable(),
+    presentation: ImageResource.optional().nullable(),
   }).optional().nullable(),
 });
 
@@ -130,7 +152,7 @@ export const hostRegisterSchema = z.object({
   // 基本資訊
   name: z.string().min(2, "名稱至少需要2個字").max(100, "名稱不能超過100個字"),
   description: z.string().min(50, "描述至少需要50個字").max(1000, "描述不能超過1000個字"),
-  type: z.nativeEnum(HostType, { errorMap: () => ({ message: "請選擇有效的主人類型" }) }),
+  type: z.enum(HostTypeValues, { errorMap: () => ({ message: "請選擇有效的主人類型" }) }),
   category: z.string().min(1, "請選擇類別"),
 
   // 位置資訊
@@ -151,7 +173,7 @@ export const hostRegisterSchema = z.object({
   }),
 
   // 媒體資訊 - 修改為與 MediaUploadStep 一致的欄位結構
-  photos: z.array(cloudinaryImageResourceSchema)
+  photos: z.array(ImageResource)
     .min(1, "至少需要上傳一張照片")
     .max(5, "最多只能上傳5張照片")
     .default([]),
@@ -162,7 +184,7 @@ export const hostRegisterSchema = z.object({
   }).optional().nullable().default({}),
   additionalMedia: z.object({
     virtualTour: z.string().url("請輸入有效的虛擬導覽連結").optional().nullable().or(z.literal('')),
-    presentation: cloudinaryImageResourceSchema.optional().nullable(),
+    presentation: ImageResource.optional().nullable(),
   }).optional().nullable().default({ virtualTour: '' }),
 
   // 聯絡資訊
@@ -259,7 +281,7 @@ export const hostRegisterSchema = z.object({
   }),
 
   // 系統欄位
-  status: z.nativeEnum(HostStatus).default(HostStatus.PENDING),
+  status: z.enum(HostStatusValues).default("PENDING"),
   statusNote: z.string().optional(),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
@@ -275,7 +297,7 @@ export type HostAmenitiesFormData = z.infer<typeof amenitiesSchema>;
 export type HostRegisterFormData = z.infer<typeof hostRegisterSchema>;
 
 export const hostPhotoSchema = z.object({
-  photos: z.array(cloudinaryImageResourceSchema)
+  photos: z.array(ImageResource)
     .min(1, '至少需要上傳一張房源照片')
     .max(5, '最多只能上傳 5 張房源照片'),
   photoDescriptions: z.array(z.string().max(100, '描述不能超過 100 字'))
@@ -351,6 +373,6 @@ export const hostSchema = z.object({
   }),
 
   // System fields
-  status: z.nativeEnum(HostStatus).default(HostStatus.PENDING),
+  status: z.enum(HostStatusValues).default("PENDING"),
   statusNote: z.string().optional(),
 });
