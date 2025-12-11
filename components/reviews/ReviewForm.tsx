@@ -14,16 +14,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 interface ReviewFormProps {
-    targetId: string;
-    targetType: "HOST" | "OPPORTUNITY" | "VOLUNTEER";
+    opportunityId: string;
     onSuccess?: () => void;
 }
 
-// Omit targetId/Type from form input since passed as props
-const formSchema = createReviewSchema.omit({ targetId: true, targetType: true });
+// Omit opportunityId from form input since passed as props
+const formSchema = createReviewSchema.omit({ opportunityId: true });
 type ReviewFormValues = z.infer<typeof formSchema>;
 
-export function ReviewForm({ targetId, targetType, onSuccess }: ReviewFormProps) {
+export function ReviewForm({ opportunityId, onSuccess }: ReviewFormProps) {
     const { toast } = useToast();
     const { mutate: createReview, isPending } = useCreateReview();
 
@@ -39,8 +38,7 @@ export function ReviewForm({ targetId, targetType, onSuccess }: ReviewFormProps)
         createReview(
             {
                 ...values,
-                targetId,
-                targetType,
+                opportunityId,
             },
             {
                 onSuccess: () => {

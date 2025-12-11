@@ -4,15 +4,24 @@ import {
     updateMyProfile,
     Profile
 } from '@/lib/api/profile';
+import { getUser } from '@/lib/api/user'; // Import getUser
 import toast from 'react-hot-toast';
 
 const PROFILE_QUERY_KEY = 'profile';
 
 export function useMyProfile() {
     return useQuery({
-        queryKey: [PROFILE_QUERY_KEY],
+        queryKey: [PROFILE_QUERY_KEY, 'me'],
         queryFn: getMyProfile,
-        retry: false, // Don't retry if 404/401, mostly
+        retry: false,
+    });
+}
+
+export function usePublicProfile(userId: string) {
+    return useQuery({
+        queryKey: [PROFILE_QUERY_KEY, userId],
+        queryFn: () => getUser(userId),
+        enabled: !!userId,
     });
 }
 

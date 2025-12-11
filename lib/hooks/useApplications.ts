@@ -3,6 +3,7 @@ import {
     createApplication,
     getMyApplications,
     getApplications,
+    getApplication,
     cancelApplication,
     updateApplicationStatus,
     ApplicationPayload
@@ -22,6 +23,14 @@ export function useApplications(params?: { hostId?: string; opportunityId?: stri
         queryKey: [APPLICATIONS_QUERY_KEY, params],
         queryFn: () => getApplications(params),
         enabled: !!(params?.hostId || params?.opportunityId), // Only fetch if params provided
+    });
+}
+
+export function useApplication(id: string) {
+    return useQuery({
+        queryKey: [APPLICATIONS_QUERY_KEY, id],
+        queryFn: () => getApplication(id),
+        enabled: !!id,
     });
 }
 

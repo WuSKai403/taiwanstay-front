@@ -8,11 +8,11 @@ import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 interface ReviewListProps {
-    targetId: string;
+    opportunityId: string;
 }
 
-export function ReviewList({ targetId }: ReviewListProps) {
-    const { data: reviews, isLoading } = useReviews(targetId);
+export function ReviewList({ opportunityId }: ReviewListProps) {
+    const { data: reviews, isLoading } = useReviews(opportunityId);
 
     if (isLoading) {
         return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
@@ -35,13 +35,13 @@ export function ReviewList({ targetId }: ReviewListProps) {
                         <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
                                 <Avatar>
-                                    <AvatarImage src={review.authorAvatar} />
-                                    <AvatarFallback>{review.authorName.charAt(0)}</AvatarFallback>
+                                    <AvatarImage src={review.user?.image} />
+                                    <AvatarFallback>{review.user?.name?.charAt(0) || '?'}</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <div className="font-semibold">{review.authorName}</div>
+                                    <div className="font-semibold">{review.user?.name || 'Anonymous'}</div>
                                     <div className="text-xs text-muted-foreground">
-                                        {formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}
+                                        {review.createdAt ? formatDistanceToNow(new Date(review.createdAt), { addSuffix: true }) : 'Recently'}
                                     </div>
                                 </div>
                             </div>

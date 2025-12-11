@@ -152,6 +152,68 @@ export interface paths {
       };
     };
   };
+  "/admin/reviews": {
+    /**
+     * List Reviews (Admin)
+     * @description List all reviews (Admin only)
+     */
+    get: {
+      parameters: {
+        query?: {
+          /** @description Limit */
+          limit?: number;
+          /** @description Offset */
+          offset?: number;
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          content: {
+            "application/json": {
+              [key: string]: unknown;
+            };
+          };
+        };
+        /** @description Internal Server Error */
+        500: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+      };
+    };
+  };
+  "/admin/reviews/{id}": {
+    /**
+     * Delete Review (Admin)
+     * @description Delete a review by ID (Admin only)
+     */
+    delete: {
+      parameters: {
+        path: {
+          /** @description Review ID */
+          id: string;
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          content: {
+            "application/json": {
+              [key: string]: unknown;
+            };
+          };
+        };
+        /** @description Internal Server Error */
+        500: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+      };
+    };
+  };
   "/admin/stats": {
     /**
      * Get system stats
@@ -1010,6 +1072,84 @@ export interface paths {
       };
     };
   };
+  "/opportunities/{id}/reviews": {
+    /**
+     * List reviews by opportunity
+     * @description Get all reviews for a specific opportunity
+     */
+    get: {
+      parameters: {
+        path: {
+          /** @description Opportunity ID */
+          id: string;
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          content: {
+            "application/json": components["schemas"]["service.ReviewWithUser"][];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+        /** @description Internal Server Error */
+        500: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+      };
+    };
+    /**
+     * Create review
+     * @description Create a new review for an opportunity
+     */
+    post: {
+      parameters: {
+        path: {
+          /** @description Opportunity ID */
+          id: string;
+        };
+      };
+      /** @description Review Request */
+      requestBody: {
+        content: {
+          "application/json": components["schemas"]["service.CreateReviewRequest"];
+        };
+      };
+      responses: {
+        /** @description Created */
+        201: {
+          content: {
+            "application/json": components["schemas"]["domain.Review"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+        /** @description Unauthorized */
+        401: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+        /** @description Internal Server Error */
+        500: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+      };
+    };
+  };
   "/opportunities/search": {
     /**
      * Search opportunities
@@ -1713,6 +1853,16 @@ export interface components {
       specificNationalities?: string[];
       specificSkills?: string[];
     };
+    "domain.Review": {
+      content: string;
+      createdAt?: string;
+      id?: string;
+      opportunityId: string;
+      rating: number;
+      updatedAt?: string;
+      /** @description The user who wrote the review */
+      userId?: string;
+    };
     "domain.ReviewDetails": {
       notes?: string;
       rating?: number;
@@ -1804,6 +1954,22 @@ export interface components {
       description?: string;
       duration?: string;
       title?: string;
+    };
+    "service.CreateReviewRequest": {
+      content: string;
+      opportunityId: string;
+      rating: number;
+    };
+    "service.ReviewWithUser": {
+      content: string;
+      createdAt?: string;
+      id?: string;
+      opportunityId: string;
+      rating: number;
+      updatedAt?: string;
+      user?: components["schemas"]["domain.User"];
+      /** @description The user who wrote the review */
+      userId?: string;
     };
   };
   responses: never;
