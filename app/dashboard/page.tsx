@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Opportunity } from "@/lib/schemas/opportunity";
+import { OpportunityCardSkeleton } from "@/components/skeletons/OpportunityCardSkeleton";
 
 export default function DashboardPage() {
     const { data: session } = useSession();
@@ -116,7 +117,10 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         {isLoading ? (
-                            <div>Loading...</div>
+                            <div className="grid grid-cols-1 gap-4">
+                                <OpportunityCardSkeleton />
+                                <OpportunityCardSkeleton />
+                            </div>
                         ) : myOpportunities && myOpportunities.length > 0 ? (
                             <div className="space-y-4">
                                 {myOpportunities.map((opp) => (

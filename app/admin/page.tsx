@@ -43,9 +43,9 @@ export default function AdminDashboardPage() {
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data.totalUsers}</div>
+                        <div className="text-2xl font-bold">{data.totalUsers || 0}</div>
                         <p className="text-xs text-muted-foreground">
-                            {data.totalHosts} Hosts
+                            {data.totalHosts || 0} Hosts
                         </p>
                     </CardContent>
                 </Card>
@@ -55,7 +55,7 @@ export default function AdminDashboardPage() {
                         <FileText className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data.totalOpportunities}</div>
+                        <div className="text-2xl font-bold">{data.totalOpportunities || 0}</div>
                     </CardContent>
                 </Card>
                 <Card>
@@ -64,7 +64,7 @@ export default function AdminDashboardPage() {
                         <Image className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data.pendingImages}</div>
+                        <div className="text-2xl font-bold">{data.pendingImages || 0}</div>
                         <p className="text-xs text-muted-foreground">Needs review</p>
                     </CardContent>
                 </Card>
@@ -74,7 +74,7 @@ export default function AdminDashboardPage() {
                         <AlertCircle className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{data.pendingOpportunities}</div>
+                        <div className="text-2xl font-bold">{data.pendingOpportunities || 0}</div>
                         <p className="text-xs text-muted-foreground">Needs review</p>
                     </CardContent>
                 </Card>
