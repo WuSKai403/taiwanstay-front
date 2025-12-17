@@ -1,6 +1,7 @@
 "use client";
 
-import { useReviews } from "@/lib/hooks/useReviews";
+import { useReviews, ReviewTargetType } from "@/lib/hooks/useReviews";
+import { ReviewSkeleton } from "@/components/skeletons/ReviewSkeleton";
 import { StarRating } from "./StarRating";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
@@ -8,14 +9,21 @@ import { Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 interface ReviewListProps {
-    opportunityId: string;
+    targetId: string;
+    targetType?: ReviewTargetType;
 }
 
-export function ReviewList({ opportunityId }: ReviewListProps) {
-    const { data: reviews, isLoading } = useReviews(opportunityId);
+export function ReviewList({ targetId, targetType = 'OPPORTUNITY' }: ReviewListProps) {
+    const { data: reviews, isLoading } = useReviews(targetId, targetType);
 
     if (isLoading) {
-        return <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
+        return (
+            <div className="space-y-4">
+                <ReviewSkeleton />
+                <ReviewSkeleton />
+                <ReviewSkeleton />
+            </div>
+        );
     }
 
     if (!reviews || reviews.length === 0) {

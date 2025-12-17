@@ -30,7 +30,10 @@ function MapUpdater({ opportunities }: { opportunities: Opportunity[] }) {
             const bounds = L.latLngBounds(
                 opportunities
                     .filter(o => o.location?.coordinates?.coordinates)
-                    .map(o => [o.location!.coordinates.coordinates[1], o.location!.coordinates.coordinates[0]])
+                    .map(o => [
+                        o.location!.coordinates.coordinates[1]!,
+                        o.location!.coordinates.coordinates[0]!
+                    ] as [number, number])
             );
 
             if (bounds.isValid()) {
@@ -76,8 +79,8 @@ export default function OpportunityMap({ opportunities }: OpportunityMapProps) {
                 <Marker
                     key={opp.id}
                     position={[
-                        opp.location!.coordinates.coordinates[1], // Latitude
-                        opp.location!.coordinates.coordinates[0], // Longitude
+                        opp.location!.coordinates.coordinates[1]!, // Latitude
+                        opp.location!.coordinates.coordinates[0]!, // Longitude
                     ]}
                 >
                     <Popup minWidth={300} maxWidth={300}>

@@ -137,6 +137,8 @@ export const useMapMarkers = (
       // 創建標記
       Object.entries(groupedMarkers).forEach(([posKey, markersAtPosition]) => {
         const firstMarker = markersAtPosition[0];
+        if (!firstMarker) return;
+
         const markerKey = shouldGroup ? posKey : `marker-${firstMarker.id}`;
         const count = markersAtPosition.length;
 

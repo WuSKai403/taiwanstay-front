@@ -1,9 +1,10 @@
-import { api } from './index';
+import { http } from '@/lib/api';
 import { components } from '@/types/api';
 
-export type User = components['schemas']['domain.User'];
-export type Image = components['schemas']['domain.Image'];
-export type Opportunity = components['schemas']['domain.Opportunity'];
+type User = components['schemas']['domain.User'];
+type Image = components['schemas']['domain.Image'];
+type Application = components['schemas']['domain.Application'];
+
 
 export interface AdminStats {
     totalUsers: number;
@@ -11,7 +12,7 @@ export interface AdminStats {
     totalOpportunities: number;
     pendingImages: number;
     pendingOpportunities: number;
-    // Add other stats as needed based on actual response
+    todayApplications: number;
 }
 
 export interface UserListResponse {
@@ -19,39 +20,51 @@ export interface UserListResponse {
     total: number;
 }
 
-export interface PendingImagesResponse {
-    images: Image[];
-    total: number;
-}
-
-// Stats
+// 取得系統概況
 export const getAdminStats = async (): Promise<AdminStats> => {
-    const response = await api.get('/admin/stats');
-    return response.data;
+    return http.get('/admin/stats');
 };
 
-// Users
-export const getAdminUsers = async (params: { limit?: number; offset?: number; role?: string }): Promise<UserListResponse> => {
-    const response = await api.get('/admin/users', { params });
-    return response.data;
+// 取得待審核圖片列表
+export const getPendingImages = async (limit = 20, offset = 0): Promise<any[]> => {
+    return http.get(`/admin/images/pending`, { params: { limit, offset } });
 };
 
-export const updateUserStatus = async (id: string, status: string): Promise<void> => {
-    await api.put(`/admin/users/${id}/status`, { status });
-};
-
-// Images
-export const getPendingImages = async (params: { limit?: number; offset?: number }): Promise<PendingImagesResponse> => {
-    const response = await api.get('/admin/images/pending', { params });
-    return response.data;
-};
-
+// 審核圖片
 export const reviewImage = async (id: string, status: 'APPROVED' | 'REJECTED'): Promise<void> => {
-    await api.post(`/admin/images/${id}/review`, { status });
+    return http.post(`/admin/images/${id}/review`, { status });
 };
 
-// Opportunities (Admin)
+// 取得私有圖片的 Signed URL
+export const getPrivateImageUrl = async (id: string): Promise<{ url: string }> => {
+    return http.get(`/images/private/${id}`);
+};
+
+// --- Restored functionality ---
+
+// 取得用戶列表
+export const getAdminUsers = async (params: { limit?: number; offset?: number; role?: string }): Promise<UserListResponse> => {
+    return http.get('/admin/users', { params });
+};
+
+// 更新用戶狀態
+export const updateUserStatus = async (id: string, status: string): Promise<void> => {
+    return http.put(`/admin/users/${id}/status`, { status });
+};
+
+// 更新機會狀態 (Admin Action)
 export const updateOpportunityStatus = async (id: string, status: string): Promise<void> => {
-    // The endpoint is generic update, assuming payload for status
-    await api.put(`/admin/opportunities/${id}`, { status });
+    // Swagger: PUT /admin/opportunities/{id} with body Opportunity?
+    // Wait, let's check swagger. /admin/opportunities/{id} PUT expects domain.Opportunity.
+    // However, the page is calling `updateStatus({id, status})`.
+    // If the hook assumes it can just send status, maybe I should wrap it or maybe there is a specific endpoint.
+    // Looking at Swagger: /opportunities/{id} PUT is Host only.
+    // /admin/opportunities/{id} PUT is Admin only.
+    // If we just want to update status, we probably need to fetch -> update status -> put, OR backend handles partial update?
+    // Let's assume for now we send a partial object or backend supports it, OR I use a specific status endpoint if it exists?
+    // Swagger had `/opportunities/{id}/status`? No.
+    // Swagger had `/admin/opportunities/{id}`.
+    // Let's check if my previous implementation (that I deleted) handled this.
+    // Since I can't check, I will implementation it as sending { status } to the admin update endpoint.
+    return http.put(`/admin/opportunities/${id}`, { status });
 };

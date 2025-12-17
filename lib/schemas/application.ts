@@ -145,7 +145,7 @@ export type Application = z.infer<typeof applicationSchema>;
 export type ApplicationFormData = z.infer<typeof applicationSchema>;
 
 export const applicationStatusUpdateSchema = z.object({
-  status: z.enum(['ACCEPTED', 'REJECTED', 'PENDING', 'CANCELLED']),
+  status: z.enum(['ACCEPTED', 'REJECTED', 'PENDING', 'CANCELLED', 'COMPLETED']),
   note: z.string().optional()
 });
 

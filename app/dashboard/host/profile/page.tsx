@@ -59,7 +59,7 @@ export default function HostProfilePage() {
             {host && (
                 <div className="pt-10 border-t">
                     <h2 className="text-2xl font-bold mb-6">Received Reviews</h2>
-                    <ReviewList targetId={host.id!} />
+                    <ReviewList targetId={host.id!} targetType="HOST" />
                 </div>
             )}
         </div>

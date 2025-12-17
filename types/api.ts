@@ -1328,6 +1328,76 @@ export interface paths {
       };
     };
   };
+  "/users/{id}/internal-note": {
+    /**
+     * Update user internal note
+     * @description Update the internal note for a specific user (Admin only)
+     */
+    put: {
+      parameters: {
+        path: {
+          /** @description User ID */
+          id: string;
+        };
+      };
+      /** @description Internal Note */
+      requestBody: {
+        content: {
+          "application/json": {
+            [key: string]: string;
+          };
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          content: {
+            "application/json": components["schemas"]["domain.User"];
+          };
+        };
+        /** @description Bad Request */
+        400: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+        /** @description Not Found */
+        404: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+        /** @description Internal Server Error */
+        500: {
+          content: {
+            "application/json": components["schemas"]["api.ErrorResponse"];
+          };
+        };
+      };
+    };
+  };
+  "/users/{id}/reviews": {
+    /**
+     * Get user reviews
+     * @description Get all reviews received by a user (host)
+     */
+    get: {
+      parameters: {
+        path: {
+          /** @description User ID */
+          id: string;
+        };
+      };
+      responses: {
+        /** @description OK */
+        200: {
+          content: {
+            "application/json": components["schemas"]["service.ReviewWithUser"][];
+          };
+        };
+      };
+    };
+  };
   "/users/me/bookmarks": {
     /**
      * List bookmarks
@@ -1550,7 +1620,7 @@ export interface components {
       questions?: string[];
     };
     /** @enum {string} */
-    "domain.ApplicationStatus": "DRAFT" | "PENDING" | "ACCEPTED" | "REJECTED" | "CANCELLED";
+    "domain.ApplicationStatus": "DRAFT" | "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED" | "CANCELLED";
     "domain.Benefits": {
       accommodation?: {
         description?: string;
@@ -1859,6 +1929,8 @@ export interface components {
       id?: string;
       opportunityId: string;
       rating: number;
+      /** @description The user receiving the review */
+      targetUserId?: string;
       updatedAt?: string;
       /** @description The user who wrote the review */
       userId?: string;
@@ -1906,6 +1978,8 @@ export interface components {
       hostId?: string;
       id?: string;
       image?: string;
+      /** @description Admin only note */
+      internalNote?: string;
       name?: string;
       organizationId?: string;
       privacySettings?: components["schemas"]["domain.PrivacySettings"];
@@ -1966,6 +2040,8 @@ export interface components {
       id?: string;
       opportunityId: string;
       rating: number;
+      /** @description The user receiving the review */
+      targetUserId?: string;
       updatedAt?: string;
       user?: components["schemas"]["domain.User"];
       /** @description The user who wrote the review */

@@ -167,8 +167,8 @@ export default function OpportunityDetailPage() {
                         <div className="mt-8">
                             <h2 className="text-2xl font-bold mb-6">Reviews</h2>
                             <div className="grid gap-8">
-                                <ReviewForm targetId={hostId || "mock-host-id"} targetType="HOST" />
-                                <ReviewList targetId={hostId || "mock-host-id"} />
+                                <ReviewForm opportunityId={id} />
+                                <ReviewList targetId={id} targetType="OPPORTUNITY" />
                             </div>
                         </div>
                     </section>

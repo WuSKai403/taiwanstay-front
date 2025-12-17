@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { OpportunityCard } from "@/components/opportunity/OpportunityCard";
+import { ReviewList } from "@/components/reviews/ReviewList";
 
 export default function PublicProfilePage() {
     const params = useParams();
@@ -48,10 +49,10 @@ export default function PublicProfilePage() {
                             <CheckCircle2 className="w-6 h-6 text-blue-500" />
                         </h1>
                         <div className="flex items-center gap-4 text-muted-foreground mt-2">
-                            {user.profile?.location?.country && (
+                            {(user.profile?.personalInfo?.currentLocation || user.profile?.personalInfo?.nationality) && (
                                 <div className="flex items-center gap-1">
                                     <MapPin className="w-4 h-4" />
-                                    <span>{user.profile.location.country}</span>
+                                    <span>{user.profile.personalInfo.currentLocation || user.profile.personalInfo.nationality}</span>
                                 </div>
                             )}
                             <div className="flex items-center gap-1">
@@ -88,7 +89,7 @@ export default function PublicProfilePage() {
                     <h2 className="text-2xl font-bold text-primary">Active Opportunities</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {opportunities.map(opp => (
-                            <OpportunityCard key={opp.id} opportunity={opp} />
+                            <OpportunityCard key={opp.id} opportunity={opp as any} />
                         ))}
                     </div>
                 </div>
@@ -96,12 +97,9 @@ export default function PublicProfilePage() {
 
             {/* Reviews Section Placeholder */}
             {/* Note: We would list reviews here. For Hosts, we could aggregate reviews from their opportunities. */}
+            {/* Reviews Section */}
             <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-primary">Reviews</h2>
-                <div className="text-muted-foreground italic">
-                    {/* Future: Implement Review List based on user role */}
-                    No reviews visible yet.
-                </div>
+                <ReviewList targetId={userId} targetType="HOST" />
             </div>
         </div>
     );

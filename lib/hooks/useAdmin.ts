@@ -1,74 +1,87 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+    getPendingImages,
+    reviewImage,
+    getPrivateImageUrl,
     getAdminStats,
     getAdminUsers,
     updateUserStatus,
-    getPendingImages,
-    reviewImage,
     updateOpportunityStatus
 } from '@/lib/api/admin';
 
-export const ADMIN_KEYS = {
-    all: ['admin'] as const,
-    stats: () => [...ADMIN_KEYS.all, 'stats'] as const,
-    users: (filters: Record<string, any>) => [...ADMIN_KEYS.all, 'users', filters] as const,
-    images: (filters: Record<string, any>) => [...ADMIN_KEYS.all, 'images', filters] as const,
-};
+export const ADMIN_IMAGES_KEY = 'admin-images';
+export const ADMIN_USERS_KEY = 'admin-users';
+export const ADMIN_STATS_KEY = 'admin-stats';
+export const ADMIN_OPPORTUNITIES_KEY = 'admin-opportunities'; // New key if needed, or invalidate generic opportunities
 
-// Stats
-export function useAdminStats() {
+// Image Hooks
+export function usePendingImages() {
     return useQuery({
-        queryKey: ADMIN_KEYS.stats(),
-        queryFn: getAdminStats,
+        queryKey: [ADMIN_IMAGES_KEY, 'pending'],
+        queryFn: () => getPendingImages(),
     });
 }
 
-// Users
+export function useReviewImage() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) =>
+            reviewImage(id, status),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: [ADMIN_IMAGES_KEY, 'pending'] });
+            queryClient.invalidateQueries({ queryKey: [ADMIN_STATS_KEY] });
+        },
+    });
+}
+
+export function usePrivateImage(id: string) {
+    return useQuery({
+        queryKey: ['private-image', id],
+        queryFn: () => getPrivateImageUrl(id),
+        enabled: !!id,
+        staleTime: 1000 * 60 * 15,
+        retry: 1,
+    });
+}
+
+// Stats Hook
+export function useAdminStats() {
+    return useQuery({
+        queryKey: [ADMIN_STATS_KEY],
+        queryFn: () => getAdminStats(),
+    });
+}
+
+// User Hooks
 export function useAdminUsers(params: { limit?: number; offset?: number; role?: string } = {}) {
     return useQuery({
-        queryKey: ADMIN_KEYS.users(params),
+        queryKey: [ADMIN_USERS_KEY, params],
         queryFn: () => getAdminUsers(params),
     });
 }
 
 export function useUpdateUserStatus() {
     const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: ({ id, status }: { id: string; status: string }) => updateUserStatus(id, status),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.users({}) });
-            queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.stats() });
-        },
+            queryClient.invalidateQueries({ queryKey: [ADMIN_USERS_KEY] });
+        }
     });
 }
 
-// Images
-export function usePendingImages(params: { limit?: number; offset?: number } = {}) {
-    return useQuery({
-        queryKey: ADMIN_KEYS.images(params),
-        queryFn: () => getPendingImages(params),
-    });
-}
-
-export function useReviewImage() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) => reviewImage(id, status),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.images({}) });
-            queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.stats() });
-        },
-    });
-}
-
-// Opportunities
+// Opportunity Hooks
 export function useUpdateOpportunityStatus() {
     const queryClient = useQueryClient();
+
     return useMutation({
         mutationFn: ({ id, status }: { id: string; status: string }) => updateOpportunityStatus(id, status),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['opportunities'] }); // Invalidate public/host list
-            queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.stats() });
-        },
+            // Invalidate global opportunities or admin specific ones
+            // The page uses `useOpportunities` which uses 'opportunities' key usually.
+            queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+        }
     });
 }

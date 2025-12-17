@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, SlidersHorizontal, Loader2 } from "lucide-react";
 import { Opportunity } from "@/lib/api/opportunity";
 import { OpportunityMapWrapper } from "@/components/opportunity/OpportunityMapWrapper";
+import { OpportunityCardSkeleton } from "@/components/skeletons/OpportunityCardSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function OpportunitiesPage() {
     const [searchQuery, setSearchQuery] = useState("");
@@ -107,9 +109,17 @@ export default function OpportunitiesPage() {
 
             {/* Content Area */}
             {isLoading ? (
-                <div className="flex justify-center items-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
+                viewMode === "list" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <OpportunityCardSkeleton key={i} />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="w-full h-[calc(100vh-200px)] min-h-[500px] rounded-lg border bg-muted/20 p-4">
+                        <Skeleton className="w-full h-full rounded-lg" />
+                    </div>
+                )
             ) : error ? (
                 <div className="text-center py-20 text-destructive">
                     <p>Error loading opportunities. Please try again later.</p>

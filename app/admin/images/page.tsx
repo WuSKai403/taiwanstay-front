@@ -1,75 +1,57 @@
-"use client";
+'use client';
 
-import { usePendingImages, useReviewImage } from "@/lib/hooks/useAdmin";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Loader2, Check, X } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { usePendingImages } from '@/lib/hooks/useAdmin';
+import { AdminImageCard } from '@/components/admin/AdminImageCard';
+import { Loader2, RefreshCcw, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-export default function AdminImagesPage() {
-    const { data, isLoading, isError } = usePendingImages();
-    const { mutate: reviewImage, isPending: isReviewing } = useReviewImage();
-    const { toast } = useToast();
+export default function AdminImageModerationPage() {
+    const { data: images, isLoading, isError, refetch } = usePendingImages();
 
-    const handleReview = (id: string, status: 'APPROVED' | 'REJECTED') => {
-        reviewImage({ id, status }, {
-            onSuccess: () => toast({ title: `Image ${status.toLowerCase()}` }),
-            onError: () => toast({ title: "Failed to review image", variant: "destructive" })
-        });
-    };
-
-    if (isLoading) return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" /></div>;
-    if (isError) return <div className="p-8 text-center text-red-500">Failed to load images</div>;
-
-    const images = data?.images || [];
+    // Assuming API returns array directly based on our service implementation
+    // If it wraps in { data: [...] }, we need to adjust.
+    // Based on `api/admin.ts` `return http.get(...)`, it returns whatever Axios interceptor returns.
+    // Standard practice in this project seems to be data directly.
+    const pendingImages = Array.isArray(images) ? images : [];
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Content Moderation</h1>
-                <p className="text-muted-foreground">Review pending images ({data?.total || 0}).</p>
+        <div className="container mx-auto py-8 space-y-6">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Image Moderation</h1>
+                    <p className="text-muted-foreground mt-1">Review user uploaded content for safety and guidelines.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+                    <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                    Refresh
+                </Button>
             </div>
 
-            {images.length === 0 ? (
-                <div className="p-12 text-center border rounded-lg bg-muted/20 text-muted-foreground">
-                    No pending images to review.
+            {isLoading && (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                    <Loader2 className="w-10 h-10 animate-spin mb-4" />
+                    <p>Loading pending images...</p>
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {images.map((img) => (
-                        <Card key={img.id} className="overflow-hidden">
-                            <div className="aspect-square relative bg-muted">
-                                <img
-                                    src={img.publicUrl}
-                                    alt="Review"
-                                    className="object-cover w-full h-full"
-                                />
-                                {img.visionData && (
-                                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-2">
-                                        <div>Adult: {img.visionData.adult}</div>
-                                        <div>Violence: {img.visionData.violence}</div>
-                                        <div>Racy: {img.visionData.racy}</div>
-                                    </div>
-                                )}
-                            </div>
-                            <CardFooter className="p-2 gap-2">
-                                <Button
-                                    className="w-full bg-green-600 hover:bg-green-700"
-                                    onClick={() => handleReview(img.id!, 'APPROVED')}
-                                    disabled={isReviewing}
-                                >
-                                    <Check className="w-4 h-4 mr-1" /> Approve
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    className="w-full"
-                                    onClick={() => handleReview(img.id!, 'REJECTED')}
-                                    disabled={isReviewing}
-                                >
-                                    <X className="w-4 h-4 mr-1" /> Reject
-                                </Button>
-                            </CardFooter>
-                        </Card>
+            )}
+
+            {isError && (
+                <div className="bg-destructive/10 text-destructive p-4 rounded-md border border-destructive/20 text-center">
+                    Failed to load images. Please try again.
+                </div>
+            )}
+
+            {!isLoading && !isError && pendingImages.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-muted/30 rounded-lg border border-dashed">
+                    <CheckCircle className="w-12 h-12 mb-4 text-green-500/50" />
+                    <h3 className="text-lg font-medium text-foreground">All caught up!</h3>
+                    <p>No pending images to review at this time.</p>
+                </div>
+            )}
+
+            {!isLoading && pendingImages.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {pendingImages.map((image: any) => (
+                        <AdminImageCard key={image.id} image={image} />
                     ))}
                 </div>
             )}

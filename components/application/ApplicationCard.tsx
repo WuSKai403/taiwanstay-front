@@ -118,7 +118,7 @@ export function ApplicationCard({ application, isHostView }: ApplicationCardProp
                         </>
                     ) : (
                         <Button variant="outline" size="sm" className="w-full" asChild>
-                            <Link href={`/applications/${application.id}`}>View Details</Link>
+                            <Link href={isHostView ? `/dashboard/host/applications/${application.id}` : `/dashboard/applications/${application.id}`}>View Details</Link>
                         </Button>
                     )}
                 </CardFooter>

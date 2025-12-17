@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import Link from "next/link"; // Assuming Next.js Link or similar
 import { Button } from "@/components/ui/button"; // Assuming a UI library for Button
 import { NotificationDropdown } from "@/components/notification/NotificationDropdown";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
     return (
@@ -14,7 +15,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                     </Button>
                 </div>
             </div>
-            {children}
+
+            {/* ... */}
+
+            <ErrorBoundary>
+                {children}
+            </ErrorBoundary>
         </>
     );
 }
+

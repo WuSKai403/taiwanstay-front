@@ -73,7 +73,7 @@ export default function HostApplicationDetailsPage() {
                                 </Avatar>
                             </div>
                             <CardTitle>{applicant?.name}</CardTitle>
-                            <CardDescription>{applicant?.profile?.location?.country || 'Unknown Location'}</CardDescription>
+                            <CardDescription>{applicant?.profile?.personalInfo?.currentLocation || applicant?.profile?.personalInfo?.nationality || 'Unknown Location'}</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div>

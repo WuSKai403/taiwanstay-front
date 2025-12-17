@@ -108,3 +108,36 @@ We use **TanStack Query (React Query)** for server state.
 
 *   **Query Keys**: Define string constants at the top of hook files (e.g., `const QUERY_KEY = 'opportunities'`).
 *   **Invalidation**: Always invalidate the relevant query key after a successful mutation to ensure UI freshness (e.g., Refetching list after creation).
+
+## Asset Delivery Strategy
+
+We use a dual-strategy for serving images to optimize performance and security:
+
+1.  **Public Images (CDN)**:
+    *   **Context**: Profile pictures, published Opportunities.
+    *   **Mechanism**: Served directly via **ImageKit** (or public GCS bucket) CDN URLs.
+    *   **Usage**: Standard `<img src="..." />` tags.
+
+2.  **Private Images (Signed URLs)**:
+    *   **Context**: Pending moderation images, rejected images (Admin/Host view only).
+    *   **Mechanism**:
+        1.  Frontend requests image access via API (e.g., `GET /admin/images/pending`).
+        2.  Backend generates a **GCS V4 Signed URL** (valid for short duration, e.g., 15-60 mins).
+        3.  Backend returns the Signed URL in the JSON response.
+        4.  Frontend renders the Signed URL directly in `<img src="..." />`.
+    *   **Benefit**: Offloads bandwidth to GCS directly, avoiding backend proxying costs and latency.
+
+## UX & Error Handling Strategy
+
+### 1. Loading States (Skeletons)
+We prioritize perceived performance by avoiding generic full-page spinners where possible.
+-   **Pattern**: Use "Skeleton Screens" that mimic the layout of the content being loaded.
+-   **Location**: `components/skeletons/` (e.g., `ApplicationCardSkeleton.tsx`, `OpportunityCardSkeleton.tsx`).
+-   **Usage**: Render skeletons during the `isLoading` state of React Query hooks.
+
+### 2. Error Handling (Boundaries)
+We implement a defensive programming strategy to prevent the entire app from crashing due to a single component error.
+-   **Global Boundary**: `components/common/ErrorBoundary.tsx` wraps the main `DashboardLayout`.
+-   **Behavior**: Catches runtime errors in the component tree and displays a friendly "Something went wrong" UI with a "Refresh" button.
+-   **Granularity**: Can be applied to specific widgets or sections that are prone to failure (e.g., Maps, complex lists) to isolate faults.
+
